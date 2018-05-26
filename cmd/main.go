@@ -32,6 +32,6 @@ func main() {
 		panic(err)
 	}
 	for i := 0; i < 10; i++ {
-		c.Update()
+		c.Update(6)
 	}
 }

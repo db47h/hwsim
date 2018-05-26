@@ -1,10 +1,13 @@
 package hdl_test
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/db47h/hdl"
 )
+
+var workers = runtime.NumCPU() // this is naive but should be good enough for testing.
 
 func testGate(t *testing.T, name string, gate hdl.Chip, result []bool) {
 	var a, b, out bool
@@ -23,7 +26,7 @@ func testGate(t *testing.T, name string, gate hdl.Chip, result []bool) {
 	for _, a = range []bool{false, true} {
 		for _, b = range []bool{false, true} {
 			for i := 0; i < 10; i++ {
-				c.Update()
+				c.Update(workers)
 			}
 			if out != result[res] {
 				t.Errorf("got %v %s %v = %v, expected %v", a, name, b, out, result[res])
@@ -132,36 +135,36 @@ func Test_clock(t *testing.T) {
 	// note that Output("out", ...) is delayed by one tick after the Nand updates it.
 
 	disable = true
-	c.Update()
+	c.Update(0)
 	check(false)
-	c.Update()
+	c.Update(0)
 	// this is an expected signal change appearing in the first couple of ticks due to signal propagation delay
 	check(true)
-	c.Update()
+	c.Update(0)
 	check(false)
-	c.Update()
+	c.Update(0)
 	check(false)
 
 	disable = false
-	c.Update()
+	c.Update(0)
 	check(false)
-	c.Update()
+	c.Update(0)
 	check(false)
-	c.Update()
+	c.Update(0)
 	// the clock starts ticking now.
 	check(true)
-	c.Update()
+	c.Update(0)
 	check(false)
-	c.Update()
+	c.Update(0)
 	check(true)
 	disable = true
-	c.Update()
+	c.Update(0)
 	check(false)
-	c.Update()
+	c.Update(0)
 	check(true)
-	c.Update()
+	c.Update(0)
 	// the clock stops ticking now.
 	check(false)
-	c.Update()
+	c.Update(0)
 	check(false)
 }

@@ -1,5 +1,7 @@
 package hdl
 
+import "sync"
+
 // CHIP Xor {
 // 	IN a, b;
 // 	OUT out;
@@ -168,12 +170,41 @@ func (c *Circuit) Set(n int, s bool) {
 	c.s1[n] = s
 }
 
+func min(a, b int) int {
+	if a <= b {
+		return a
+	}
+	return b
+}
+
 // Update advances a chip simulation by one step.
 //
-func (c *Circuit) Update() {
-	// We can split this accross goroutines
-	for _, u := range c.parts {
-		u.Update(c)
+func (c *Circuit) Update(workers int) {
+	if workers <= 0 {
+		for _, u := range c.parts {
+			u.Update(c)
+		}
+		c.s0, c.s1 = c.s1, c.s0
+		return
 	}
+
+	var wg sync.WaitGroup
+	p := c.parts
+	l := len(p) / workers
+	if l*workers < len(p) {
+		l++
+	}
+	for len(p) > 0 {
+		wg.Add(1)
+		l = min(l, len(p))
+		go func(parts []Updater) {
+			for _, u := range parts {
+				u.Update(c)
+			}
+			wg.Done()
+		}(p[:l])
+		p = p[l:]
+	}
+	wg.Wait()
 	c.s0, c.s1 = c.s1, c.s0
 }

@@ -8,10 +8,10 @@ import (
 
 func main() {
 	// an xor gate
-	xor := hdl.NewChip(
+	xor := hdl.Chip(
 		[]string{"a", "b"},
 		[]string{"out"},
-		[]hdl.Chip{
+		[]hdl.Part{
 			hdl.Not("a", "nota"),
 			hdl.Not("b", "notb"),
 			hdl.And("a", "notb", "w1"),
@@ -20,7 +20,7 @@ func main() {
 		})
 	var a, b bool
 
-	c, err := hdl.NewCircuit([]hdl.Chip{
+	c, err := hdl.NewCircuit([]hdl.Part{
 		hdl.Input("a", func() bool { return a }),
 		hdl.Input("b", func() bool { return b }),
 		hdl.Output("out", func(o bool) {

@@ -23,13 +23,15 @@ import "sync"
 
 // An Updater is an updatable component in a circuit
 //
+// TODO: replace by a simple func type so that Updaters are no longer interfaces.
+//
 type Updater interface {
 	Update(c *Circuit)
 }
 
-// A Chip encapsulates the definition of set of logic components in a circuit.
+// A Part represents the difinition of a component in a circuit.
 //
-type Chip interface {
+type Part interface {
 	// Pinout returns the chip's external pinout.
 	Pinout() []string
 	// Build creates a new instance of a chip as an Updater slice.
@@ -39,11 +41,12 @@ type Chip interface {
 	Build(pins []int, c *Circuit) ([]Updater, error)
 }
 
-// custom chips
+// a chip wraps several components into a single package.
+//
 type chip struct {
 	ep    []string // external pins.
 	pins  []string
-	parts []Chip
+	parts []Part
 }
 
 func (c *chip) Pinout() []string {
@@ -58,9 +61,9 @@ func (c *chip) Build(pins []int, cc *Circuit) ([]Updater, error) {
 	for pindex, pnum := range pins {
 		pmap[c.pins[pindex]] = pnum
 	}
-	// collect
+	// collect parts
 	for _, p := range c.parts {
-		// compute external pins for each part
+		// allocate external pins for each part
 		pinout := p.Pinout()
 		ppins := make([]int, len(pinout))
 		for pnum, pname := range pinout {
@@ -84,25 +87,35 @@ func (c *chip) Build(pins []int, cc *Circuit) ([]Updater, error) {
 
 // A NewChipFunc is a function that takes a number of named pins and returns a new Chip.
 //
-type NewChipFunc func(pins ...string) Chip
+type NewChipFunc func(pins ...string) Part
 
-// NewChip creates a new Chip based on other Chips.
+// Chip combines existing components into a new component.
 //
 // An Xor gate could be created like this:
 //
-//	xor := NewChip(
+//	xor := Chip(
 //		[]string{"a", "b"},
 //		[]string{"out"},
-//		[]Chip{
-//			Not("a", "nota"),
-//			Not("b", "notb"),
-//			And("a", "notb", "w1"),
-//			And("b", "nota", "w2"),
-//			Or("w1", "w2", "out")
+//		[]hdl.Part{
+//			hdl.Not("a", "nota"),
+//			hdl.Not("b", "notb"),
+//			hdl.And("a", "notb", "w1"),
+//			hdl.And("b", "nota", "w2"),
+//			hdl.Or("w1", "w2", "out")
 //		})
 //
-func NewChip(inputs []string, outputs []string, parts []Chip) NewChipFunc {
-	return NewChipFunc(func(pins ...string) Chip {
+// The returned function can be used to wire the new component into others:
+//
+//	xnor := hdl.Chip(
+//		[]string{"a", "b"},
+//		[]string{"out"},
+//		[]hdl.Part{
+//			xor("a", "b", "xorAB"),
+//			hdl.Not("xorAB", "out"),
+//		})
+//
+func Chip(inputs []string, outputs []string, parts []Part) NewChipFunc {
+	return NewChipFunc(func(pins ...string) Part {
 		ip := make([]string, len(inputs)+len(outputs))
 		copy(ip, inputs)
 		copy(ip[len(inputs):], outputs)
@@ -113,49 +126,33 @@ func NewChip(inputs []string, outputs []string, parts []Chip) NewChipFunc {
 // Circuit is a runable circuit simulation.
 //
 type Circuit struct {
-	s0    []bool
-	s1    []bool
+	s0    []bool // wire states frame #0
+	s1    []bool // wire states frame #1
 	parts []Updater
-	top   int
+	count int // wire count
 }
 
 // NewCircuit returns a new circuit based on the given chips.
 //
-func NewCircuit(cs []Chip) (*Circuit, error) {
-	var parts []Updater
-	pins := make(map[string]int)
+func NewCircuit(ps []Part) (*Circuit, error) {
 	cc := new(Circuit)
-	for _, c := range cs {
-		pinout := c.Pinout()
-		cpins := make([]int, len(pinout))
-		for pnum, pname := range pinout {
-			var n int
-			var ok bool
-			// check if pin already allocated
-			if n, ok = pins[pname]; !ok {
-				n = cc.Alloc()
-				pins[pname] = n
-			}
-			cpins[pnum] = n
-		}
-		cparts, err := c.Build(cpins, cc)
-		if err != nil {
-			return nil, err
-		}
-		parts = append(parts, cparts...)
+	wrap := Chip(nil, nil, ps)()
+	ups, err := wrap.Build(nil, cc)
+	if err != nil {
+		return nil, err
 	}
-	cc.s0 = make([]bool, cc.top)
-	cc.s1 = make([]bool, cc.top)
-	cc.parts = parts
+	cc.parts = ups
+	cc.s0 = make([]bool, cc.count)
+	cc.s1 = make([]bool, cc.count)
 	return cc, nil
 }
 
 // Alloc allocates a pin and returns its number.
 //
 func (c *Circuit) Alloc() int {
-	top := c.top
-	c.top++
-	return top
+	cnt := c.count
+	c.count++
+	return cnt
 }
 
 // Get returns the state of a given input/output.

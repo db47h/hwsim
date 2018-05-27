@@ -9,10 +9,10 @@ import (
 
 var workers = runtime.NumCPU() // this is naive but should be good enough for testing.
 
-func testGate(t *testing.T, name string, gate hdl.Chip, result []bool) {
+func testGate(t *testing.T, name string, gate hdl.Part, result []bool) {
 	var a, b, out bool
 	t.Helper()
-	c, err := hdl.NewCircuit([]hdl.Chip{
+	c, err := hdl.NewCircuit([]hdl.Part{
 		hdl.Input("a", func() bool { return a }),
 		hdl.Input("b", func() bool { return b }),
 		hdl.Output("out", func(o bool) { out = o }),
@@ -39,7 +39,7 @@ func testGate(t *testing.T, name string, gate hdl.Chip, result []bool) {
 func Test_gate_builtin(t *testing.T) {
 	td := []struct {
 		name   string
-		gate   hdl.Chip
+		gate   hdl.Part
 		result []bool // a=0 && b=0, a=0 && b=1, a=1 && b=0, a=1 && b=1
 	}{
 		{"AND", hdl.And("a", "b", "out"), []bool{false, false, false, true}},
@@ -59,31 +59,31 @@ func Test_gate_builtin(t *testing.T) {
 }
 
 func Test_gate_custom(t *testing.T) {
-	and := hdl.NewChip([]string{"a", "b"}, []string{"out"},
-		[]hdl.Chip{
+	and := hdl.Chip([]string{"a", "b"}, []string{"out"},
+		[]hdl.Part{
 			hdl.Nand("a", "b", "nand"),
 			hdl.Nand("nand", "nand", "out"),
 		})
-	or := hdl.NewChip([]string{"a", "b"}, []string{"out"},
-		[]hdl.Chip{
+	or := hdl.Chip([]string{"a", "b"}, []string{"out"},
+		[]hdl.Part{
 			hdl.Nand("a", "a", "notA"),
 			hdl.Nand("b", "b", "notB"),
 			hdl.Nand("notA", "notB", "out"),
 		})
-	nor := hdl.NewChip([]string{"a", "b"}, []string{"out"},
-		[]hdl.Chip{
+	nor := hdl.Chip([]string{"a", "b"}, []string{"out"},
+		[]hdl.Part{
 			or("a", "b", "orAB"),
 			hdl.Nand("orAB", "orAB", "out"),
 		})
-	xor := hdl.NewChip([]string{"a", "b"}, []string{"out"},
-		[]hdl.Chip{
+	xor := hdl.Chip([]string{"a", "b"}, []string{"out"},
+		[]hdl.Part{
 			hdl.Nand("a", "b", "nandAB"),
 			hdl.Nand("a", "nandAB", "w0"),
 			hdl.Nand("b", "nandAB", "w1"),
 			hdl.Nand("w0", "w1", "out"),
 		})
-	xnor := hdl.NewChip([]string{"a", "b"}, []string{"out"},
-		[]hdl.Chip{
+	xnor := hdl.Chip([]string{"a", "b"}, []string{"out"},
+		[]hdl.Part{
 			or("a", "b", "or"),
 			hdl.Nand("a", "b", "nand"),
 			hdl.Nand("or", "nand", "out"),
@@ -91,7 +91,7 @@ func Test_gate_custom(t *testing.T) {
 
 	td := []struct {
 		name   string
-		gate   hdl.Chip
+		gate   hdl.Part
 		result []bool
 	}{
 		{"AND", and("a", "b", "out"), []bool{false, false, false, true}},
@@ -123,7 +123,7 @@ func Test_clock(t *testing.T) {
 			t.Errorf("expected %v, got %v", v, tick)
 		}
 	}
-	c, err := hdl.NewCircuit([]hdl.Chip{
+	c, err := hdl.NewCircuit([]hdl.Part{
 		hdl.Input("disable", func() bool { return disable }),
 		hdl.Nor("disable", "out", "out"),
 		hdl.Output("out", func(out bool) { tick = out }),

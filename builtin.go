@@ -22,7 +22,7 @@ func (i *input) Build(pins []int, _ *Circuit) ([]Updater, error) {
 
 // Input creates a function based input.
 //
-func Input(pin string, fn func() bool) Chip {
+func Input(pin string, fn func() bool) Part {
 	return &input{
 		pins: []string{pin},
 		fn:   fn,
@@ -52,7 +52,7 @@ func (o *output) Build(pins []int, _ *Circuit) ([]Updater, error) {
 // Output creates an output or probe. The fn function is
 // called with the named pin state on every circuit update.
 //
-func Output(pin string, fn func(bool)) Chip {
+func Output(pin string, fn func(bool)) Part {
 	return &output{
 		pins: []string{pin},
 		fn:   fn,
@@ -78,7 +78,7 @@ func (n not) Build(pins []int, _ *Circuit) ([]Updater, error) {
 
 // Not returns a Not gate.
 //
-func Not(in, out string) Chip {
+func Not(in, out string) Part {
 	return not{in, out}
 }
 
@@ -106,7 +106,7 @@ func (g *gate) Build(pins []int, _ *Circuit) ([]Updater, error) {
 // NewGate returns a Gate-like chip with two inputs, one output
 // where the output is the result of fn(inA, inB).
 //
-func NewGate(a, b, out string, fn func(bool, bool) bool) Chip {
+func NewGate(a, b, out string, fn func(bool, bool) bool) Part {
 	return &gate{
 		pins: []string{a, b, out},
 		fn:   fn,
@@ -115,28 +115,34 @@ func NewGate(a, b, out string, fn func(bool, bool) bool) Chip {
 
 // And returns a AND gate.
 //
-func And(a, b, out string) Chip { return NewGate(a, b, out, func(a, b bool) bool { return a && b }) }
+func And(a, b, out string) Part {
+	return NewGate(a, b, out, func(a, b bool) bool { return a && b })
+}
 
 // Nand returns a NAND gate.
 //
-func Nand(a, b, out string) Chip { return NewGate(a, b, out, func(a, b bool) bool { return !(a && b) }) }
+func Nand(a, b, out string) Part {
+	return NewGate(a, b, out, func(a, b bool) bool { return !(a && b) })
+}
 
 // Or returns a OR gate.
 //
-func Or(a, b, out string) Chip { return NewGate(a, b, out, func(a, b bool) bool { return a || b }) }
+func Or(a, b, out string) Part { return NewGate(a, b, out, func(a, b bool) bool { return a || b }) }
 
 // Nor returns a NOR gate.
 //
-func Nor(a, b, out string) Chip { return NewGate(a, b, out, func(a, b bool) bool { return !(a || b) }) }
+func Nor(a, b, out string) Part {
+	return NewGate(a, b, out, func(a, b bool) bool { return !(a || b) })
+}
 
 // Xor returns a XOR gate.
 //
-func Xor(a, b, out string) Chip {
+func Xor(a, b, out string) Part {
 	return NewGate(a, b, out, func(a, b bool) bool { return a && !b || !a && b })
 }
 
 // Xnor returns a XNOR gate.
 //
-func Xnor(a, b, out string) Chip {
+func Xnor(a, b, out string) Part {
 	return NewGate(a, b, out, func(a, b bool) bool { return a && b || !a && !b })
 }

@@ -1,5 +1,35 @@
 package hdl
 
+import "errors"
+
+// common pin names
+const (
+	pinA   = "a"
+	pinB   = "b"
+	pinIn  = "in"
+	pinOut = "out"
+)
+
+// standard wiring
+type pinout struct {
+	pins W
+}
+
+func (p *pinout) Pinout() W { return p.pins }
+
+// check that the wiring w mathes with a part's exposed pins ex
+func checkWiring(w W, ex ...string) error {
+	if len(w) != len(ex) {
+		return errors.New("wrong number of arguments")
+	}
+	for _, name := range ex {
+		if _, ok := w[name]; !ok {
+			return errors.New("pin " + name + " not connected")
+		}
+	}
+	return nil
+}
+
 // Inputs
 type inputImpl struct {
 	pin int
@@ -11,21 +41,25 @@ func (i *inputImpl) Update(c *Circuit) {
 }
 
 type input struct {
-	pins []string
-	fn   func() bool
+	pinout
+	fn func() bool
 }
 
-func (i *input) Pinout() ([]string, []string) { return nil, i.pins }
-func (i *input) Build(pins []int, _ *Circuit) ([]Updater, error) {
-	return []Updater{&inputImpl{pin: pins[0], fn: i.fn}}, nil
+func (i *input) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
+	return []Updater{&inputImpl{pin: pins[pinOut], fn: i.fn}}, nil
 }
 
 // Input creates a function based input.
 //
-func Input(pin string, fn func() bool) Part {
+// Output pin name: out
+//
+func Input(pins W, fn func() bool) Part {
+	if err := checkWiring(pins, pinOut); err != nil {
+		panic(err)
+	}
 	return &input{
-		pins: []string{pin},
-		fn:   fn,
+		pinout: pinout{pins},
+		fn:     fn,
 	}
 }
 
@@ -40,22 +74,27 @@ func (o *outputImpl) Update(c *Circuit) {
 }
 
 type output struct {
-	pins []string
-	fn   func(bool)
+	pinout
+	fn func(bool)
 }
 
-func (o *output) Pinout() ([]string, []string) { return o.pins, nil }
-func (o *output) Build(pins []int, _ *Circuit) ([]Updater, error) {
-	return []Updater{&outputImpl{pin: pins[0], fn: o.fn}}, nil
+func (o *output) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
+	return []Updater{&outputImpl{pin: pins[pinIn], fn: o.fn}}, nil
 }
 
 // Output creates an output or probe. The fn function is
 // called with the named pin state on every circuit update.
 //
-func Output(pin string, fn func(bool)) Part {
+// Input pin name: in
+//
+func Output(pins W, fn func(bool)) Part {
+	if err := checkWiring(pins, pinIn); err != nil {
+		panic(err)
+	}
+
 	return &output{
-		pins: []string{pin},
-		fn:   fn,
+		pinout: pinout{pins},
+		fn:     fn,
 	}
 }
 
@@ -69,17 +108,21 @@ func (n *notImpl) Update(c *Circuit) {
 	c.Set(n.out, !c.Get(n.in))
 }
 
-type not [2]string
-
-func (n not) Pinout() ([]string, []string) { return n[:1], n[1:] }
-func (n not) Build(pins []int, _ *Circuit) ([]Updater, error) {
-	return []Updater{&notImpl{in: pins[0], out: pins[1]}}, nil
+type not struct {
+	pinout
 }
 
-// Not returns a Not gate.
+func (n not) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
+	return []Updater{&notImpl{in: pins[pinIn], out: pins[pinOut]}}, nil
+}
+
+// Not returns a NOT gate.
 //
-func Not(in, out string) Part {
-	return not{in, out}
+func Not(w W) Part {
+	if err := checkWiring(w, "in", "out"); err != nil {
+		panic(err)
+	}
+	return &not{pinout: pinout{w}}
 }
 
 type gateImpl struct {
@@ -94,55 +137,54 @@ func (g *gateImpl) Update(c *Circuit) {
 }
 
 type gate struct {
-	pins []string
-	fn   func(a, b bool) bool
+	pinout
+	fn func(a, b bool) bool
 }
 
-func (g *gate) Pinout() ([]string, []string) { return g.pins[0:2], g.pins[2:] }
-func (g *gate) Build(pins []int, _ *Circuit) ([]Updater, error) {
-	return []Updater{&gateImpl{a: pins[0], b: pins[1], out: pins[2], fn: g.fn}}, nil
+func (g *gate) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
+	return []Updater{&gateImpl{a: pins[pinA], b: pins[pinB], out: pins[pinOut], fn: g.fn}}, nil
 }
 
-// NewGate returns a Gate-like chip with two inputs, one output
-// where the output is the result of fn(inA, inB).
-//
-func NewGate(a, b, out string, fn func(bool, bool) bool) Part {
+func newGate(w W, fn func(bool, bool) bool) Part {
+	if err := checkWiring(w, pinA, pinB, pinOut); err != nil {
+		panic(err)
+	}
 	return &gate{
-		pins: []string{a, b, out},
-		fn:   fn,
+		pinout: pinout{w},
+		fn:     fn,
 	}
 }
 
 // And returns a AND gate.
 //
-func And(a, b, out string) Part {
-	return NewGate(a, b, out, func(a, b bool) bool { return a && b })
+func And(w W) Part {
+	return newGate(w, func(a, b bool) bool { return a && b })
 }
 
 // Nand returns a NAND gate.
 //
-func Nand(a, b, out string) Part {
-	return NewGate(a, b, out, func(a, b bool) bool { return !(a && b) })
+func Nand(w W) Part {
+	return newGate(w, func(a, b bool) bool { return !(a && b) })
 }
 
 // Or returns a OR gate.
 //
-func Or(a, b, out string) Part { return NewGate(a, b, out, func(a, b bool) bool { return a || b }) }
+func Or(w W) Part { return newGate(w, func(a, b bool) bool { return a || b }) }
 
 // Nor returns a NOR gate.
 //
-func Nor(a, b, out string) Part {
-	return NewGate(a, b, out, func(a, b bool) bool { return !(a || b) })
+func Nor(w W) Part {
+	return newGate(w, func(a, b bool) bool { return !(a || b) })
 }
 
 // Xor returns a XOR gate.
 //
-func Xor(a, b, out string) Part {
-	return NewGate(a, b, out, func(a, b bool) bool { return a && !b || !a && b })
+func Xor(w W) Part {
+	return newGate(w, func(a, b bool) bool { return a && !b || !a && b })
 }
 
 // Xnor returns a XNOR gate.
 //
-func Xnor(a, b, out string) Part {
-	return NewGate(a, b, out, func(a, b bool) bool { return a && b || !a && !b })
+func Xnor(w W) Part {
+	return newGate(w, func(a, b bool) bool { return a && b || !a && !b })
 }

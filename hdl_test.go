@@ -9,14 +9,14 @@ import (
 
 var workers = runtime.NumCPU() // this is naive but should be good enough for testing.
 
-func testGate(t *testing.T, name string, gate hdl.Part, result []bool) {
+func testGate(t *testing.T, name string, gate hdl.NewPartFunc, result []bool) {
 	var a, b, out bool
 	t.Helper()
 	c, err := hdl.NewCircuit([]hdl.Part{
-		hdl.Input("a", func() bool { return a }),
-		hdl.Input("b", func() bool { return b }),
-		hdl.Output("out", func(o bool) { out = o }),
-		gate,
+		hdl.Input(hdl.W{"out": "a"}, func() bool { return a }),
+		hdl.Input(hdl.W{"out": "b"}, func() bool { return b }),
+		gate(hdl.W{"a": "a", "b": "b", "out": "out"}),
+		hdl.Output(hdl.W{"in": "out"}, func(o bool) { out = o }),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -37,19 +37,24 @@ func testGate(t *testing.T, name string, gate hdl.Part, result []bool) {
 }
 
 func Test_gate_builtin(t *testing.T) {
+	// turn a not into a 2-input gate that ignores b
+	not := hdl.Chip([]string{"a", "b"}, []string{"out"},
+		[]hdl.Part{
+			hdl.Output(hdl.W{"in": "b"}, func(bool) {}), // eat b silently
+			hdl.Not(hdl.W{"in": "a", "out": "out"}),
+		})
 	td := []struct {
 		name   string
-		gate   hdl.Part
+		gate   hdl.NewPartFunc
 		result []bool // a=0 && b=0, a=0 && b=1, a=1 && b=0, a=1 && b=1
 	}{
-		{"AND", hdl.And("a", "b", "out"), []bool{false, false, false, true}},
-		{"NAND", hdl.Nand("a", "b", "out"), []bool{true, true, true, false}},
-		{"OR", hdl.Or("a", "b", "out"), []bool{false, true, true, true}},
-		{"NOR", hdl.Nor("a", "b", "out"), []bool{true, false, false, false}},
-		{"XOR", hdl.Xor("a", "b", "out"), []bool{false, true, true, false}},
-		{"XNOR", hdl.Xnor("a", "b", "out"), []bool{true, false, false, true}},
-		{"NOTa", hdl.Not("a", "out"), []bool{true, true, false, false}},
-		{"NOTb", hdl.Not("b", "out"), []bool{true, false, true, false}},
+		{"AND", hdl.And, []bool{false, false, false, true}},
+		{"NAND", hdl.Nand, []bool{true, true, true, false}},
+		{"OR", hdl.Or, []bool{false, true, true, true}},
+		{"NOR", hdl.Nor, []bool{true, false, false, false}},
+		{"XOR", hdl.Xor, []bool{false, true, true, false}},
+		{"XNOR", hdl.Xnor, []bool{true, false, false, true}},
+		{"NOT", not, []bool{true, true, false, false}},
 	}
 	for _, d := range td {
 		t.Run(d.name, func(t *testing.T) {
@@ -61,44 +66,44 @@ func Test_gate_builtin(t *testing.T) {
 func Test_gate_custom(t *testing.T) {
 	and := hdl.Chip([]string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
-			hdl.Nand("a", "b", "nand"),
-			hdl.Nand("nand", "nand", "out"),
+			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "nand"}),
+			hdl.Nand(hdl.W{"a": "nand", "b": "nand", "out": "out"}),
 		})
 	or := hdl.Chip([]string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
-			hdl.Nand("a", "a", "notA"),
-			hdl.Nand("b", "b", "notB"),
-			hdl.Nand("notA", "notB", "out"),
+			hdl.Nand(hdl.W{"a": "a", "b": "a", "out": "notA"}),
+			hdl.Nand(hdl.W{"a": "b", "b": "b", "out": "notB"}),
+			hdl.Nand(hdl.W{"a": "notA", "b": "notB", "out": "out"}),
 		})
 	nor := hdl.Chip([]string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
-			or("a", "b", "orAB"),
-			hdl.Nand("orAB", "orAB", "out"),
+			or(hdl.W{"a": "a", "b": "b", "out": "orAB"}),
+			hdl.Nand(hdl.W{"a": "orAB", "b": "orAB", "out": "out"}),
 		})
 	xor := hdl.Chip([]string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
-			hdl.Nand("a", "b", "nandAB"),
-			hdl.Nand("a", "nandAB", "w0"),
-			hdl.Nand("b", "nandAB", "w1"),
-			hdl.Nand("w0", "w1", "out"),
+			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "nandAB"}),
+			hdl.Nand(hdl.W{"a": "a", "b": "nandAB", "out": "w0"}),
+			hdl.Nand(hdl.W{"a": "b", "b": "nandAB", "out": "w1"}),
+			hdl.Nand(hdl.W{"a": "w0", "b": "w1", "out": "out"}),
 		})
 	xnor := hdl.Chip([]string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
-			or("a", "b", "or"),
-			hdl.Nand("a", "b", "nand"),
-			hdl.Nand("or", "nand", "out"),
+			or(hdl.W{"a": "a", "b": "b", "out": "or"}),
+			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "nand"}),
+			hdl.Nand(hdl.W{"a": "or", "b": "nand", "out": "out"}),
 		})
 
 	td := []struct {
 		name   string
-		gate   hdl.Part
+		gate   hdl.NewPartFunc
 		result []bool
 	}{
-		{"AND", and("a", "b", "out"), []bool{false, false, false, true}},
-		{"OR", or("a", "b", "out"), []bool{false, true, true, true}},
-		{"NOR", nor("a", "b", "out"), []bool{true, false, false, false}},
-		{"XOR", xor("a", "b", "out"), []bool{false, true, true, false}},
-		{"XNOR", xnor("a", "b", "out"), []bool{true, false, false, true}},
+		{"AND", and, []bool{false, false, false, true}},
+		{"OR", or, []bool{false, true, true, true}},
+		{"NOR", nor, []bool{true, false, false, false}},
+		{"XOR", xor, []bool{false, true, true, false}},
+		{"XNOR", xnor, []bool{true, false, false, true}},
 	}
 	for _, d := range td {
 		t.Run(d.name, func(t *testing.T) {
@@ -124,9 +129,9 @@ func Test_clock(t *testing.T) {
 		}
 	}
 	c, err := hdl.NewCircuit([]hdl.Part{
-		hdl.Input("disable", func() bool { return disable }),
-		hdl.Nor("disable", "out", "out"),
-		hdl.Output("out", func(out bool) { tick = out }),
+		hdl.Input(hdl.W{"out": "disable"}, func() bool { return disable }),
+		hdl.Nor(hdl.W{"a": "disable", "b": "out", "out": "out"}),
+		hdl.Output(hdl.W{"in": "out"}, func(out bool) { tick = out }),
 	})
 	if err != nil {
 		t.Fatal(err)

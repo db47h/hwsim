@@ -29,59 +29,52 @@ type Updater interface {
 	Update(c *Circuit)
 }
 
+// W maps internal pin names (key) to external pins.
+//
+type W map[string]string
+
 // A Part represents the difinition of a component in a circuit.
 //
 type Part interface {
-	// Pinout returns the chip's external pinout.
-	Pinout() (in []string, out []string)
-	// Build creates a new instance of a chip as an Updater slice.
-	// The provided pin numbers are the pin numbers for the external pins of the chip.
+	// Pinout returns the parts's pin mapping.
+	Pinout() W
+	// Build creates a new instance of a part as an Updater slice.
+	// The provided pins maps the part's internal pin names to pin numbers in a circuit.
 	// TODO: review all implementation for proper error messages.
 	//
-	Build(pins []int, c *Circuit) ([]Updater, error)
+	Build(pins map[string]int, c *Circuit) ([]Updater, error)
 }
 
 // a chip wraps several components into a single package.
 //
 type chip struct {
-	in    []string // external pins.
+	in    []string // exposed pins.
 	out   []string
-	pins  []string
+	pmap  W
 	parts []Part
 }
 
-func (c *chip) Pinout() (in []string, out []string) {
-	return c.in, c.out
+func (c *chip) Pinout() W {
+	return c.pmap
 }
 
-func (c *chip) Build(pins []int, cc *Circuit) ([]Updater, error) {
+func (c *chip) Build(pins map[string]int, cc *Circuit) ([]Updater, error) {
 	var updaters []Updater
-	// map internal pin names to allocated pin #'s
-	pmap := make(map[string]int)
-	// the provided pins are pre-allocated pin #'s for our external pins
-	for pindex, pnum := range pins {
-		pmap[c.pins[pindex]] = pnum
+	if pins == nil {
+		pins = make(map[string]int)
 	}
 	// collect parts
 	for _, p := range c.parts {
-		// allocate external pins for each part
-		pIn, pOut := p.Pinout()
-		// TODO: handler in/out properly
-		pinout := make([]string, len(pIn)+len(pOut))
-		copy(pinout, pIn)
-		copy(pinout[len(pIn):], pOut)
-
-		ppins := make([]int, len(pinout))
-		for pnum, pname := range pinout {
+		ppins := make(map[string]int)
+		for in, ex := range p.Pinout() {
 			var n int
 			var ok bool
-			if n, ok = pmap[pname]; !ok {
+			if n, ok = pins[ex]; !ok {
 				n = cc.Alloc()
-				pmap[pname] = n
+				pins[ex] = n
 			}
-			ppins[pnum] = n
+			ppins[in] = n
 		}
-		// build part
 		pup, err := p.Build(ppins, cc)
 		if err != nil {
 			return nil, err
@@ -91,9 +84,9 @@ func (c *chip) Build(pins []int, cc *Circuit) ([]Updater, error) {
 	return updaters, nil
 }
 
-// A NewChipFunc is a function that takes a number of named pins and returns a new Chip.
+// A NewPartFunc is a function that takes a number of named pins and returns a new Chip.
 //
-type NewChipFunc func(pins ...string) Part
+type NewPartFunc func(pins W) Part
 
 // Chip combines existing components into a new component.
 //
@@ -120,13 +113,9 @@ type NewChipFunc func(pins ...string) Part
 //			hdl.Not("xorAB", "out"),
 //		})
 //
-func Chip(inputs []string, outputs []string, parts []Part) NewChipFunc {
-	return NewChipFunc(func(pins ...string) Part {
-		ip := make([]string, len(inputs)+len(outputs))
-		copy(ip, inputs)
-		copy(ip[len(inputs):], outputs)
-		// TODO: check pins #
-		return &chip{in: pins[:len(inputs)], out: pins[len(inputs):], pins: ip, parts: parts}
+func Chip(inputs []string, outputs []string, parts []Part) NewPartFunc {
+	return NewPartFunc(func(pins W) Part {
+		return &chip{in: inputs, out: outputs, pmap: pins, parts: parts}
 	})
 }
 
@@ -143,7 +132,7 @@ type Circuit struct {
 //
 func NewCircuit(ps []Part) (*Circuit, error) {
 	cc := new(Circuit)
-	wrap := Chip(nil, nil, ps)()
+	wrap := Chip(nil, nil, ps)(nil)
 	ups, err := wrap.Build(nil, cc)
 	if err != nil {
 		return nil, err

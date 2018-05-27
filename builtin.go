@@ -30,23 +30,18 @@ func checkWiring(w W, ex ...string) error {
 	return nil
 }
 
-// Inputs
-type inputImpl struct {
-	pin int
-	fn  func() bool
-}
-
-func (i *inputImpl) Update(c *Circuit) {
-	c.Set(i.pin, i.fn())
-}
-
 type input struct {
 	pinout
 	fn func() bool
 }
 
 func (i *input) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
-	return []Updater{&inputImpl{pin: pins[pinOut], fn: i.fn}}, nil
+	pin := pins[pinOut]
+	return []Updater{
+		func(c *Circuit) {
+			c.Set(pin, i.fn())
+		},
+	}, nil
 }
 
 // Input creates a function based input.
@@ -64,22 +59,16 @@ func Input(pins W, fn func() bool) Part {
 }
 
 // Outputs
-type outputImpl struct {
-	pin int
-	fn  func(bool)
-}
-
-func (o *outputImpl) Update(c *Circuit) {
-	o.fn(c.Get(o.pin))
-}
-
 type output struct {
 	pinout
 	fn func(bool)
 }
 
 func (o *output) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
-	return []Updater{&outputImpl{pin: pins[pinIn], fn: o.fn}}, nil
+	pin := pins[pinIn]
+	return []Updater{
+		func(c *Circuit) { o.fn(c.Get(pin)) },
+	}, nil
 }
 
 // Output creates an output or probe. The fn function is
@@ -99,21 +88,15 @@ func Output(pins W, fn func(bool)) Part {
 }
 
 // Not gate
-type notImpl struct {
-	in  int
-	out int
-}
-
-func (n *notImpl) Update(c *Circuit) {
-	c.Set(n.out, !c.Get(n.in))
-}
-
 type not struct {
 	pinout
 }
 
 func (n not) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
-	return []Updater{&notImpl{in: pins[pinIn], out: pins[pinOut]}}, nil
+	in, out := pins[pinIn], pins[pinOut]
+	return []Updater{
+		func(c *Circuit) { c.Set(out, !c.Get(in)) },
+	}, nil
 }
 
 // Not returns a NOT gate.
@@ -125,24 +108,16 @@ func Not(w W) Part {
 	return &not{pinout: pinout{w}}
 }
 
-type gateImpl struct {
-	a   int
-	b   int
-	out int
-	fn  func(a, b bool) bool
-}
-
-func (g *gateImpl) Update(c *Circuit) {
-	c.Set(g.out, g.fn(c.Get(g.a), c.Get(g.b)))
-}
-
 type gate struct {
 	pinout
 	fn func(a, b bool) bool
 }
 
 func (g *gate) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
-	return []Updater{&gateImpl{a: pins[pinA], b: pins[pinB], out: pins[pinOut], fn: g.fn}}, nil
+	a, b, out := pins[pinA], pins[pinB], pins[pinOut]
+	return []Updater{
+		func(c *Circuit) { c.Set(out, g.fn(c.Get(a), c.Get(b))) },
+	}, nil
 }
 
 func newGate(w W, fn func(bool, bool) bool) Part {

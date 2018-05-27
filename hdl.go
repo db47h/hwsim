@@ -23,11 +23,7 @@ import "sync"
 
 // An Updater is an updatable component in a circuit
 //
-// TODO: replace by a simple func type so that Updaters are no longer interfaces.
-//
-type Updater interface {
-	Update(c *Circuit)
-}
+type Updater func(c *Circuit)
 
 // W maps internal pin names (key) to external pins.
 //
@@ -175,7 +171,7 @@ func min(a, b int) int {
 func (c *Circuit) Update(workers int) {
 	if workers <= 0 {
 		for _, u := range c.parts {
-			u.Update(c)
+			u(c)
 		}
 		c.s0, c.s1 = c.s1, c.s0
 		return
@@ -192,7 +188,7 @@ func (c *Circuit) Update(workers int) {
 		l = min(l, len(p))
 		go func(parts []Updater) {
 			for _, u := range parts {
-				u.Update(c)
+				u(c)
 			}
 			wg.Done()
 		}(p[:l])

@@ -33,7 +33,7 @@ type Updater interface {
 //
 type Part interface {
 	// Pinout returns the chip's external pinout.
-	Pinout() []string
+	Pinout() (in []string, out []string)
 	// Build creates a new instance of a chip as an Updater slice.
 	// The provided pin numbers are the pin numbers for the external pins of the chip.
 	// TODO: review all implementation for proper error messages.
@@ -44,13 +44,14 @@ type Part interface {
 // a chip wraps several components into a single package.
 //
 type chip struct {
-	ep    []string // external pins.
+	in    []string // external pins.
+	out   []string
 	pins  []string
 	parts []Part
 }
 
-func (c *chip) Pinout() []string {
-	return c.ep
+func (c *chip) Pinout() (in []string, out []string) {
+	return c.in, c.out
 }
 
 func (c *chip) Build(pins []int, cc *Circuit) ([]Updater, error) {
@@ -64,7 +65,12 @@ func (c *chip) Build(pins []int, cc *Circuit) ([]Updater, error) {
 	// collect parts
 	for _, p := range c.parts {
 		// allocate external pins for each part
-		pinout := p.Pinout()
+		pIn, pOut := p.Pinout()
+		// TODO: handler in/out properly
+		pinout := make([]string, len(pIn)+len(pOut))
+		copy(pinout, pIn)
+		copy(pinout[len(pIn):], pOut)
+
 		ppins := make([]int, len(pinout))
 		for pnum, pname := range pinout {
 			var n int
@@ -119,7 +125,8 @@ func Chip(inputs []string, outputs []string, parts []Part) NewChipFunc {
 		ip := make([]string, len(inputs)+len(outputs))
 		copy(ip, inputs)
 		copy(ip[len(inputs):], outputs)
-		return &chip{ep: pins, pins: ip, parts: parts}
+		// TODO: check pins #
+		return &chip{in: pins[:len(inputs)], out: pins[len(inputs):], pins: ip, parts: parts}
 	})
 }
 

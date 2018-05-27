@@ -15,7 +15,7 @@ type input struct {
 	fn   func() bool
 }
 
-func (i *input) Pinout() []string { return i.pins }
+func (i *input) Pinout() ([]string, []string) { return nil, i.pins }
 func (i *input) Build(pins []int, _ *Circuit) ([]Updater, error) {
 	return []Updater{&inputImpl{pin: pins[0], fn: i.fn}}, nil
 }
@@ -44,7 +44,7 @@ type output struct {
 	fn   func(bool)
 }
 
-func (o *output) Pinout() []string { return o.pins }
+func (o *output) Pinout() ([]string, []string) { return o.pins, nil }
 func (o *output) Build(pins []int, _ *Circuit) ([]Updater, error) {
 	return []Updater{&outputImpl{pin: pins[0], fn: o.fn}}, nil
 }
@@ -71,7 +71,7 @@ func (n *notImpl) Update(c *Circuit) {
 
 type not [2]string
 
-func (n not) Pinout() []string { return n[:] }
+func (n not) Pinout() ([]string, []string) { return n[:1], n[1:] }
 func (n not) Build(pins []int, _ *Circuit) ([]Updater, error) {
 	return []Updater{&notImpl{in: pins[0], out: pins[1]}}, nil
 }
@@ -98,7 +98,7 @@ type gate struct {
 	fn   func(a, b bool) bool
 }
 
-func (g *gate) Pinout() []string { return g.pins }
+func (g *gate) Pinout() ([]string, []string) { return g.pins[0:2], g.pins[2:] }
 func (g *gate) Build(pins []int, _ *Circuit) ([]Updater, error) {
 	return []Updater{&gateImpl{a: pins[0], b: pins[1], out: pins[2], fn: g.fn}}, nil
 }

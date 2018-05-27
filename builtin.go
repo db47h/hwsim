@@ -10,12 +10,13 @@ const (
 	pinOut = "out"
 )
 
-// standard wiring
-type pinout struct {
-	pins W
-}
+// wires is a wrapper to provide the Pinout() method for free
+// to structs implementing Part.
+type wires W
 
-func (p *pinout) Pinout() W { return p.pins }
+// TODO: rename Pinout. We may provide othe pin lists in the future. And this function actually
+// returns how a part's external pins are connected to pins in its container or user.
+func (p wires) Pinout() W { return W(p) }
 
 // check that the wiring w mathes with a part's exposed pins ex
 func checkWiring(w W, ex ...string) error {
@@ -31,7 +32,7 @@ func checkWiring(w W, ex ...string) error {
 }
 
 type input struct {
-	pinout
+	wires
 	fn func() bool
 }
 
@@ -53,14 +54,14 @@ func Input(pins W, fn func() bool) Part {
 		panic(err)
 	}
 	return &input{
-		pinout: pinout{pins},
-		fn:     fn,
+		wires: wires(pins),
+		fn:    fn,
 	}
 }
 
 // Outputs
 type output struct {
-	pinout
+	wires
 	fn func(bool)
 }
 
@@ -82,14 +83,14 @@ func Output(pins W, fn func(bool)) Part {
 	}
 
 	return &output{
-		pinout: pinout{pins},
-		fn:     fn,
+		wires: wires(pins),
+		fn:    fn,
 	}
 }
 
 // Not gate
 type not struct {
-	pinout
+	wires
 }
 
 func (n not) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
@@ -105,11 +106,11 @@ func Not(w W) Part {
 	if err := checkWiring(w, "in", "out"); err != nil {
 		panic(err)
 	}
-	return &not{pinout: pinout{w}}
+	return &not{wires: wires(w)}
 }
 
 type gate struct {
-	pinout
+	wires
 	fn func(a, b bool) bool
 }
 
@@ -125,8 +126,8 @@ func newGate(w W, fn func(bool, bool) bool) Part {
 		panic(err)
 	}
 	return &gate{
-		pinout: pinout{w},
-		fn:     fn,
+		wires: wires(w),
+		fn:    fn,
 	}
 }
 

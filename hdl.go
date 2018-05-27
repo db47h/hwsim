@@ -2,6 +2,18 @@ package hdl
 
 import "sync"
 
+// TODO:
+//
+//	- test always true/false pins.
+//	- remove the requirement that all pins must be connected => wire unconnected pins to false/ground.
+//	- check how map[x]y arguments are re-used/saved by the callees.
+//	- find a way to check the wiring of a chip. eg. If one part is Not(W{"in": "a", "out": "unused"}).
+//	  Chip() should be able to find out that the internal pin "unused" is indeed unused and report it.
+//	  Unused pins should be omitted and automatically grounded.
+//	- refactor names like pinout and othe wire-y related things to reflect what they truly are.
+//	- handle buses. Chip i/o pin spec should accept thins like a[8] (i.e. an 8 pin bus), while wiring specs
+//	  should accept things like: W{"my4biBus": "input[0..3]"}
+
 // CHIP Xor {
 // 	IN a, b;
 // 	OUT out;
@@ -54,10 +66,27 @@ func (c *chip) Pinout() W {
 	return c.pmap
 }
 
+// Constant input pin names.
+//
+var (
+	True  = "true"
+	False = "false"
+	GND   = "false"
+)
+
+const (
+	cstFalse = iota
+	cstTrue
+	cstCount
+)
+
 func (c *chip) Build(pins map[string]int, cc *Circuit) ([]Updater, error) {
 	var updaters []Updater
 	if pins == nil {
-		pins = make(map[string]int)
+		pins = map[string]int{False: cstFalse, True: cstTrue}
+	} else {
+		pins[False] = cstFalse
+		pins[True] = cstTrue
 	}
 	// collect parts
 	for _, p := range c.parts {
@@ -127,7 +156,8 @@ type Circuit struct {
 // NewCircuit returns a new circuit based on the given chips.
 //
 func NewCircuit(ps []Part) (*Circuit, error) {
-	cc := new(Circuit)
+	// new circuit with room for constant value pins.
+	cc := &Circuit{count: cstCount}
 	wrap := Chip(nil, nil, ps)(nil)
 	ups, err := wrap.Build(nil, cc)
 	if err != nil {
@@ -169,6 +199,10 @@ func min(a, b int) int {
 // Update advances a chip simulation by one step.
 //
 func (c *Circuit) Update(workers int) {
+	// set constant pins
+	c.s0[cstFalse] = false
+	c.s0[cstTrue] = true
+
 	if workers <= 0 {
 		for _, u := range c.parts {
 			u(c)

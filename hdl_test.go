@@ -40,7 +40,6 @@ func Test_gate_builtin(t *testing.T) {
 	// turn a not into a 2-input gate that ignores b
 	not := hdl.Chip([]string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
-			hdl.Output(hdl.W{"in": "b"}, func(bool) {}), // eat b silently
 			hdl.Not(hdl.W{"in": "a", "out": "out"}),
 		})
 	td := []struct {
@@ -93,6 +92,10 @@ func Test_gate_custom(t *testing.T) {
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "nand"}),
 			hdl.Nand(hdl.W{"a": "or", "b": "nand", "out": "out"}),
 		})
+	not := hdl.Chip([]string{"a", "b"}, []string{"out"},
+		[]hdl.Part{
+			hdl.Nand(hdl.W{"a": "a", "b": "a", "out": "out"}),
+		})
 
 	td := []struct {
 		name   string
@@ -104,6 +107,7 @@ func Test_gate_custom(t *testing.T) {
 		{"NOR", nor, []bool{true, false, false, false}},
 		{"XOR", xor, []bool{false, true, true, false}},
 		{"XNOR", xnor, []bool{true, false, false, true}},
+		{"NOT", not, []bool{true, true, false, false}},
 	}
 	for _, d := range td {
 		t.Run(d.name, func(t *testing.T) {

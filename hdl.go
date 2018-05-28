@@ -116,17 +116,18 @@ const (
 	cstCount
 )
 
+func cstPins() map[string]int {
+	return map[string]int{False: cstFalse, True: cstTrue}
+}
+
 func (c *chip) Build(pins map[string]int, cc *Circuit) ([]Updater, error) {
 	var updaters []Updater
-	if pins == nil {
-		pins = map[string]int{False: cstFalse, True: cstTrue}
-	} else {
-		pins[False] = cstFalse
-		pins[True] = cstTrue
+	if len(pins) < cstCount {
+		panic("invalid pin map")
 	}
 	// collect parts
 	for _, p := range c.parts {
-		ppins := make(map[string]int)
+		ppins := cstPins()
 		for in, ex := range p.Pinout() {
 			var n int
 			var ok bool
@@ -202,7 +203,7 @@ func NewCircuit(ps []Part) (*Circuit, error) {
 	// new circuit with room for constant value pins.
 	cc := &Circuit{count: cstCount}
 	wrap := Chip(nil, nil, ps)(nil)
-	ups, err := wrap.Build(nil, cc)
+	ups, err := wrap.Build(cstPins(), cc)
 	if err != nil {
 		return nil, err
 	}

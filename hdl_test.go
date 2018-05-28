@@ -38,19 +38,22 @@ func testGate(t *testing.T, name string, gate hdl.NewPartFunc, result []bool) {
 
 func Test_gate_builtin(t *testing.T) {
 	// turn a not into a 2-input gate that ignores b
-	not := hdl.Chip([]string{"a", "b"}, []string{"out"},
-		[]hdl.Part{
-			hdl.Not(hdl.W{"in": "a", "out": "out"}),
-		})
+	not := hdl.Chip([]string{"a", "b"}, []string{"out"}, []hdl.Part{
+		hdl.Not(hdl.W{"in": "a", "out": "out"}),
+		// ignore b
+		hdl.Or(hdl.W{"a": "b", "out": hdl.GND}),
+	})
 	tr := hdl.Chip([]string{"a", "b"}, []string{"out"}, []hdl.Part{
-		// try to write 0 to the "true" pin
-		hdl.Input(hdl.W{"out": hdl.True}, func() bool { return true }),
 		hdl.And(hdl.W{"a": hdl.True, "b": hdl.True, "out": "out"}),
+		// ignore a & b
+		hdl.Or(hdl.W{"a": "a", "b": "b", "out": hdl.GND}),
 	})
 	fa := hdl.Chip([]string{"a", "b"}, []string{"out"}, []hdl.Part{
+		hdl.Or(hdl.W{"a": hdl.False, "b": hdl.False, "out": "out"}),
 		// try to write 1 to the "false" pin
 		hdl.Input(hdl.W{"out": hdl.GND}, func() bool { return false }),
-		hdl.Or(hdl.W{"a": hdl.False, "b": hdl.False, "out": "out"}),
+		// ignore a & b
+		hdl.Or(hdl.W{"a": "a", "b": "b", "out": hdl.GND}),
 	})
 	td := []struct {
 		name   string
@@ -107,6 +110,8 @@ func Test_gate_custom(t *testing.T) {
 	not := hdl.Chip([]string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
 			hdl.Nand(hdl.W{"a": "a", "b": "a", "out": "out"}),
+			// ignore b
+			hdl.Or(hdl.W{"b": "b", "out": hdl.GND}),
 		})
 
 	td := []struct {
@@ -174,7 +179,7 @@ func TestW_Check(t *testing.T) {
 // The purpose of this test is to catch changes in propagation delays
 // from Inputs and Outputs as well as testing loops between input and outputs.
 //
-// Clocks should be implemented as custom inputs. Really.
+// Clocks should be implemented as custom components or inputs. Really.
 //
 func Test_clock(t *testing.T) {
 	var disable, tick bool
@@ -185,9 +190,15 @@ func Test_clock(t *testing.T) {
 			t.Errorf("expected %v, got %v", v, tick)
 		}
 	}
+	// we could implement the clock directly as a Nor in the cisrcuit (with no less gate delays)
+	// but we wrap it inot a stand-alone chip in order to add a layer complexity
+	// for testing purposes.
+	clk := hdl.Chip([]string{"disable"}, []string{"tick"}, []hdl.Part{
+		hdl.Nor(hdl.W{"a": "disable", "b": "tick", "out": "tick"}),
+	})
 	c, err := hdl.NewCircuit([]hdl.Part{
 		hdl.Input(hdl.W{"out": "disable"}, func() bool { return disable }),
-		hdl.Nor(hdl.W{"a": "disable", "b": "out", "out": "out"}),
+		clk(hdl.W{"disable": "disable", "tick": "out"}),
 		hdl.Output(hdl.W{"in": "out"}, func(out bool) { tick = out }),
 	})
 	if err != nil {

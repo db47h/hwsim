@@ -2,10 +2,10 @@ package hdl
 
 // common pin names
 const (
-	pinA   = "a"
-	pinB   = "b"
-	pinIn  = "in"
-	pinOut = "out"
+	pA   = "a"
+	pB   = "b"
+	pIn  = "in"
+	pOut = "out"
 )
 
 // Input creates a function based input.
@@ -15,14 +15,14 @@ const (
 func Input(w W, f func() bool) Part {
 	p := &PartSpec{
 		In:  nil,
-		Out: []string{pinOut},
-		Build: func(pins map[string]int, _ *Circuit) ([]Updater, error) {
-			pin := pins[pinOut]
+		Out: []string{pOut},
+		Build: func(pins map[string]int, _ *Circuit) []Updater {
+			pin := pins[pOut]
 			return []Updater{
 				func(c *Circuit) {
 					c.Set(pin, f())
 				},
-			}, nil
+			}
 		},
 	}
 	return p.Wire(w)
@@ -35,30 +35,32 @@ func Input(w W, f func() bool) Part {
 //
 func Output(w W, f func(bool)) Part {
 	p := &PartSpec{
-		In:  []string{pinIn},
+		In:  []string{pIn},
 		Out: nil,
-		Build: func(pins map[string]int, _ *Circuit) ([]Updater, error) {
-			in := pins[pinIn]
+		Build: func(pins map[string]int, _ *Circuit) []Updater {
+			in := pins[pIn]
 			return []Updater{
 				func(c *Circuit) { f(c.Get(in)) },
-			}, nil
+			}
 		},
 	}
 	return p.Wire(w)
 }
 
 var notGate = PartSpec{
-	In:  []string{pinIn},
-	Out: []string{pinOut},
-	Build: func(pins map[string]int, _ *Circuit) ([]Updater, error) {
-		in, out := pins[pinIn], pins[pinOut]
+	In:  []string{pIn},
+	Out: []string{pOut},
+	Build: func(pins map[string]int, _ *Circuit) []Updater {
+		in, out := pins[pIn], pins[pOut]
 		return []Updater{
 			func(c *Circuit) { c.Set(out, !c.Get(in)) },
-		}, nil
+		}
 	},
 }
 
 // Not returns a NOT gate.
+//
+// Input pin name: in
 //
 func Not(w W) Part {
 	return notGate.Wire(w)
@@ -67,11 +69,11 @@ func Not(w W) Part {
 // other gates
 type gate func(a, b bool) bool
 
-func (g gate) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
-	a, b, out := pins[pinA], pins[pinB], pins[pinOut]
+func (g gate) Build(pins map[string]int, _ *Circuit) []Updater {
+	a, b, out := pins[pA], pins[pB], pins[pOut]
 	return []Updater{
 		func(c *Circuit) { c.Set(out, g(c.Get(a), c.Get(b))) },
-	}, nil
+	}
 }
 
 func newGate(fn func(a, b bool) bool) *PartSpec {
@@ -83,8 +85,8 @@ func newGate(fn func(a, b bool) bool) *PartSpec {
 }
 
 var (
-	gateIn  = []string{pinA, pinB}
-	gateOut = []string{pinOut}
+	gateIn  = []string{pA, pB}
+	gateOut = []string{pOut}
 
 	and  = newGate(func(a, b bool) bool { return a && b })
 	nand = newGate(func(a, b bool) bool { return !(a && b) })

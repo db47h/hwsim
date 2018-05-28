@@ -7,13 +7,12 @@ import (
 
 // TODO:
 //
+//	- have Chip() return an error instead of panicking.
 //	- check how map[x]y arguments are re-used/saved by the callees.
-//	- find a way to check the wiring of a chip. eg. If one part is Not(W{"in": "a", "out": "unused"}).
-//	  Chip() should be able to find out that the internal pin "unused" is indeed unused and report it.
-//	  Unused pins should be omitted and automatically grounded.
 //	- refactor names like pinout and othe wire-y related things to reflect what they truly are.
 //	- handle buses. Chip i/o pin spec should accept thins like a[8] (i.e. an 8 pin bus), while wiring specs
 //	  should accept things like: W{"my4biBus": "input[0..3]"}
+//	- Add more built-in things.
 
 // CHIP Xor {
 // 	IN a, b;
@@ -86,15 +85,17 @@ func (w W) Wire(in, out []string) (W, error) {
 }
 
 // A BuildFn creates a new instance of a part as an Updater slice.
-// The provided pins maps the part's internal pin names to pin numbers in a circuit.
+// The provided pins map the part's internal pin names to pin numbers in a circuit.
 //
-type BuildFn func(pins map[string]int, c *Circuit) ([]Updater, error)
+// TODO: document if pins is modified by the callee
+//
+type BuildFn func(pins map[string]int, c *Circuit) []Updater
 
 // A PartSpec represents a part specification.
 //
 type PartSpec struct {
-	In  []string
-	Out []string
+	In  []string // Input pin names
+	Out []string // Output pin names
 
 	// TODO: review all implementations for proper error messages.
 	//
@@ -102,6 +103,7 @@ type PartSpec struct {
 }
 
 // Wire returns a wired part based on the given spec and wiring.
+//
 func (p *PartSpec) Wire(w W) Part {
 	w, err := w.Wire(p.In, p.Out)
 	if err != nil {
@@ -131,7 +133,7 @@ func (p *part) Wires() W {
 	return p.w
 }
 
-// A NewPartFunc is a function that takes a number of named pins and returns a new Chip.
+// A NewPartFunc is a function that takes a set of wires and returns a new Part.
 //
 type NewPartFunc func(pins W) Part
 
@@ -140,33 +142,36 @@ type chip struct {
 	parts []Part
 }
 
-func (c *chip) build(pins map[string]int, cc *Circuit) ([]Updater, error) {
+func (c *chip) build(pins map[string]int, cc *Circuit) []Updater {
 	var updaters []Updater
 	if len(pins) < cstCount {
 		panic("invalid pin map")
 	}
 	// collect parts
 	for _, p := range c.parts {
+		// build the part's external pin map
 		ppins := cstPins()
-		for in, ex := range p.Wires() {
+		for ppin, cpin := range p.Wires() {
 			var n int
 			var ok bool
-			if n, ok = pins[ex]; !ok {
+			// chip pin name unknown, allocate it
+			if n, ok = pins[cpin]; !ok {
 				n = cc.Alloc()
-				pins[ex] = n
+				pins[cpin] = n
 			}
-			ppins[in] = n
+			// map the part's pin name to the same number
+			// thus establishing the connection.
+			ppins[ppin] = n
 		}
-		pup, err := p.Spec().Build(ppins, cc)
-		if err != nil {
-			return nil, err
-		}
+		pup := p.Spec().Build(ppins, cc)
 		updaters = append(updaters, pup...)
 	}
-	return updaters, nil
+	return updaters
 }
 
-// Chip combines existing components into a new component.
+// Chip composes existing parts into a new part packaged into a chip.
+// The pin names specified as inputs and outputs will be the inputs
+// and outputs of the chip.
 //
 // An Xor gate could be created like this:
 //
@@ -174,25 +179,78 @@ func (c *chip) build(pins map[string]int, cc *Circuit) ([]Updater, error) {
 //		[]string{"a", "b"},
 //		[]string{"out"},
 //		[]hdl.Part{
-//			hdl.Not("a", "nota"),
-//			hdl.Not("b", "notb"),
-//			hdl.And("a", "notb", "w1"),
-//			hdl.And("b", "nota", "w2"),
-//			hdl.Or("w1", "w2", "out")
+//			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "nandAB"}),
+//			hdl.Nand(hdl.W{"a": "a", "b": "nandAB", "out": "w0"}),
+//			hdl.Nand(hdl.W{"a": "b", "b": "nandAB", "out": "w1"}),
+//			hdl.Nand(hdl.W{"a": "w0", "b": "w1", "out": "out"}),
 //		})
 //
-// The returned function can be used to wire the new component into others:
+// The returned value is a function of type NewPartFunc that can be used to
+// wire the new part into others:
 //
 //	xnor := hdl.Chip(
 //		[]string{"a", "b"},
 //		[]string{"out"},
 //		[]hdl.Part{
-//			xor("a", "b", "xorAB"),
-//			hdl.Not("xorAB", "out"),
+//			xor(hdl.W{"a": "a", "b": "b", "xorAB"}),
+//			hdl.Not(hdl.W{"in": "xorAB", "out": "out"}),
 //		})
 //
 func Chip(inputs []string, outputs []string, parts []Part) NewPartFunc {
-	// TODO check in/out pins here
+	// check that no outputs are connected together.
+	outs := make(map[string]int)
+	// add our inputs
+	for _, i := range inputs {
+		outs[i] = 1
+	}
+	// for each part, add its outputs
+	for _, p := range parts {
+		w := p.Wires()
+		for _, o := range p.Spec().Out {
+			name := w[o]
+			if name == False {
+				// nil or unconnected output, ignore.
+				continue
+			}
+			if name == True {
+				panic("pin \"" + o + "\" connected to constant True input")
+			}
+			if _, ok := outs[name]; ok {
+				panic("pin \"" + name + "\" used by more than one output")
+			}
+			outs[name] = 0
+		}
+	}
+
+	// Check that each output is used as an input somewhere.
+	// Start by assuming that the chip's outputs are connected.
+	for _, o := range outputs {
+		outs[o] = 1
+	}
+	// add False and True as a valid, connected outputs
+	outs[False] = 1
+	outs[True] = 1
+	for _, p := range parts {
+		w := p.Wires()
+		for _, o := range p.Spec().In {
+			name := w[o]
+			if name == True {
+				continue
+			}
+			if n, ok := outs[name]; ok {
+				outs[name] = n + 1
+				continue
+			}
+			panic("pin \"" + name + "\" not connected to any output")
+		}
+	}
+	// log.Print(outs)
+	for k, v := range outs {
+		if v == 0 {
+			panic("pin \"" + k + "\" not connected to any input")
+		}
+	}
+
 	c := &chip{
 		PartSpec{
 			In:  inputs,
@@ -237,10 +295,7 @@ func NewCircuit(ps []Part) (*Circuit, error) {
 	// new circuit with room for constant value pins.
 	cc := &Circuit{count: cstCount}
 	wrap := Chip(nil, nil, ps)(nil)
-	ups, err := wrap.Spec().Build(cstPins(), cc)
-	if err != nil {
-		return nil, err
-	}
+	ups := wrap.Spec().Build(cstPins(), cc)
 	cc.parts = ups
 	cc.s0 = make([]bool, cc.count)
 	cc.s1 = make([]bool, cc.count)

@@ -128,6 +128,46 @@ func Test_gate_custom(t *testing.T) {
 	}
 }
 
+func TestW_Check(t *testing.T) {
+	cmp := func(w1, w2 hdl.W) bool {
+		if len(w1) != len(w2) {
+			return false
+		}
+		for k, v := range w1 {
+			if t, ok := w2[k]; !ok || t != v {
+				return false
+			}
+		}
+		return true
+	}
+	data := []struct {
+		name string
+		w    hdl.W
+		args []string
+		ret  hdl.W
+		err  string
+	}{
+		{"AllWired", hdl.W{"a": "x", "b": "y", "out": "z"}, []string{"a", "b", "out"}, hdl.W{"a": "x", "b": "y", "out": "z"}, ""},
+		{"UnwiredB", hdl.W{"a": "x", "out": "z"}, []string{"a", "b", "out"}, hdl.W{"a": "x", "b": hdl.False, "out": "z"}, ""},
+		{"ExtraPin", hdl.W{"a": "x", "b": "y", "out": "z"}, []string{"a", "b"}, nil, "unknown pin \"out\""},
+		{"nil", nil, []string{"in"}, hdl.W{"in": hdl.False}, ""},
+		{"nilnil", nil, nil, nil, ""},
+	}
+	for _, d := range data {
+		t.Run(d.name, func(t *testing.T) {
+			n, err := d.w.Check(d.args...)
+			if err == nil && d.err != "" || err != nil && err.Error() != d.err {
+				t.Errorf("Got error %q, expected %q", d.err, err)
+				return
+			}
+			if !cmp(n, d.ret) {
+				t.Errorf("Got %v, expected %v", n, d.ret)
+			}
+		})
+	}
+
+}
+
 // Test a basic clock with a Nor gate.
 //
 // The purpose of this test is to catch changes in propagation delays

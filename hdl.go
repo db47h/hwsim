@@ -1,10 +1,12 @@
 package hdl
 
-import "sync"
+import (
+	"errors"
+	"sync"
+)
 
 // TODO:
 //
-//	- remove the requirement that all pins must be connected => wire unconnected pins to false/ground.
 //	- check how map[x]y arguments are re-used/saved by the callees.
 //	- find a way to check the wiring of a chip. eg. If one part is Not(W{"in": "a", "out": "unused"}).
 //	  Chip() should be able to find out that the internal pin "unused" is indeed unused and report it.
@@ -33,12 +35,47 @@ import "sync"
 // }
 
 // An Updater is an updatable component in a circuit
+// TODO: rename that !
 //
 type Updater func(c *Circuit)
 
-// W maps internal pin names (key) to external pins.
+// W is a set of wires, connecting a part's I/O pins (the map key) to pins in its container.
 //
 type W map[string]string
+
+// Copy returns a copy of w.
+//
+func (w W) Copy() W {
+	t := make(W, len(w))
+	for k, v := range w {
+		t[k] = v
+	}
+	return t
+}
+
+// Check checks that the set of wires matches the provided pin names.
+// It returns a copy if w where unconnected pins are connected to False
+// or GND. If the unknown pins are found, it will return an error.
+//
+// This function should be called first in any function behaving like a NewPartFunc.
+//
+func (w W) Check(pinNames ...string) (W, error) {
+	w = w.Copy()
+	wires := make(W, len(w))
+	for _, name := range pinNames {
+		if outer, ok := w[name]; ok {
+			wires[name] = outer
+			delete(w, name)
+		} else {
+			wires[name] = False
+		}
+	}
+	// check unknown pins
+	for name := range w {
+		return nil, errors.New("unknown pin \"" + name + "\"")
+	}
+	return wires, nil
+}
 
 // A Part represents the difinition of a component in a circuit.
 //
@@ -138,8 +175,15 @@ type NewPartFunc func(pins W) Part
 //		})
 //
 func Chip(inputs []string, outputs []string, parts []Part) NewPartFunc {
-	return NewPartFunc(func(pins W) Part {
-		return &chip{in: inputs, out: outputs, pmap: pins, parts: parts}
+	pins := make([]string, len(inputs)+len(outputs))
+	n := copy(pins, inputs)
+	copy(pins[n:], outputs)
+	return NewPartFunc(func(w W) Part {
+		w, err := w.Check(pins...)
+		if err != nil {
+			panic(err)
+		}
+		return &chip{in: inputs, out: outputs, pmap: w, parts: parts}
 	})
 }
 

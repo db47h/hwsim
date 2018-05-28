@@ -1,7 +1,5 @@
 package hdl
 
-import "errors"
-
 // common pin names
 const (
 	pinA   = "a"
@@ -17,19 +15,6 @@ type wires W
 // TODO: rename Pinout. We may provide othe pin lists in the future. And this function actually
 // returns how a part's external pins are connected to pins in its container or user.
 func (p wires) Pinout() W { return W(p) }
-
-// check that the wiring w mathes with a part's exposed pins ex
-func checkWiring(w W, ex ...string) error {
-	if len(w) != len(ex) {
-		return errors.New("wrong number of arguments")
-	}
-	for _, name := range ex {
-		if _, ok := w[name]; !ok {
-			return errors.New("pin " + name + " not connected")
-		}
-	}
-	return nil
-}
 
 type input struct {
 	wires
@@ -49,12 +34,13 @@ func (i *input) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
 //
 // Output pin name: out
 //
-func Input(pins W, fn func() bool) Part {
-	if err := checkWiring(pins, pinOut); err != nil {
+func Input(w W, fn func() bool) Part {
+	w, err := w.Check(pinOut)
+	if err != nil {
 		panic(err)
 	}
 	return &input{
-		wires: wires(pins),
+		wires: wires(w),
 		fn:    fn,
 	}
 }
@@ -77,13 +63,14 @@ func (o *output) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
 //
 // Input pin name: in
 //
-func Output(pins W, fn func(bool)) Part {
-	if err := checkWiring(pins, pinIn); err != nil {
+func Output(w W, fn func(bool)) Part {
+	w, err := w.Check(pinIn)
+	if err != nil {
 		panic(err)
 	}
 
 	return &output{
-		wires: wires(pins),
+		wires: wires(w),
 		fn:    fn,
 	}
 }
@@ -103,7 +90,8 @@ func (n not) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
 // Not returns a NOT gate.
 //
 func Not(w W) Part {
-	if err := checkWiring(w, "in", "out"); err != nil {
+	w, err := w.Check("in", "out")
+	if err != nil {
 		panic(err)
 	}
 	return &not{wires: wires(w)}
@@ -122,7 +110,8 @@ func (g *gate) Build(pins map[string]int, _ *Circuit) ([]Updater, error) {
 }
 
 func newGate(w W, fn func(bool, bool) bool) Part {
-	if err := checkWiring(w, pinA, pinB, pinOut); err != nil {
+	w, err := w.Check(pinA, pinB, pinOut)
+	if err != nil {
 		panic(err)
 	}
 	return &gate{

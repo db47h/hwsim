@@ -42,6 +42,16 @@ func Test_gate_builtin(t *testing.T) {
 		[]hdl.Part{
 			hdl.Not(hdl.W{"in": "a", "out": "out"}),
 		})
+	tr := hdl.Chip([]string{"a", "b"}, []string{"out"}, []hdl.Part{
+		// try to write 0 to the "true" pin
+		hdl.Input(hdl.W{"out": hdl.True}, func() bool { return true }),
+		hdl.And(hdl.W{"a": hdl.True, "b": hdl.True, "out": "out"}),
+	})
+	fa := hdl.Chip([]string{"a", "b"}, []string{"out"}, []hdl.Part{
+		// try to write 1 to the "false" pin
+		hdl.Input(hdl.W{"out": hdl.GND}, func() bool { return false }),
+		hdl.Or(hdl.W{"a": hdl.False, "b": hdl.False, "out": "out"}),
+	})
 	td := []struct {
 		name   string
 		gate   hdl.NewPartFunc
@@ -54,6 +64,8 @@ func Test_gate_builtin(t *testing.T) {
 		{"XOR", hdl.Xor, []bool{false, true, true, false}},
 		{"XNOR", hdl.Xnor, []bool{true, false, false, true}},
 		{"NOT", not, []bool{true, true, false, false}},
+		{"TRUE", tr, []bool{true, true, true, true}},
+		{"FALSE", fa, []bool{false, false, false, false}},
 	}
 	for _, d := range td {
 		t.Run(d.name, func(t *testing.T) {

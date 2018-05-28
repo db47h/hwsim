@@ -4,7 +4,6 @@ import "sync"
 
 // TODO:
 //
-//	- test always true/false pins.
 //	- remove the requirement that all pins must be connected => wire unconnected pins to false/ground.
 //	- check how map[x]y arguments are re-used/saved by the callees.
 //	- find a way to check the wiring of a chip. eg. If one part is Not(W{"in": "a", "out": "unused"}).

@@ -143,19 +143,20 @@ func TestW_Check(t *testing.T) {
 	data := []struct {
 		name string
 		w    hdl.W
-		args []string
+		in   []string
+		out  []string
 		ret  hdl.W
 		err  string
 	}{
-		{"AllWired", hdl.W{"a": "x", "b": "y", "out": "z"}, []string{"a", "b", "out"}, hdl.W{"a": "x", "b": "y", "out": "z"}, ""},
-		{"UnwiredB", hdl.W{"a": "x", "out": "z"}, []string{"a", "b", "out"}, hdl.W{"a": "x", "b": hdl.False, "out": "z"}, ""},
-		{"ExtraPin", hdl.W{"a": "x", "b": "y", "out": "z"}, []string{"a", "b"}, nil, "unknown pin \"out\""},
-		{"nil", nil, []string{"in"}, hdl.W{"in": hdl.False}, ""},
-		{"nilnil", nil, nil, nil, ""},
+		{"AllWired", hdl.W{"a": "x", "b": "y", "out": "z"}, []string{"a", "b"}, []string{"out"}, hdl.W{"a": "x", "b": "y", "out": "z"}, ""},
+		{"UnwiredB", hdl.W{"a": "x", "out": "z"}, []string{"a", "b"}, []string{"out"}, hdl.W{"a": "x", "b": hdl.False, "out": "z"}, ""},
+		{"ExtraPin", hdl.W{"a": "x", "b": "y", "out": "z"}, []string{"a", "b"}, nil, nil, "unknown pin \"out\""},
+		{"nil", nil, []string{"in"}, nil, hdl.W{"in": hdl.False}, ""},
+		{"nilnil", nil, nil, nil, nil, ""},
 	}
 	for _, d := range data {
 		t.Run(d.name, func(t *testing.T) {
-			n, err := d.w.Check(d.args...)
+			n, err := d.w.Wire(d.in, d.out)
 			if err == nil && d.err != "" || err != nil && err.Error() != d.err {
 				t.Errorf("Got error %q, expected %q", d.err, err)
 				return

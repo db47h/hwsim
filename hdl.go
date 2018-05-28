@@ -53,16 +53,24 @@ func (w W) Copy() W {
 	return t
 }
 
-// Check checks that the set of wires matches the provided pin names.
-// It returns a copy if w where unconnected pins are connected to False
-// or GND. If the unknown pins are found, it will return an error.
+// Wire returns a copy of w where keys for the in/out pins are guaranteed to be
+// present (unconnected pins are set to False). If w contains pin names
+// not present in either in or out, it will return an error.
 //
 // This function should be called first in any function behaving like a NewPartFunc.
 //
-func (w W) Check(pinNames ...string) (W, error) {
+func (w W) Wire(in, out []string) (W, error) {
 	w = w.Copy()
 	wires := make(W, len(w))
-	for _, name := range pinNames {
+	for _, name := range in {
+		if outer, ok := w[name]; ok {
+			wires[name] = outer
+			delete(w, name)
+		} else {
+			wires[name] = False
+		}
+	}
+	for _, name := range out {
 		if outer, ok := w[name]; ok {
 			wires[name] = outer
 			delete(w, name)
@@ -77,50 +85,62 @@ func (w W) Check(pinNames ...string) (W, error) {
 	return wires, nil
 }
 
-// A Part represents the difinition of a component in a circuit.
+// A BuildFn creates a new instance of a part as an Updater slice.
+// The provided pins maps the part's internal pin names to pin numbers in a circuit.
 //
-type Part interface {
-	// Pinout returns the parts's pin mapping.
-	Pinout() W
-	// Build creates a new instance of a part as an Updater slice.
-	// The provided pins maps the part's internal pin names to pin numbers in a circuit.
-	// TODO: review all implementation for proper error messages.
+type BuildFn func(pins map[string]int, c *Circuit) ([]Updater, error)
+
+// A PartSpec represents a part specification.
+//
+type PartSpec struct {
+	In  []string
+	Out []string
+
+	// TODO: review all implementations for proper error messages.
 	//
-	Build(pins map[string]int, c *Circuit) ([]Updater, error)
+	Build BuildFn // Build function.
 }
 
-// a chip wraps several components into a single package.
+// Wire returns a wired part based on the given spec and wiring.
+func (p *PartSpec) Wire(w W) Part {
+	w, err := w.Wire(p.In, p.Out)
+	if err != nil {
+		panic(err)
+	}
+	return &part{p, w}
+}
+
+// A Part wraps a part specification together with its wiring
+// in a container part.
 //
+type Part interface {
+	Spec() *PartSpec
+	Wires() W
+}
+
+type part struct {
+	p *PartSpec
+	w W
+}
+
+func (p *part) Spec() *PartSpec {
+	return p.p
+}
+
+func (p *part) Wires() W {
+	return p.w
+}
+
+// A NewPartFunc is a function that takes a number of named pins and returns a new Chip.
+//
+type NewPartFunc func(pins W) Part
+
 type chip struct {
-	in    []string // exposed pins.
-	out   []string
-	pmap  W
+	PartSpec
 	parts []Part
 }
 
-func (c *chip) Pinout() W {
-	return c.pmap
-}
-
-// Constant input pin names.
-//
-var (
-	True  = "true"
-	False = "false"
-	GND   = "false"
-)
-
-const (
-	cstFalse = iota
-	cstTrue
-	cstCount
-)
-
-func cstPins() map[string]int {
-	return map[string]int{False: cstFalse, True: cstTrue}
-}
-
-func (c *chip) Build(pins map[string]int, cc *Circuit) ([]Updater, error) {
+func (c *chip) build(pins map[string]int, cc *Circuit) ([]Updater, error) {
 	var updaters []Updater
 	if len(pins) < cstCount {
 		panic("invalid pin map")
@@ -128,7 +148,7 @@ func (c *chip) Build(pins map[string]int, cc *Circuit) ([]Updater, error) {
 	// collect parts
 	for _, p := range c.parts {
 		ppins := cstPins()
-		for in, ex := range p.Pinout() {
+		for in, ex := range p.Wires() {
 			var n int
 			var ok bool
 			if n, ok = pins[ex]; !ok {
@@ -137,7 +157,7 @@ func (c *chip) Build(pins map[string]int, cc *Circuit) ([]Updater, error) {
 			}
 			ppins[in] = n
 		}
-		pup, err := p.Build(ppins, cc)
+		pup, err := p.Spec().Build(ppins, cc)
 		if err != nil {
 			return nil, err
 		}
@@ -145,10 +165,6 @@ func (c *chip) Build(pins map[string]int, cc *Circuit) ([]Updater, error) {
 	}
 	return updaters, nil
 }
-
-// A NewPartFunc is a function that takes a number of named pins and returns a new Chip.
-//
-type NewPartFunc func(pins W) Part
 
 // Chip combines existing components into a new component.
 //
@@ -176,16 +192,34 @@ type NewPartFunc func(pins W) Part
 //		})
 //
 func Chip(inputs []string, outputs []string, parts []Part) NewPartFunc {
-	pins := make([]string, len(inputs)+len(outputs))
-	n := copy(pins, inputs)
-	copy(pins[n:], outputs)
-	return NewPartFunc(func(w W) Part {
-		w, err := w.Check(pins...)
-		if err != nil {
-			panic(err)
-		}
-		return &chip{in: inputs, out: outputs, pmap: w, parts: parts}
-	})
+	// TODO check in/out pins here
+	c := &chip{
+		PartSpec{
+			In:  inputs,
+			Out: outputs,
+		},
+		parts,
+	}
+	c.Build = c.build
+	return c.Wire
+}
+
+// Constant input pin names.
+//
+var (
+	True  = "true"
+	False = "false"
+	GND   = "false"
+)
+
+const (
+	cstFalse = iota
+	cstTrue
+	cstCount
+)
+
+func cstPins() map[string]int {
+	return map[string]int{False: cstFalse, True: cstTrue}
 }
 
 // Circuit is a runable circuit simulation.
@@ -203,7 +237,7 @@ func NewCircuit(ps []Part) (*Circuit, error) {
 	// new circuit with room for constant value pins.
 	cc := &Circuit{count: cstCount}
 	wrap := Chip(nil, nil, ps)(nil)
-	ups, err := wrap.Build(cstPins(), cc)
+	ups, err := wrap.Spec().Build(cstPins(), cc)
 	if err != nil {
 		return nil, err
 	}

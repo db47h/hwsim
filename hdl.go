@@ -94,8 +94,9 @@ type BuildFn func(pins map[string]int, c *Circuit) []Updater
 // A PartSpec represents a part specification.
 //
 type PartSpec struct {
-	In  []string // Input pin names
-	Out []string // Output pin names
+	Name string   // Part name
+	In   []string // Input pin names
+	Out  []string // Output pin names
 
 	// TODO: review all implementations for proper error messages.
 	//
@@ -196,7 +197,7 @@ func (c *chip) build(pins map[string]int, cc *Circuit) []Updater {
 //			hdl.Not(hdl.W{"in": "xorAB", "out": "out"}),
 //		})
 //
-func Chip(inputs []string, outputs []string, parts []Part) (NewPartFunc, error) {
+func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPartFunc, error) {
 	// check that no outputs are connected together.
 	outs := make(map[string]int)
 	// add our inputs
@@ -207,18 +208,18 @@ func Chip(inputs []string, outputs []string, parts []Part) (NewPartFunc, error) 
 	for _, p := range parts {
 		w := p.Wires()
 		for _, o := range p.Spec().Out {
-			name := w[o]
-			if name == False {
+			n := w[o]
+			if n == False {
 				// nil or unconnected output, ignore.
 				continue
 			}
-			if name == True {
-				return nil, errors.New("pin \"" + o + "\" connected to constant True input")
+			if n == True {
+				return nil, errors.New(p.Spec().Name + " pin " + o + " connected to constant True input")
 			}
-			if _, ok := outs[name]; ok {
-				return nil, errors.New("pin \"" + name + "\" used by more than one output")
+			if _, ok := outs[n]; ok {
+				return nil, errors.New("pin " + n + " connected to more than one output")
 			}
-			outs[name] = 0
+			outs[n] = 0
 		}
 	}
 
@@ -233,28 +234,29 @@ func Chip(inputs []string, outputs []string, parts []Part) (NewPartFunc, error) 
 	for _, p := range parts {
 		w := p.Wires()
 		for _, o := range p.Spec().In {
-			name := w[o]
-			if name == True {
+			n := w[o]
+			if n == True {
 				continue
 			}
-			if n, ok := outs[name]; ok {
-				outs[name] = n + 1
+			if cnt, ok := outs[n]; ok {
+				outs[n] = cnt + 1
 				continue
 			}
-			return nil, errors.New("pin \"" + name + "\" not connected to any output")
+			return nil, errors.New(p.Spec().Name + " pin " + o + ":" + n + " not connected to any output")
 		}
 	}
 	// log.Print(outs)
 	for k, v := range outs {
 		if v == 0 {
-			return nil, errors.New("pin \"" + k + "\" not connected to any input")
+			return nil, errors.New("pin " + k + " not connected to any input")
 		}
 	}
 
 	c := &chip{
 		PartSpec{
-			In:  inputs,
-			Out: outputs,
+			Name: name,
+			In:   inputs,
+			Out:  outputs,
 		},
 		parts,
 	}
@@ -294,7 +296,7 @@ type Circuit struct {
 func NewCircuit(ps []Part) (*Circuit, error) {
 	// new circuit with room for constant value pins.
 	cc := &Circuit{count: cstCount}
-	wrap, err := Chip(nil, nil, ps)
+	wrap, err := Chip("CIRCUIT", nil, nil, ps)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create chip wrapper")
 	}

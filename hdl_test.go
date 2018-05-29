@@ -38,7 +38,7 @@ func testGate(t *testing.T, name string, gate hdl.NewPartFunc, result []bool) {
 
 func Test_gate_builtin(t *testing.T) {
 	// turn a not into a 2-input gate that ignores b
-	not, err := hdl.Chip([]string{"a", "b"}, []string{"out"}, []hdl.Part{
+	not, err := hdl.Chip("NOT", []string{"a", "b"}, []string{"out"}, []hdl.Part{
 		hdl.Not(hdl.W{"in": "a", "out": "out"}),
 		// ignore b
 		hdl.Or(hdl.W{"a": "b", "out": hdl.GND}),
@@ -46,7 +46,7 @@ func Test_gate_builtin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tr, err := hdl.Chip([]string{"a", "b"}, []string{"out"}, []hdl.Part{
+	tr, err := hdl.Chip("TRUE", []string{"a", "b"}, []string{"out"}, []hdl.Part{
 		hdl.And(hdl.W{"a": hdl.True, "b": hdl.True, "out": "out"}),
 		// ignore a & b
 		hdl.Or(hdl.W{"a": "a", "b": "b", "out": hdl.GND}),
@@ -54,7 +54,7 @@ func Test_gate_builtin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fa, err := hdl.Chip([]string{"a", "b"}, []string{"out"}, []hdl.Part{
+	fa, err := hdl.Chip("FALSE", []string{"a", "b"}, []string{"out"}, []hdl.Part{
 		hdl.Or(hdl.W{"a": hdl.False, "b": hdl.False, "out": "out"}),
 		// try to write 1 to the "false" pin
 		hdl.Input(hdl.W{"out": hdl.GND}, func() bool { return false }),
@@ -87,7 +87,7 @@ func Test_gate_builtin(t *testing.T) {
 }
 
 func Test_gate_custom(t *testing.T) {
-	and, err := hdl.Chip([]string{"a", "b"}, []string{"out"},
+	and, err := hdl.Chip("AND", []string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "nand"}),
 			hdl.Nand(hdl.W{"a": "nand", "b": "nand", "out": "out"}),
@@ -95,7 +95,7 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	or, err := hdl.Chip([]string{"a", "b"}, []string{"out"},
+	or, err := hdl.Chip("OR", []string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
 			hdl.Nand(hdl.W{"a": "a", "b": "a", "out": "notA"}),
 			hdl.Nand(hdl.W{"a": "b", "b": "b", "out": "notB"}),
@@ -104,7 +104,7 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	nor, err := hdl.Chip([]string{"a", "b"}, []string{"out"},
+	nor, err := hdl.Chip("NOR", []string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
 			or(hdl.W{"a": "a", "b": "b", "out": "orAB"}),
 			hdl.Nand(hdl.W{"a": "orAB", "b": "orAB", "out": "out"}),
@@ -112,7 +112,7 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	xor, err := hdl.Chip([]string{"a", "b"}, []string{"out"},
+	xor, err := hdl.Chip("XOR", []string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "nandAB"}),
 			hdl.Nand(hdl.W{"a": "a", "b": "nandAB", "out": "w0"}),
@@ -122,7 +122,7 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	xnor, err := hdl.Chip([]string{"a", "b"}, []string{"out"},
+	xnor, err := hdl.Chip("XNOR", []string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
 			or(hdl.W{"a": "a", "b": "b", "out": "or"}),
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "nand"}),
@@ -131,7 +131,7 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	not, err := hdl.Chip([]string{"a", "b"}, []string{"out"},
+	not, err := hdl.Chip("NOT", []string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
 			hdl.Nand(hdl.W{"a": "a", "b": "a", "out": "out"}),
 			// ignore b
@@ -160,7 +160,7 @@ func Test_gate_custom(t *testing.T) {
 	}
 }
 
-func TestW_Check(t *testing.T) {
+func TestW_Wire(t *testing.T) {
 	cmp := func(w1, w2 hdl.W) bool {
 		if len(w1) != len(w2) {
 			return false
@@ -220,7 +220,7 @@ func Test_clock(t *testing.T) {
 	// we could implement the clock directly as a Nor in the cisrcuit (with no less gate delays)
 	// but we wrap it inot a stand-alone chip in order to add a layer complexity
 	// for testing purposes.
-	clk, err := hdl.Chip([]string{"disable"}, []string{"tick"}, []hdl.Part{
+	clk, err := hdl.Chip("CLK", []string{"disable"}, []string{"tick"}, []hdl.Part{
 		hdl.Nor(hdl.W{"a": "disable", "b": "tick", "out": "tick"}),
 	})
 	if err != nil {
@@ -270,4 +270,40 @@ func Test_clock(t *testing.T) {
 	check(false)
 	c.Update(0)
 	check(false)
+}
+
+func Test_chip_errors(t *testing.T) {
+	data := []struct {
+		name  string
+		in    []string
+		out   []string
+		parts []hdl.Part
+		err   string
+	}{
+		{"true_out", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": hdl.True}),
+			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "out"}),
+		}, "NAND pin out connected to constant True input"},
+		{"multi_out", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "a"}),
+			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "out"}),
+		}, "pin a connected to more than one output"},
+		{"no_output", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+			hdl.Nand(hdl.W{"a": "a", "b": "wx", "out": "out"}),
+		}, "NAND pin b:wx not connected to any output"},
+		{"no_input", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "foo"}),
+			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "out"}),
+		}, "pin foo not connected to any input"},
+	}
+	for _, d := range data {
+		t.Run(d.name, func(t *testing.T) {
+			_, err := hdl.Chip(d.name, d.in, d.out, d.parts)
+			if err == nil && d.err != "" || err != nil && err.Error() != d.err {
+				t.Errorf("Got error %q, expected %q", d.err, err)
+				return
+			}
+		})
+	}
+
 }

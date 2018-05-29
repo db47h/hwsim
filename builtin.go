@@ -14,8 +14,9 @@ const (
 //
 func Input(w W, f func() bool) Part {
 	p := &PartSpec{
-		In:  nil,
-		Out: []string{pOut},
+		Name: "Input",
+		In:   nil,
+		Out:  []string{pOut},
 		Build: func(pins map[string]int, _ *Circuit) []Updater {
 			pin := pins[pOut]
 			return []Updater{
@@ -35,8 +36,9 @@ func Input(w W, f func() bool) Part {
 //
 func Output(w W, f func(bool)) Part {
 	p := &PartSpec{
-		In:  []string{pIn},
-		Out: nil,
+		Name: "Output",
+		In:   []string{pIn},
+		Out:  nil,
 		Build: func(pins map[string]int, _ *Circuit) []Updater {
 			in := pins[pIn]
 			return []Updater{
@@ -48,8 +50,9 @@ func Output(w W, f func(bool)) Part {
 }
 
 var notGate = PartSpec{
-	In:  []string{pIn},
-	Out: []string{pOut},
+	Name: "NOR",
+	In:   []string{pIn},
+	Out:  []string{pOut},
 	Build: func(pins map[string]int, _ *Circuit) []Updater {
 		in, out := pins[pIn], pins[pOut]
 		return []Updater{
@@ -76,8 +79,9 @@ func (g gate) Build(pins map[string]int, _ *Circuit) []Updater {
 	}
 }
 
-func newGate(fn func(a, b bool) bool) *PartSpec {
+func newGate(name string, fn func(a, b bool) bool) *PartSpec {
 	return &PartSpec{
+		Name:  name,
 		In:    gateIn,
 		Out:   gateOut,
 		Build: gate(fn).Build,
@@ -88,12 +92,12 @@ var (
 	gateIn  = []string{pA, pB}
 	gateOut = []string{pOut}
 
-	and  = newGate(func(a, b bool) bool { return a && b })
-	nand = newGate(func(a, b bool) bool { return !(a && b) })
-	or   = newGate(func(a, b bool) bool { return a || b })
-	nor  = newGate(func(a, b bool) bool { return !(a || b) })
-	xor  = newGate(func(a, b bool) bool { return a && !b || !a && b })
-	xnor = newGate(func(a, b bool) bool { return a && b || !a && !b })
+	and  = newGate("AND", func(a, b bool) bool { return a && b })
+	nand = newGate("NAND", func(a, b bool) bool { return !(a && b) })
+	or   = newGate("OR", func(a, b bool) bool { return a || b })
+	nor  = newGate("NOR", func(a, b bool) bool { return !(a || b) })
+	xor  = newGate("XOR", func(a, b bool) bool { return a && !b || !a && b })
+	xnor = newGate("XNOR", func(a, b bool) bool { return a && b || !a && !b })
 )
 
 // And returns a AND gate.

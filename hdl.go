@@ -1,13 +1,13 @@
 package hdl
 
 import (
-	"errors"
 	"sync"
+
+	"github.com/pkg/errors"
 )
 
 // TODO:
 //
-//	- have Chip() return an error instead of panicking.
 //	- check how map[x]y arguments are re-used/saved by the callees.
 //	- refactor names like pinout and othe wire-y related things to reflect what they truly are.
 //	- handle buses. Chip i/o pin spec should accept thins like a[8] (i.e. an 8 pin bus), while wiring specs
@@ -196,7 +196,7 @@ func (c *chip) build(pins map[string]int, cc *Circuit) []Updater {
 //			hdl.Not(hdl.W{"in": "xorAB", "out": "out"}),
 //		})
 //
-func Chip(inputs []string, outputs []string, parts []Part) NewPartFunc {
+func Chip(inputs []string, outputs []string, parts []Part) (NewPartFunc, error) {
 	// check that no outputs are connected together.
 	outs := make(map[string]int)
 	// add our inputs
@@ -213,10 +213,10 @@ func Chip(inputs []string, outputs []string, parts []Part) NewPartFunc {
 				continue
 			}
 			if name == True {
-				panic("pin \"" + o + "\" connected to constant True input")
+				return nil, errors.New("pin \"" + o + "\" connected to constant True input")
 			}
 			if _, ok := outs[name]; ok {
-				panic("pin \"" + name + "\" used by more than one output")
+				return nil, errors.New("pin \"" + name + "\" used by more than one output")
 			}
 			outs[name] = 0
 		}
@@ -241,13 +241,13 @@ func Chip(inputs []string, outputs []string, parts []Part) NewPartFunc {
 				outs[name] = n + 1
 				continue
 			}
-			panic("pin \"" + name + "\" not connected to any output")
+			return nil, errors.New("pin \"" + name + "\" not connected to any output")
 		}
 	}
 	// log.Print(outs)
 	for k, v := range outs {
 		if v == 0 {
-			panic("pin \"" + k + "\" not connected to any input")
+			return nil, errors.New("pin \"" + k + "\" not connected to any input")
 		}
 	}
 
@@ -259,7 +259,7 @@ func Chip(inputs []string, outputs []string, parts []Part) NewPartFunc {
 		parts,
 	}
 	c.Build = c.build
-	return c.Wire
+	return c.Wire, nil
 }
 
 // Constant input pin names.
@@ -294,8 +294,11 @@ type Circuit struct {
 func NewCircuit(ps []Part) (*Circuit, error) {
 	// new circuit with room for constant value pins.
 	cc := &Circuit{count: cstCount}
-	wrap := Chip(nil, nil, ps)(nil)
-	ups := wrap.Spec().Build(cstPins(), cc)
+	wrap, err := Chip(nil, nil, ps)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create chip wrapper")
+	}
+	ups := wrap(nil).Spec().Build(cstPins(), cc)
 	cc.parts = ups
 	cc.s0 = make([]bool, cc.count)
 	cc.s1 = make([]bool, cc.count)

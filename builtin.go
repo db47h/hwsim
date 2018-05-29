@@ -5,6 +5,7 @@ const (
 	pA   = "a"
 	pB   = "b"
 	pIn  = "in"
+	pSel = "sel"
 	pOut = "out"
 )
 
@@ -119,3 +120,51 @@ func Xor(w W) Part { return xor.Wire(w) }
 // Xnor returns a XNOR gate.
 //
 func Xnor(w W) Part { return xnor.Wire(w) }
+
+// Mux returns a multiplexer.
+//
+//	Inputs: a, b, sel
+//	Outputs: out
+//	Function: If sel=0 then out=a else out=b.
+//
+func Mux(w W) Part { return mux.Wire(w) }
+
+var mux = PartSpec{
+	Name: "MUX",
+	In:   []string{pA, pB, pSel},
+	Out:  []string{pOut},
+	Build: func(pins map[string]int, _ *Circuit) []Component {
+		a, b, sel, out := pins[pA], pins[pB], pins[pSel], pins[pOut]
+		return []Component{func(c *Circuit) {
+			if c.Get(sel) {
+				c.Set(out, c.Get(b))
+			} else {
+				c.Set(out, c.Get(a))
+			}
+		}}
+	}}
+
+// DMux returns a demultiplexer.
+//
+//	Inputs: in, sel
+//	Outputs: a, b
+//	Function: If sel=0 then {a=in, b=0} else {a=0, b=in}
+//
+func DMux(w W) Part { return dmux.Wire(w) }
+
+var dmux = PartSpec{
+	Name: "DMUX",
+	In:   []string{pIn, pSel},
+	Out:  []string{pA, pB},
+	Build: func(pins map[string]int, _ *Circuit) []Component {
+		in, sel, a, b := pins[pIn], pins[pSel], pins[pA], pins[pB]
+		return []Component{func(c *Circuit) {
+			if c.Get(sel) {
+				c.Set(a, false)
+				c.Set(b, c.Get(in))
+			} else {
+				c.Set(a, c.Get(in))
+				c.Set(b, false)
+			}
+		}}
+	}}

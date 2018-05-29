@@ -9,77 +9,6 @@ import (
 
 var workers = runtime.NumCPU() // this is naive but should be good enough for testing.
 
-func testGate(t *testing.T, name string, gate hdl.NewPartFunc, result []bool) {
-	var a, b, out bool
-	t.Helper()
-	c, err := hdl.NewCircuit([]hdl.Part{
-		hdl.Input(hdl.W{"out": "a"}, func() bool { return a }),
-		hdl.Input(hdl.W{"out": "b"}, func() bool { return b }),
-		gate(hdl.W{"a": "a", "b": "b", "out": "out"}),
-		hdl.Output(hdl.W{"in": "out"}, func(o bool) { out = o }),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	res := 0
-	for _, a = range []bool{false, true} {
-		for _, b = range []bool{false, true} {
-			for i := 0; i < 10; i++ {
-				c.Update(workers)
-			}
-			if out != result[res] {
-				t.Errorf("got %v %s %v = %v, expected %v", a, name, b, out, result[res])
-			}
-			res++
-		}
-	}
-}
-
-func Test_gate_builtin(t *testing.T) {
-	// turn a not into a 2-input gate that ignores b
-	not, err := hdl.Chip("NOT", []string{"a", "b"}, []string{"out"}, []hdl.Part{
-		hdl.Not(hdl.W{"in": "a", "out": "out"}),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	tr, err := hdl.Chip("TRUE", []string{"a", "b"}, []string{"out"}, []hdl.Part{
-		hdl.And(hdl.W{"a": hdl.True, "b": hdl.True, "out": "out"}),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	fa, err := hdl.Chip("FALSE", []string{"a", "b"}, []string{"out"}, []hdl.Part{
-		hdl.Or(hdl.W{"a": hdl.False, "b": hdl.False, "out": "out"}),
-		// try to write 1 to the "false" pin
-		hdl.Input(hdl.W{"out": hdl.GND}, func() bool { return false }),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	td := []struct {
-		name   string
-		gate   hdl.NewPartFunc
-		result []bool // a=0 && b=0, a=0 && b=1, a=1 && b=0, a=1 && b=1
-	}{
-		{"AND", hdl.And, []bool{false, false, false, true}},
-		{"NAND", hdl.Nand, []bool{true, true, true, false}},
-		{"OR", hdl.Or, []bool{false, true, true, true}},
-		{"NOR", hdl.Nor, []bool{true, false, false, false}},
-		{"XOR", hdl.Xor, []bool{false, true, true, false}},
-		{"XNOR", hdl.Xnor, []bool{true, false, false, true}},
-		{"NOT", not, []bool{true, true, false, false}},
-		{"TRUE", tr, []bool{true, true, true, true}},
-		{"FALSE", fa, []bool{false, false, false, false}},
-	}
-	for _, d := range td {
-		t.Run(d.name, func(t *testing.T) {
-			testGate(t, d.name, d.gate, d.result)
-		})
-	}
-}
-
 func Test_gate_custom(t *testing.T) {
 	and, err := hdl.Chip("AND", []string{"a", "b"}, []string{"out"},
 		[]hdl.Part{
@@ -125,25 +54,43 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	not, err := hdl.Chip("NOT", []string{"a", "b"}, []string{"out"},
+	not, err := hdl.Chip("NOT", []string{"a"}, []string{"out"},
 		[]hdl.Part{
 			hdl.Nand(hdl.W{"a": "a", "b": "a", "out": "out"}),
 		})
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	mux, err := hdl.Chip("NUX", []string{"a", "b", "sel"}, []string{"out"}, []hdl.Part{
+		hdl.Not(hdl.W{"in": "sel", "out": "notSel"}),
+		hdl.And(hdl.W{"a": "a", "b": "notSel", "out": "w0"}),
+		hdl.And(hdl.W{"a": "b", "b": "sel", "out": "w1"}),
+		hdl.Or(hdl.W{"a": "w0", "b": "w1", "out": "out"}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dmux, err := hdl.Chip("DMUX", []string{"in", "sel"}, []string{"a", "b"}, []hdl.Part{
+		hdl.Not(hdl.W{"in": "sel", "out": "notSel"}),
+		hdl.And(hdl.W{"a": "in", "b": "notSel", "out": "a"}),
+		hdl.And(hdl.W{"a": "in", "b": "sel", "out": "b"}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	td := []struct {
 		name   string
 		gate   hdl.NewPartFunc
-		result []bool
+		result [][]bool
 	}{
-		{"AND", and, []bool{false, false, false, true}},
-		{"OR", or, []bool{false, true, true, true}},
-		{"NOR", nor, []bool{true, false, false, false}},
-		{"XOR", xor, []bool{false, true, true, false}},
-		{"XNOR", xnor, []bool{true, false, false, true}},
-		{"NOT", not, []bool{true, true, false, false}},
+		{"AND", and, [][]bool{{false, false, false, true}}},
+		{"OR", or, [][]bool{{false, true, true, true}}},
+		{"NOR", nor, [][]bool{{true, false, false, false}}},
+		{"XOR", xor, [][]bool{{false, true, true, false}}},
+		{"XNOR", xnor, [][]bool{{true, false, false, true}}},
+		{"NOT", not, [][]bool{{true, false}}},
+		{"MUX", mux, [][]bool{{false, false, false, true, true, false, true, true}}},
+		{"DMUX", dmux, [][]bool{{false, false, true, false}, {false, false, false, true}}},
 	}
 	for _, d := range td {
 		t.Run(d.name, func(t *testing.T) {

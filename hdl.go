@@ -199,9 +199,12 @@ func (c *chip) build(pins map[string]int, cc *Circuit) []Updater {
 //
 func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPartFunc, error) {
 	// check that no outputs are connected together.
+	// outs is a map of chip name to # of inputs ising it
 	outs := make(map[string]int)
-	// add our inputs
+	// add our inputs as outputs within the chip
 	for _, i := range inputs {
+		// set to one because when the returned NewPartFn will be called,
+		// unconnected I/O wires will be automatically connected to False
 		outs[i] = 1
 	}
 	// for each part, add its outputs
@@ -217,7 +220,7 @@ func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPart
 				return nil, errors.New(p.Spec().Name + " pin " + o + " connected to constant True input")
 			}
 			if _, ok := outs[n]; ok {
-				return nil, errors.New("pin " + n + " connected to more than one output")
+				return nil, errors.New(p.Spec().Name + " pin " + o + ":" + n + ": pin already used as output by another part or is an input pin of the chip")
 			}
 			outs[n] = 0
 		}
@@ -245,7 +248,6 @@ func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPart
 			return nil, errors.New(p.Spec().Name + " pin " + o + ":" + n + " not connected to any output")
 		}
 	}
-	// log.Print(outs)
 	for k, v := range outs {
 		if v == 0 {
 			return nil, errors.New("pin " + k + " not connected to any input")

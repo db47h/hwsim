@@ -8,10 +8,9 @@ import (
 
 // TODO:
 //
-//	- check how map[x]y arguments are re-used/saved by the callees.
-//	- refactor names like pinout and othe wire-y related things to reflect what they truly are.
 //	- handle buses. Chip i/o pin spec should accept thins like a[8] (i.e. an 8 pin bus), while wiring specs
 //	  should accept things like: W{"my4biBus": "input[0..3]"}
+//	- check how map[x]y arguments are re-used/saved by the callees.
 //	- Add more built-in things.
 
 // CHIP Xor {
@@ -33,10 +32,9 @@ import (
 // 	// Mux16.hdl built-in chips.
 // }
 
-// An Updater is an updatable component in a circuit
-// TODO: rename that !
+// An Component is component in a circuit that can Get and Set states.
 //
-type Updater func(c *Circuit)
+type Component func(c *Circuit)
 
 // W is a set of wires, connecting a part's I/O pins (the map key) to pins in its container.
 //
@@ -89,7 +87,7 @@ func (w W) Wire(in, out []string) (W, error) {
 //
 // TODO: document if pins is modified by the callee
 //
-type BuildFn func(pins map[string]int, c *Circuit) []Updater
+type BuildFn func(pins map[string]int, c *Circuit) []Component
 
 // A PartSpec represents a part specification.
 //
@@ -143,8 +141,8 @@ type chip struct {
 	parts []Part
 }
 
-func (c *chip) build(pins map[string]int, cc *Circuit) []Updater {
-	var updaters []Updater
+func (c *chip) build(pins map[string]int, cc *Circuit) []Component {
+	var updaters []Component
 	if len(pins) < cstCount {
 		panic("invalid pin map")
 	}
@@ -187,7 +185,7 @@ func (c *chip) build(pins map[string]int, cc *Circuit) []Updater {
 //		})
 //
 // The returned value is a function of type NewPartFunc that can be used to
-// wire the new part into others:
+// compose the new part with others into other chips:
 //
 //	xnor := hdl.Chip(
 //		[]string{"a", "b"},
@@ -289,11 +287,11 @@ func cstPins() map[string]int {
 type Circuit struct {
 	s0    []bool // wire states frame #0
 	s1    []bool // wire states frame #1
-	parts []Updater
+	cs    []Component
 	count int // wire count
 }
 
-// NewCircuit returns a new circuit based on the given chips.
+// NewCircuit builds a new circuit based on the given parts.
 //
 func NewCircuit(ps []Part) (*Circuit, error) {
 	// new circuit with room for constant value pins.
@@ -303,7 +301,7 @@ func NewCircuit(ps []Part) (*Circuit, error) {
 		return nil, errors.Wrap(err, "failed to create chip wrapper")
 	}
 	ups := wrap(nil).Spec().Build(cstPins(), cc)
-	cc.parts = ups
+	cc.cs = ups
 	cc.s0 = make([]bool, cc.count)
 	cc.s1 = make([]bool, cc.count)
 	return cc, nil
@@ -317,13 +315,13 @@ func (c *Circuit) Alloc() int {
 	return cnt
 }
 
-// Get returns the state of a given input/output.
+// Get returns the state of a given pin.
 //
 func (c *Circuit) Get(n int) bool {
 	return c.s0[n]
 }
 
-// Set sets the state of a given input/output.
+// Set sets the state of a given pin.
 //
 func (c *Circuit) Set(n int, s bool) {
 	c.s1[n] = s
@@ -336,7 +334,7 @@ func min(a, b int) int {
 	return b
 }
 
-// Update advances a chip simulation by one step.
+// Update advances a simulation by one step.
 //
 func (c *Circuit) Update(workers int) {
 	// set constant pins
@@ -344,7 +342,7 @@ func (c *Circuit) Update(workers int) {
 	c.s0[cstTrue] = true
 
 	if workers <= 0 {
-		for _, u := range c.parts {
+		for _, u := range c.cs {
 			u(c)
 		}
 		c.s0, c.s1 = c.s1, c.s0
@@ -352,7 +350,7 @@ func (c *Circuit) Update(workers int) {
 	}
 
 	var wg sync.WaitGroup
-	p := c.parts
+	p := c.cs
 	l := len(p) / workers
 	if l*workers < len(p) {
 		l++
@@ -360,9 +358,9 @@ func (c *Circuit) Update(workers int) {
 	for len(p) > 0 {
 		wg.Add(1)
 		l = min(l, len(p))
-		go func(parts []Updater) {
-			for _, u := range parts {
-				u(c)
+		go func(cs []Component) {
+			for _, f := range cs {
+				f(c)
 			}
 			wg.Done()
 		}(p[:l])

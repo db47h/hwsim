@@ -17,9 +17,9 @@ func Input(w W, f func() bool) Part {
 		Name: "Input",
 		In:   nil,
 		Out:  []string{pOut},
-		Build: func(pins map[string]int, _ *Circuit) []Updater {
+		Build: func(pins map[string]int, _ *Circuit) []Component {
 			pin := pins[pOut]
-			return []Updater{
+			return []Component{
 				func(c *Circuit) {
 					c.Set(pin, f())
 				},
@@ -39,9 +39,9 @@ func Output(w W, f func(bool)) Part {
 		Name: "Output",
 		In:   []string{pIn},
 		Out:  nil,
-		Build: func(pins map[string]int, _ *Circuit) []Updater {
+		Build: func(pins map[string]int, _ *Circuit) []Component {
 			in := pins[pIn]
-			return []Updater{
+			return []Component{
 				func(c *Circuit) { f(c.Get(in)) },
 			}
 		},
@@ -49,17 +49,13 @@ func Output(w W, f func(bool)) Part {
 	return p.Wire(w)
 }
 
-var notGate = PartSpec{
-	Name: "NOR",
-	In:   []string{pIn},
-	Out:  []string{pOut},
-	Build: func(pins map[string]int, _ *Circuit) []Updater {
+var notGate = PartSpec{Name: "NOR", In: []string{pIn}, Out: []string{pOut},
+	Build: func(pins map[string]int, _ *Circuit) []Component {
 		in, out := pins[pIn], pins[pOut]
-		return []Updater{
+		return []Component{
 			func(c *Circuit) { c.Set(out, !c.Get(in)) },
 		}
-	},
-}
+	}}
 
 // Not returns a NOT gate.
 //
@@ -72,9 +68,9 @@ func Not(w W) Part {
 // other gates
 type gate func(a, b bool) bool
 
-func (g gate) Build(pins map[string]int, _ *Circuit) []Updater {
+func (g gate) Build(pins map[string]int, _ *Circuit) []Component {
 	a, b, out := pins[pA], pins[pB], pins[pOut]
-	return []Updater{
+	return []Component{
 		func(c *Circuit) { c.Set(out, g(c.Get(a), c.Get(b))) },
 	}
 }

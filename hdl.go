@@ -1,6 +1,8 @@
 package hdl
 
 import (
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -82,12 +84,68 @@ func (w W) Wire(in, out []string) (W, error) {
 	return wires, nil
 }
 
-// A BuildFn creates a new instance of a part as an Updater slice.
-// The provided pins map the part's internal pin names to pin numbers in a circuit.
+// BusPinName returns the pine name for the n-th bit of the named bus.
 //
-// TODO: document if pins is modified by the callee
+func BusPinName(name string, bit int) string {
+	return name + "[" + strconv.Itoa(bit) + "]"
+}
+
+// ExpandBus returns a copy of the pin names with buses expanded as individual
+// pin names. e.g. "in[2]" will be expanded to "in[0]", "in[1]"
 //
-type BuildFn func(pins map[string]int, c *Circuit) []Component
+func ExpandBus(pins ...string) []string {
+	out := make([]string, 0, len(pins))
+	for _, n := range pins {
+		i := strings.IndexRune(n, '[')
+		if i < 0 {
+			out = append(out, n)
+			continue
+		}
+		t := n[i+1:]
+		n = n[:i]
+		i = strings.IndexRune(t, ']')
+		if i < 0 {
+			panic("no terminamting ] in bus specification")
+		}
+		l, err := strconv.Atoi(t[:i])
+		if err != nil {
+			panic(err)
+		}
+		for i := 0; i < l; i++ {
+			out = append(out, BusPinName(n, i))
+		}
+	}
+	return out
+}
+
+// A Socket maps a part's pin names to pin numbers in a circuit.
+//
+type Socket map[string]int
+
+// Get returns the pin number allocated to the given pin name.
+//
+func (s Socket) Get(name string) int { return s[name] }
+
+// GetBus returns the pin numbers allocated to the given bus name.
+//
+func (s Socket) GetBus(name string) []int {
+	out := make([]int, 0)
+	i := 0
+	for {
+		n, ok := s[BusPinName(name, i)]
+		if !ok {
+			break
+		}
+		out = append(out, n)
+		i++
+	}
+	return out
+}
+
+// A MountFn mounts a part into the given socket and circuit.
+// In effect, it creates a new instance of a part as an Updater slice.
+//
+type MountFn func(c *Circuit, pins Socket) []Component
 
 // A PartSpec represents a part specification.
 //
@@ -96,9 +154,7 @@ type PartSpec struct {
 	In   []string // Input pin names
 	Out  []string // Output pin names
 
-	// TODO: review all implementations for proper error messages.
-	//
-	Build BuildFn // Build function.
+	Mount MountFn // Mount function.
 }
 
 // Wire returns a wired part based on the given spec and wiring.
@@ -136,134 +192,6 @@ func (p *part) Wires() W {
 //
 type NewPartFunc func(pins W) Part
 
-type chip struct {
-	PartSpec
-	parts []Part
-}
-
-func (c *chip) build(pins map[string]int, cc *Circuit) []Component {
-	var updaters []Component
-	if len(pins) < cstCount {
-		panic("invalid pin map")
-	}
-	// collect parts
-	for _, p := range c.parts {
-		// build the part's external pin map
-		ppins := cstPins()
-		for ppin, cpin := range p.Wires() {
-			var n int
-			var ok bool
-			// chip pin name unknown, allocate it
-			if n, ok = pins[cpin]; !ok {
-				n = cc.Alloc()
-				pins[cpin] = n
-			}
-			// map the part's pin name to the same number
-			// thus establishing the connection.
-			ppins[ppin] = n
-		}
-		pup := p.Spec().Build(ppins, cc)
-		updaters = append(updaters, pup...)
-	}
-	return updaters
-}
-
-// Chip composes existing parts into a new part packaged into a chip.
-// The pin names specified as inputs and outputs will be the inputs
-// and outputs of the chip.
-//
-// An Xor gate could be created like this:
-//
-//	xor := Chip(
-//		[]string{"a", "b"},
-//		[]string{"out"},
-//		[]hdl.Part{
-//			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "nandAB"}),
-//			hdl.Nand(hdl.W{"a": "a", "b": "nandAB", "out": "w0"}),
-//			hdl.Nand(hdl.W{"a": "b", "b": "nandAB", "out": "w1"}),
-//			hdl.Nand(hdl.W{"a": "w0", "b": "w1", "out": "out"}),
-//		})
-//
-// The returned value is a function of type NewPartFunc that can be used to
-// compose the new part with others into other chips:
-//
-//	xnor := hdl.Chip(
-//		[]string{"a", "b"},
-//		[]string{"out"},
-//		[]hdl.Part{
-//			xor(hdl.W{"a": "a", "b": "b", "xorAB"}),
-//			hdl.Not(hdl.W{"in": "xorAB", "out": "out"}),
-//		})
-//
-func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPartFunc, error) {
-	// check that no outputs are connected together.
-	// outs is a map of chip name to # of inputs ising it
-	outs := make(map[string]int)
-	// add our inputs as outputs within the chip
-	for _, i := range inputs {
-		// set to one because when the returned NewPartFn will be called,
-		// unconnected I/O wires will be automatically connected to False
-		outs[i] = 1
-	}
-	// for each part, add its outputs
-	for _, p := range parts {
-		w := p.Wires()
-		for _, o := range p.Spec().Out {
-			n := w[o]
-			if n == False {
-				// nil or unconnected output, ignore.
-				continue
-			}
-			if n == True {
-				return nil, errors.New(p.Spec().Name + " pin " + o + " connected to constant True input")
-			}
-			if _, ok := outs[n]; ok {
-				return nil, errors.New(p.Spec().Name + " pin " + o + ":" + n + ": pin already used as output by another part or is an input pin of the chip")
-			}
-			outs[n] = 0
-		}
-	}
-
-	// Check that each output is used as an input somewhere.
-	// Start by assuming that the chip's outputs are connected.
-	for _, o := range outputs {
-		outs[o] = 1
-	}
-	// add False and True as a valid, connected outputs
-	outs[False] = 1
-	outs[True] = 1
-	for _, p := range parts {
-		w := p.Wires()
-		for _, o := range p.Spec().In {
-			n := w[o]
-			if n == True {
-				continue
-			}
-			if cnt, ok := outs[n]; ok {
-				outs[n] = cnt + 1
-				continue
-			}
-			return nil, errors.New(p.Spec().Name + " pin " + o + ":" + n + " not connected to any output")
-		}
-	}
-	for k, v := range outs {
-		if v == 0 {
-			return nil, errors.New("pin " + k + " not connected to any input")
-		}
-	}
-
-	c := &chip{
-		PartSpec{
-			Name: name,
-			In:   inputs,
-			Out:  outputs,
-		},
-		parts,
-	}
-	c.Build = c.build
-	return c.Wire, nil
-}
-
 // Constant input pin names.
 //
 var (
@@ -278,8 +206,8 @@ const (
 	cstCount
 )
 
-func cstPins() map[string]int {
-	return map[string]int{False: cstFalse, True: cstTrue}
+func cstPins() Socket {
+	return Socket{False: cstFalse, True: cstTrue}
 }
 
 // Circuit is a runable circuit simulation.
@@ -300,7 +228,7 @@ func NewCircuit(ps []Part) (*Circuit, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create chip wrapper")
 	}
-	ups := wrap(nil).Spec().Build(cstPins(), cc)
+	ups := wrap(nil).Spec().Mount(cc, cstPins())
 	cc.cs = ups
 	cc.s0 = make([]bool, cc.count)
 	cc.s1 = make([]bool, cc.count)

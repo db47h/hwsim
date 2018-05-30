@@ -1,5 +1,7 @@
 package hdl
 
+import "strconv"
+
 // common pin names
 const (
 	pA   = "a"
@@ -18,7 +20,7 @@ func Input(w W, f func() bool) Part {
 		Name: "Input",
 		In:   nil,
 		Out:  []string{pOut},
-		Build: func(pins map[string]int, _ *Circuit) []Component {
+		Mount: func(_ *Circuit, pins Socket) []Component {
 			pin := pins[pOut]
 			return []Component{
 				func(c *Circuit) {
@@ -40,7 +42,7 @@ func Output(w W, f func(bool)) Part {
 		Name: "Output",
 		In:   []string{pIn},
 		Out:  nil,
-		Build: func(pins map[string]int, _ *Circuit) []Component {
+		Mount: func(_ *Circuit, pins Socket) []Component {
 			in := pins[pIn]
 			return []Component{
 				func(c *Circuit) { f(c.Get(in)) },
@@ -51,12 +53,13 @@ func Output(w W, f func(bool)) Part {
 }
 
 var notGate = PartSpec{Name: "NOR", In: []string{pIn}, Out: []string{pOut},
-	Build: func(pins map[string]int, _ *Circuit) []Component {
+	Mount: func(_ *Circuit, pins Socket) []Component {
 		in, out := pins[pIn], pins[pOut]
 		return []Component{
 			func(c *Circuit) { c.Set(out, !c.Get(in)) },
 		}
-	}}
+	},
+}
 
 // Not returns a NOT gate.
 //
@@ -69,7 +72,7 @@ func Not(w W) Part {
 // other gates
 type gate func(a, b bool) bool
 
-func (g gate) Build(pins map[string]int, _ *Circuit) []Component {
+func (g gate) mount(_ *Circuit, pins Socket) []Component {
 	a, b, out := pins[pA], pins[pB], pins[pOut]
 	return []Component{
 		func(c *Circuit) { c.Set(out, g(c.Get(a), c.Get(b))) },
@@ -81,7 +84,7 @@ func newGate(name string, fn func(a, b bool) bool) *PartSpec {
 		Name:  name,
 		In:    gateIn,
 		Out:   gateOut,
-		Build: gate(fn).Build,
+		Mount: gate(fn).mount,
 	}
 }
 
@@ -133,7 +136,7 @@ var mux = PartSpec{
 	Name: "MUX",
 	In:   []string{pA, pB, pSel},
 	Out:  []string{pOut},
-	Build: func(pins map[string]int, _ *Circuit) []Component {
+	Mount: func(_ *Circuit, pins Socket) []Component {
 		a, b, sel, out := pins[pA], pins[pB], pins[pSel], pins[pOut]
 		return []Component{func(c *Circuit) {
 			if c.Get(sel) {
@@ -142,7 +145,8 @@ var mux = PartSpec{
 				c.Set(out, c.Get(a))
 			}
 		}}
-	}}
+	},
+}
 
 // DMux returns a demultiplexer.
 //
@@ -156,7 +160,7 @@ var dmux = PartSpec{
 	Name: "DMUX",
 	In:   []string{pIn, pSel},
 	Out:  []string{pA, pB},
-	Build: func(pins map[string]int, _ *Circuit) []Component {
+	Mount: func(_ *Circuit, pins Socket) []Component {
 		in, sel, a, b := pins[pIn], pins[pSel], pins[pA], pins[pB]
 		return []Component{func(c *Circuit) {
 			if c.Get(sel) {
@@ -167,4 +171,32 @@ var dmux = PartSpec{
 				c.Set(b, false)
 			}
 		}}
-	}}
+	},
+}
+
+// nbits gates
+func notN(n int) *PartSpec {
+	sn := strconv.Itoa(n)
+	return &PartSpec{
+		Name: "NOT" + sn,
+		In:   ExpandBus("in[" + sn + "]"),
+		Out:  ExpandBus("out[" + sn + "]"),
+		Mount: func(_ *Circuit, pins Socket) []Component {
+			ins := pins.GetBus(pIn)
+			outs := pins.GetBus(pOut)
+			return []Component{func(c *Circuit) {
+				for i, pin := range ins {
+					c.Set(outs[i], !c.Get(pin))
+				}
+			}}
+		},
+	}
+}
+
+var (
+	not16 = notN(16)
+)
+
+// Not16 returns a 16 bits NOT gate.
+//
+func Not16(w W) Part { return not16.Wire(w) }

@@ -38,6 +38,16 @@ import (
 //
 type Component func(c *Circuit)
 
+// type Component interface {
+// 	Func(c *Circuit) ComponentFn
+// 	Children() []Part
+// }
+
+// type ComponentFn func(c *Circuit)
+
+// func (f ComponentFn) Func() ComponentFn { return f }
+// func (ComponentFn) Children() []Part    { return nil }
+
 // W is a set of wires, connecting a part's I/O pins (the map key) to pins in its container.
 //
 type W map[string]string
@@ -128,34 +138,10 @@ func ExpandBus(pins ...string) []string {
 	return out
 }
 
-// A Socket maps a part's pin names to pin numbers in a circuit.
-//
-type Socket map[string]int
-
-// Get returns the pin number allocated to the given pin name.
-//
-func (s Socket) Get(name string) int { return s[name] }
-
-// GetBus returns the pin numbers allocated to the given bus name.
-//
-func (s Socket) GetBus(name string) []int {
-	out := make([]int, 0)
-	i := 0
-	for {
-		n, ok := s[BusPinName(name, i)]
-		if !ok {
-			break
-		}
-		out = append(out, n)
-		i++
-	}
-	return out
-}
-
-// A MountFn mounts a part into the given socket and circuit.
+// A MountFn mounts a part into the given socket.
 // In effect, it creates a new instance of a part as an Updater slice.
 //
-type MountFn func(c *Circuit, pins Socket) []Component
+type MountFn func(s *Socket) []Component
 
 // A PartSpec represents a part specification.
 //
@@ -202,24 +188,6 @@ func (p *part) Wires() W {
 //
 type NewPartFunc func(pins W) Part
 
-// Constant input pin names.
-//
-var (
-	True  = "true"
-	False = "false"
-	GND   = "false"
-)
-
-const (
-	cstFalse = iota
-	cstTrue
-	cstCount
-)
-
-func cstPins() Socket {
-	return Socket{False: cstFalse, True: cstTrue}
-}
-
 // Circuit is a runable circuit simulation.
 //
 type Circuit struct {
@@ -238,16 +206,16 @@ func NewCircuit(ps []Part) (*Circuit, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create chip wrapper")
 	}
-	ups := wrap(nil).Spec().Mount(cc, cstPins())
+	ups := wrap(nil).Spec().Mount(newSocket(cc))
 	cc.cs = ups
 	cc.s0 = make([]bool, cc.count)
 	cc.s1 = make([]bool, cc.count)
 	return cc, nil
 }
 
-// Alloc allocates a pin and returns its number.
+// alloc allocates a pin and returns its number.
 //
-func (c *Circuit) Alloc() int {
+func (c *Circuit) allocPin() int {
 	cnt := c.count
 	c.count++
 	return cnt

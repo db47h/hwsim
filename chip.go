@@ -7,29 +7,11 @@ type chip struct {
 	parts []Part
 }
 
-func (c *chip) mount(cc *Circuit, pins Socket) []Component {
+func (c *chip) mount(s *Socket) []Component {
 	var updaters []Component
-	if len(pins) < cstCount {
-		panic("invalid pin map")
-	}
-	// collect parts
+	// mount contained parts
 	for _, p := range c.parts {
-		// build the part's external pin map
-		ppins := cstPins()
-		for ppin, cpin := range p.Wires() {
-			var n int
-			var ok bool
-			// chip pin name unknown, allocate it
-			if n, ok = pins[cpin]; !ok {
-				n = cc.Alloc()
-				pins[cpin] = n
-			}
-			// map the part's pin name to the same number
-			// thus establishing the connection.
-			ppins[ppin] = n
-		}
-		pup := p.Spec().Mount(cc, ppins)
-		updaters = append(updaters, pup...)
+		updaters = append(updaters, s.Mount(p)...)
 	}
 	return updaters
 }
@@ -66,7 +48,7 @@ func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPart
 	outputs = ExpandBus(outputs...)
 	// check that no outputs are connected together.
 	// outs is a map of chip name to # of inputs ising it
-	outs := make(Socket)
+	outs := make(map[string]int)
 	// add our inputs as outputs within the chip
 	for _, i := range inputs {
 		// set to one because when the returned NewPartFn will be called,

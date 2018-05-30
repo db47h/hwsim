@@ -20,8 +20,8 @@ func Input(w W, f func() bool) Part {
 		Name: "Input",
 		In:   nil,
 		Out:  []string{pOut},
-		Mount: func(_ *Circuit, pins Socket) []Component {
-			pin := pins[pOut]
+		Mount: func(s *Socket) []Component {
+			pin := s.Pin(pOut)
 			return []Component{
 				func(c *Circuit) {
 					c.Set(pin, f())
@@ -42,8 +42,8 @@ func Output(w W, f func(bool)) Part {
 		Name: "Output",
 		In:   []string{pIn},
 		Out:  nil,
-		Mount: func(_ *Circuit, pins Socket) []Component {
-			in := pins[pIn]
+		Mount: func(s *Socket) []Component {
+			in := s.Pin(pIn)
 			return []Component{
 				func(c *Circuit) { f(c.Get(in)) },
 			}
@@ -53,8 +53,8 @@ func Output(w W, f func(bool)) Part {
 }
 
 var notGate = PartSpec{Name: "NOR", In: []string{pIn}, Out: []string{pOut},
-	Mount: func(_ *Circuit, pins Socket) []Component {
-		in, out := pins[pIn], pins[pOut]
+	Mount: func(s *Socket) []Component {
+		in, out := s.Pin(pIn), s.Pin(pOut)
 		return []Component{
 			func(c *Circuit) { c.Set(out, !c.Get(in)) },
 		}
@@ -72,8 +72,8 @@ func Not(w W) Part {
 // other gates
 type gate func(a, b bool) bool
 
-func (g gate) mount(_ *Circuit, pins Socket) []Component {
-	a, b, out := pins[pA], pins[pB], pins[pOut]
+func (g gate) mount(s *Socket) []Component {
+	a, b, out := s.Pin(pA), s.Pin(pB), s.Pin(pOut)
 	return []Component{
 		func(c *Circuit) { c.Set(out, g(c.Get(a), c.Get(b))) },
 	}
@@ -136,8 +136,8 @@ var mux = PartSpec{
 	Name: "MUX",
 	In:   []string{pA, pB, pSel},
 	Out:  []string{pOut},
-	Mount: func(_ *Circuit, pins Socket) []Component {
-		a, b, sel, out := pins[pA], pins[pB], pins[pSel], pins[pOut]
+	Mount: func(s *Socket) []Component {
+		a, b, sel, out := s.Pin(pA), s.Pin(pB), s.Pin(pSel), s.Pin(pOut)
 		return []Component{func(c *Circuit) {
 			if c.Get(sel) {
 				c.Set(out, c.Get(b))
@@ -160,8 +160,8 @@ var dmux = PartSpec{
 	Name: "DMUX",
 	In:   []string{pIn, pSel},
 	Out:  []string{pA, pB},
-	Mount: func(_ *Circuit, pins Socket) []Component {
-		in, sel, a, b := pins[pIn], pins[pSel], pins[pA], pins[pB]
+	Mount: func(s *Socket) []Component {
+		in, sel, a, b := s.Pin(pIn), s.Pin(pSel), s.Pin(pA), s.Pin(pB)
 		return []Component{func(c *Circuit) {
 			if c.Get(sel) {
 				c.Set(a, false)
@@ -180,9 +180,9 @@ func notN(n int) *PartSpec {
 		Name: "NOT" + strconv.Itoa(n),
 		In:   Bus(pIn, n),
 		Out:  Bus(pOut, n),
-		Mount: func(_ *Circuit, s Socket) []Component {
-			ins := s.GetBus(pIn)
-			outs := s.GetBus(pOut)
+		Mount: func(s *Socket) []Component {
+			ins := s.Bus(pIn)
+			outs := s.Bus(pOut)
 			return []Component{func(c *Circuit) {
 				for i, pin := range ins {
 					c.Set(outs[i], !c.Get(pin))
@@ -205,8 +205,8 @@ func inputN(bits int, f func() int64) *PartSpec {
 		Name: "INPUTBUS" + strconv.Itoa(bits),
 		In:   nil,
 		Out:  Bus(pOut, bits),
-		Mount: func(c *Circuit, s Socket) []Component {
-			pins := s.GetBus(pOut)
+		Mount: func(s *Socket) []Component {
+			pins := s.Bus(pOut)
 			return []Component{func(c *Circuit) {
 				in := f()
 				for bit := 0; bit < len(pins); bit++ {
@@ -228,8 +228,8 @@ func outputN(bits int, f func(int64)) *PartSpec {
 		Name: "OUTPUTBUS" + strconv.Itoa(bits),
 		In:   Bus(pIn, bits),
 		Out:  nil,
-		Mount: func(c *Circuit, s Socket) []Component {
-			pins := s.GetBus(pIn)
+		Mount: func(s *Socket) []Component {
+			pins := s.Bus(pIn)
 			return []Component{func(c *Circuit) {
 				var out int64
 				for i := 0; i < len(pins); i++ {

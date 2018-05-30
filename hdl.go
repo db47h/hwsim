@@ -84,10 +84,20 @@ func (w W) Wire(in, out []string) (W, error) {
 	return wires, nil
 }
 
-// BusPinName returns the pine name for the n-th bit of the named bus.
+// BusPinName returns the pin name for the n-th bit of the named bus.
 //
 func BusPinName(name string, bit int) string {
 	return name + "[" + strconv.Itoa(bit) + "]"
+}
+
+// Bus returns individual pin names for the specified bus name and size.
+//
+func Bus(name string, bits int) []string {
+	out := make([]string, 0, bits)
+	for i := 0; i < bits; i++ {
+		out = append(out, BusPinName(name, i))
+	}
+	return out
 }
 
 // ExpandBus returns a copy of the pin names with buses expanded as individual

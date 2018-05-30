@@ -176,14 +176,13 @@ var dmux = PartSpec{
 
 // nbits gates
 func notN(n int) *PartSpec {
-	sn := strconv.Itoa(n)
 	return &PartSpec{
-		Name: "NOT" + sn,
-		In:   ExpandBus("in[" + sn + "]"),
-		Out:  ExpandBus("out[" + sn + "]"),
-		Mount: func(_ *Circuit, pins Socket) []Component {
-			ins := pins.GetBus(pIn)
-			outs := pins.GetBus(pOut)
+		Name: "NOT" + strconv.Itoa(n),
+		In:   Bus(pIn, n),
+		Out:  Bus(pOut, n),
+		Mount: func(_ *Circuit, s Socket) []Component {
+			ins := s.GetBus(pIn)
+			outs := s.GetBus(pOut)
 			return []Component{func(c *Circuit) {
 				for i, pin := range ins {
 					c.Set(outs[i], !c.Get(pin))
@@ -200,3 +199,52 @@ var (
 // Not16 returns a 16 bits NOT gate.
 //
 func Not16(w W) Part { return not16.Wire(w) }
+
+func inputN(bits int, f func() int64) *PartSpec {
+	return &PartSpec{
+		Name: "INPUTBUS" + strconv.Itoa(bits),
+		In:   nil,
+		Out:  Bus(pOut, bits),
+		Mount: func(c *Circuit, s Socket) []Component {
+			pins := s.GetBus(pOut)
+			return []Component{func(c *Circuit) {
+				in := f()
+				for bit := 0; bit < len(pins); bit++ {
+					c.Set(pins[bit], in&(1<<uint(bit)) != 0)
+				}
+			}}
+		},
+	}
+}
+
+// Input16 creates a 16 bits input bus.
+//
+func Input16(w W, f func() int64) Part {
+	return inputN(16, f).Wire(w)
+}
+
+func outputN(bits int, f func(int64)) *PartSpec {
+	return &PartSpec{
+		Name: "OUTPUTBUS" + strconv.Itoa(bits),
+		In:   Bus(pIn, bits),
+		Out:  nil,
+		Mount: func(c *Circuit, s Socket) []Component {
+			pins := s.GetBus(pIn)
+			return []Component{func(c *Circuit) {
+				var out int64
+				for i := 0; i < len(pins); i++ {
+					if c.Get(pins[i]) {
+						out |= 1 << uint(i)
+					}
+				}
+				f(out)
+			}}
+		},
+	}
+}
+
+// Output16 creates a 16 bits output bus.
+//
+func Output16(w W, f func(int64)) Part {
+	return outputN(16, f).Wire(w)
+}

@@ -86,3 +86,29 @@ func Test_gate_builtin(t *testing.T) {
 		})
 	}
 }
+
+func TestInput16(t *testing.T) {
+	in := int64(0)
+	out := int64(0)
+	wIn := make(hdl.W)
+	wOut := make(hdl.W)
+	for i := 0; i < 16; i++ {
+		pname := hdl.BusPinName("t", i)
+		wIn[hdl.BusPinName("out", i)] = pname
+		wOut[hdl.BusPinName("in", i)] = pname
+	}
+	c, err := hdl.NewCircuit([]hdl.Part{
+		hdl.Input16(wIn, func() int64 { return in }),
+		hdl.Output16(wOut, func(n int64) { out = n }),
+	})
+	if err != nil {
+		panic(err)
+	}
+	in = 0x80a2
+	for i := 0; i < 2; i++ {
+		c.Update(workers)
+	}
+	if out != in {
+		t.Fatalf("Expected %x, got %x", in, out)
+	}
+}

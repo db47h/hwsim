@@ -52,14 +52,66 @@ type Component func(c *Circuit)
 //
 type W map[string]string
 
-// Copy returns a copy of w.
+// Copy returns a copy of w with bus ranges expanded.
 //
-func (w W) Copy() W {
+func (w W) Copy() (W, error) {
 	t := make(W, len(w))
 	for k, v := range w {
-		t[k] = v
+		ks, err := expandRange(k)
+		if err != nil {
+			return nil, err
+		}
+		vs, err := expandRange(v)
+		if err != nil {
+			return nil, err
+		}
+		switch {
+		case len(ks) == len(vs):
+			for i := range ks {
+				t[ks[i]] = vs[i]
+			}
+		case len(ks) == 1:
+			return nil, errors.New("one to many pin mapping not supported: " + k + ":" + v)
+		case len(vs) == 1:
+			for _, k := range ks {
+				t[k] = v
+			}
+		default:
+			return nil, errors.New("pin count mismatch in pin mapping: " + k + ":" + v)
+		}
 	}
-	return t
+	return t, nil
+}
+
+func expandRange(name string) ([]string, error) {
+	i := strings.IndexRune(name, '[')
+	if i < 0 {
+		return []string{name}, nil
+	}
+	bus := name[:i]
+	n := name[i+1:]
+	i = strings.Index(n, "..")
+	if i < 0 {
+		return []string{name}, nil
+	}
+	start, err := strconv.Atoi(n[:i])
+	if err != nil {
+		return nil, err
+	}
+	n = n[i+2:]
+	i = strings.IndexRune(n, ']')
+	if i < 0 {
+		return nil, errors.New("no terminamting ] in bus range")
+	}
+	end, err := strconv.Atoi(n[:i])
+	if err != nil {
+		return nil, err
+	}
+	r := make([]string, 0, end-start+1)
+	for i := start; i <= end; i++ {
+		r = append(r, BusPinName(bus, i))
+	}
+	return r, nil
 }
 
 // Wire returns a copy of w where keys for the in/out pins are guaranteed to be
@@ -69,7 +121,10 @@ func (w W) Copy() W {
 // This function should be called first in any function behaving like a NewPartFunc.
 //
 func (w W) Wire(in, out []string) (W, error) {
-	w = w.Copy()
+	w, err := w.Copy()
+	if err != nil {
+		return nil, err
+	}
 	wires := make(W, len(w))
 	for _, name := range in {
 		if outer, ok := w[name]; ok {

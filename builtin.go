@@ -11,11 +11,17 @@ const (
 	pOut = "out"
 )
 
+// make a bus name
+func bus(name string, bits int) string {
+	return BusPinName(name, bits)
+}
+
 // Input creates a function based input.
 //
-// Output pin name: out
+//	Outputs: out
+//	Function: out = f()
 //
-func Input(w W, f func() bool) Part {
+func Input(f func() bool) NewPartFunc {
 	p := &PartSpec{
 		Name: "Input",
 		In:   nil,
@@ -29,15 +35,16 @@ func Input(w W, f func() bool) Part {
 			}
 		},
 	}
-	return p.Wire(w)
+	return p.Wire
 }
 
 // Output creates an output or probe. The fn function is
 // called with the named pin state on every circuit update.
 //
-// Input pin name: in
+//	Inputs: in
+//	Function: f(in)
 //
-func Output(w W, f func(bool)) Part {
+func Output(f func(bool)) NewPartFunc {
 	p := &PartSpec{
 		Name: "Output",
 		In:   []string{pIn},
@@ -49,7 +56,7 @@ func Output(w W, f func(bool)) Part {
 			}
 		},
 	}
-	return p.Wire(w)
+	return p.Wire
 }
 
 var notGate = PartSpec{Name: "NOR", In: []string{pIn}, Out: []string{pOut},
@@ -178,8 +185,8 @@ var dmux = PartSpec{
 func notN(n int) *PartSpec {
 	return &PartSpec{
 		Name: "NOT" + strconv.Itoa(n),
-		In:   Bus(pIn, n),
-		Out:  Bus(pOut, n),
+		In:   ExpandBus(bus(pIn, n)),
+		Out:  ExpandBus(bus(pOut, n)),
 		Mount: func(s *Socket) []Component {
 			ins := s.Bus(pIn)
 			outs := s.Bus(pOut)
@@ -204,7 +211,7 @@ func inputN(bits int, f func() int64) *PartSpec {
 	return &PartSpec{
 		Name: "INPUTBUS" + strconv.Itoa(bits),
 		In:   nil,
-		Out:  Bus(pOut, bits),
+		Out:  ExpandBus(bus(pOut, bits)),
 		Mount: func(s *Socket) []Component {
 			pins := s.Bus(pOut)
 			return []Component{func(c *Circuit) {
@@ -219,14 +226,14 @@ func inputN(bits int, f func() int64) *PartSpec {
 
 // Input16 creates a 16 bits input bus.
 //
-func Input16(w W, f func() int64) Part {
-	return inputN(16, f).Wire(w)
+func Input16(f func() int64) NewPartFunc {
+	return inputN(16, f).Wire
 }
 
 func outputN(bits int, f func(int64)) *PartSpec {
 	return &PartSpec{
 		Name: "OUTPUTBUS" + strconv.Itoa(bits),
-		In:   Bus(pIn, bits),
+		In:   ExpandBus(bus(pIn, bits)),
 		Out:  nil,
 		Mount: func(s *Socket) []Component {
 			pins := s.Bus(pIn)
@@ -245,6 +252,67 @@ func outputN(bits int, f func(int64)) *PartSpec {
 
 // Output16 creates a 16 bits output bus.
 //
-func Output16(w W, f func(int64)) Part {
-	return outputN(16, f).Wire(w)
+func Output16(f func(int64)) NewPartFunc {
+	return outputN(16, f).Wire
 }
+
+type gateN func(bool, bool) bool
+
+func (g gateN) mount(s *Socket) []Component {
+	a, b, out := s.Bus(pA), s.Bus(pB), s.Bus(pOut)
+	return []Component{
+		func(c *Circuit) {
+			for i := range a {
+				c.Set(out[i], g(c.Get(a[i]), c.Get(b[i])))
+			}
+		},
+	}
+}
+
+func newGateN(name string, bits int, f func(bool, bool) bool) *PartSpec {
+	return &PartSpec{
+		Name:  name + strconv.Itoa(bits),
+		In:    ExpandBus(bus(pA, 16), bus(pB, 16)),
+		Out:   ExpandBus(bus(pOut, bits)),
+		Mount: gateN(f).mount,
+	}
+}
+
+var (
+	and16  = newGateN("AND", 16, func(a, b bool) bool { return a && b })
+	nand16 = newGateN("NAND", 16, func(a, b bool) bool { return !(a && b) })
+	or16   = newGateN("OR", 16, func(a, b bool) bool { return a || b })
+	nor16  = newGateN("NOR", 16, func(a, b bool) bool { return !(a || b) })
+)
+
+// And16 returns a 16 bits AND gate.
+//
+//	Inputs: a[16], b[16]
+//	Outputs: out[16]
+//	Function: for i := range out { out[i] = a[i] && b[i] }
+//
+func And16(w W) Part { return and16.Wire(w) }
+
+// Nand16 returns a 16 bits NAND gate.
+//
+//	Inputs: a[16], b[16]
+//	Outputs: out[16]
+//	Function: for i := range out { out[i] = !(a[i] && b[i]) }
+//
+func Nand16(w W) Part { return nand16.Wire(w) }
+
+// Or16 returns a 16 bits OR gate.
+//
+//	Inputs: a[16], b[16]
+//	Outputs: out[16]
+//	Function: for i := range out { out[i] = (a[i] || b[i]) }
+//
+func Or16(w W) Part { return or16.Wire(w) }
+
+// Nor16 returns a 16 bits NOR gate.
+//
+//	Inputs: a[16], b[16]
+//	Outputs: out[16]
+//	Function: for i := range out { out[i] = !(a[i] || b[i]) }
+//
+func Nor16(w W) Part { return nor16.Wire(w) }

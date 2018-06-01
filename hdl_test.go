@@ -137,7 +137,6 @@ func TestW_Wire(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 // Test a basic clock with a Nor gate.
@@ -166,9 +165,9 @@ func Test_clock(t *testing.T) {
 		t.Fatal(err)
 	}
 	c, err := hdl.NewCircuit([]hdl.Part{
-		hdl.Input(hdl.W{"out": "disable"}, func() bool { return disable }),
+		hdl.Input(func() bool { return disable })(hdl.W{"out": "disable"}),
 		clk(hdl.W{"disable": "disable", "tick": "out"}),
-		hdl.Output(hdl.W{"in": "out"}, func(out bool) { tick = out }),
+		hdl.Output(func(out bool) { tick = out })(hdl.W{"in": "out"}),
 	})
 	if err != nil {
 		t.Fatal(err)

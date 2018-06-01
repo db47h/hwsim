@@ -2,6 +2,7 @@ package hdl_test
 
 import (
 	"testing"
+	"testing/quick"
 
 	"github.com/db47h/hdl"
 )
@@ -16,12 +17,12 @@ func testGate(t *testing.T, name string, gate hdl.NewPartFunc, result [][]bool) 
 	for i, n := range part.Spec().In {
 		w[n] = n
 		in := &inputs[i]
-		parts = append(parts, hdl.Input(hdl.W{"out": n}, func() bool { return *in }))
+		parts = append(parts, hdl.Input(func() bool { return *in })(hdl.W{"out": n}))
 	}
 	for i, n := range part.Spec().Out {
 		w[n] = n
 		out := &outputs[i]
-		parts = append(parts, hdl.Output(hdl.W{"in": n}, func(v bool) { *out = v }))
+		parts = append(parts, hdl.Output(func(v bool) { *out = v })(hdl.W{"in": n}))
 	}
 	parts = append(parts, gate(w))
 	c, err := hdl.NewCircuit(parts)
@@ -91,8 +92,8 @@ func TestInput16(t *testing.T) {
 	in := int64(0)
 	out := int64(0)
 	c, err := hdl.NewCircuit([]hdl.Part{
-		hdl.Input16(hdl.W{"out[0..15]": "t[0..15]"}, func() int64 { return in }),
-		hdl.Output16(hdl.W{"in[0..15]": "t[0..15]"}, func(n int64) { out = n }),
+		hdl.Input16(func() int64 { return in })(hdl.W{"out[0..15]": "t[0..15]"}),
+		hdl.Output16(func(n int64) { out = n })(hdl.W{"in[0..15]": "t[0..15]"}),
 	})
 	if err != nil {
 		panic(err)
@@ -103,5 +104,55 @@ func TestInput16(t *testing.T) {
 	}
 	if out != in {
 		t.Fatalf("Expected %x, got %x", in, out)
+	}
+}
+
+func Test_gateN_builtin(t *testing.T) {
+	twoIn := hdl.W{"a[0..15]": "a[0..15]", "b[0..15]": "b[0..15]", "out[0..15]": "out[0..15]"}
+	td := []struct {
+		gate hdl.Part
+		ctrl func(a, b int16) int16
+	}{
+		{hdl.And16(twoIn), func(a, b int16) int16 { return a & b }},
+		{hdl.Nand16(twoIn), func(a, b int16) int16 { return ^(a & b) }},
+		{hdl.Or16(twoIn), func(a, b int16) int16 { return a | b }},
+		{hdl.Nor16(twoIn), func(a, b int16) int16 { return ^(a | b) }},
+		{hdl.Not16(hdl.W{"in[0..15]": "a[0..15]", "out[0..15]": "out[0..15]"}), func(a, b int16) int16 { return ^a }},
+	}
+
+	_ = td
+
+	for _, d := range td {
+		t.Run(d.gate.Spec().Name, func(t *testing.T) {
+			var a, b int16
+			var out int16
+
+			chip, err := hdl.Chip(d.gate.Spec().Name+"wrapper", []string{"a[16]", "b[16]"}, []string{"out[16]"}, []hdl.Part{
+				d.gate,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			c, err := hdl.NewCircuit([]hdl.Part{
+				hdl.Input16(func() int64 { return int64(a) })(hdl.W{"out[0..15]": "a[0..15]"}),
+				hdl.Input16(func() int64 { return int64(b) })(hdl.W{"out[0..15]": "b[0..15]"}),
+				chip(twoIn),
+				hdl.Output16(func(v int64) { out = int16(v) })(hdl.W{"in[0..15]": "out[0..15]"}),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			f := func(x, y int16) bool {
+				a, b = x, y
+				for i := 0; i < 3; i++ {
+					c.Update(workers)
+				}
+				return out == d.ctrl(x, y)
+			}
+			if err = quick.Check(f, nil); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

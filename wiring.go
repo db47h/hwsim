@@ -1,7 +1,6 @@
 package hdl
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -79,18 +78,11 @@ func expandRange(name string) ([]string, error) {
 
 // a pin is identified by the part it belongs to and its name in that part's interface
 type pin struct {
-	p    Part
+	p    int
 	name string
 }
 
-func (p *pin) String() string {
-	if p.p == nil {
-		return p.name
-	}
-	return fmt.Sprintf("%s.%s", p.p.Spec().Name, p.name)
-}
-
-func (p *pin) eq(prt Part, n string) bool {
+func (p *pin) eq(prt int, n string) bool {
 	return p.p == prt && p.name == n
 }
 
@@ -106,39 +98,6 @@ type node struct {
 	outs []*node
 	org  *node // pin feeding that node
 	typ  int
-}
-
-func (n *node) String() string {
-	var outs strings.Builder
-
-	if n.name != "" {
-		outs.WriteString(n.name)
-		outs.WriteString(": ")
-	}
-
-	outs.WriteString(n.pin.String())
-	if n.isInput() {
-		outs.WriteString(" (IN)")
-	} else if n.isOutput() {
-		outs.WriteString(" (OUT)")
-	}
-	outs.WriteString("->")
-
-	outs.WriteByte('[')
-	for i, on := range n.outs {
-		if i > 0 {
-			outs.WriteString(", ")
-		}
-		outs.WriteString(on.pin.String())
-	}
-	outs.WriteByte(']')
-
-	if n.org != nil {
-		outs.WriteString(" (org ")
-		outs.WriteString(n.org.pin.String())
-		outs.WriteByte(')')
-	}
-	return outs.String()
 }
 
 func (n *node) isInput() bool {
@@ -160,39 +119,38 @@ type wiring map[pin]*node
 func newWiring(ins, outs []string) (wr wiring, inputRoot *node) {
 	wr = make(wiring, len(ins)+len(outs)+1)
 	// inputRoot serves as a parent marker for chip inputs.
-	inputRoot = &node{pin: pin{nil, "__INPUT__"}, outs: make([]*node, 0, len(ins)), typ: typeInput}
+	inputRoot = &node{pin: pin{-1, "__INPUT__"}, outs: make([]*node, len(ins)), typ: typeInput}
 
-	for _, in := range ins {
-		p := pin{nil, in}
+	// add true and false as chip inputs
+	p := pin{-1, True}
+	wr[p] = &node{pin: p, org: inputRoot, typ: typeUnknown}
+	p = pin{-1, False}
+	wr[p] = &node{pin: p, org: inputRoot, typ: typeUnknown}
+
+	for i, in := range ins {
+		p := pin{-1, in}
 		n := &node{pin: p, org: inputRoot, typ: typeUnknown}
 		wr[p] = n
-		inputRoot.outs = append(inputRoot.outs, n)
+		inputRoot.outs[i] = n
 	}
-	// add true and false as chip inputs
-	p := pin{nil, True}
-	wr[p] = &node{pin: p, org: inputRoot, typ: typeUnknown}
-	p = pin{nil, False}
-	wr[p] = &node{pin: p, org: inputRoot, typ: typeUnknown}
 
 	for _, out := range outs {
-		p := pin{nil, out}
+		p := pin{-1, out}
 		n := &node{pin: p, org: nil, typ: typeOutput}
 		wr[p] = n
 	}
 	return wr, inputRoot
 }
 
-func (wr wiring) add(ip Part, iname string, iType int, op Part, oname string, oType int) error {
-	in := pin{ip, iname}
-	if op == nil {
-		switch oname {
+func (wr wiring) add(in pin, iType int, out pin, oType int) error {
+	if out.p < 0 {
+		switch out.name {
 		case False:
 			return nil
 		case True:
-			return errors.New("output pin " + in.String() + " connected to constant \"true\" input")
+			return errors.New("output pin connected to constant \"true\" input")
 		}
 	}
-	out := pin{op, oname}
 	wi := wr[in]
 	if wi == nil {
 		wi = &node{pin: in, typ: iType}
@@ -206,80 +164,8 @@ func (wr wiring) add(ip Part, iname string, iType int, op Part, oname string, oT
 	case wo.org == nil:
 		wo.org = wi
 	default:
-		return errors.New("pin " + in.String() + ":" + out.String() + ": output pin already used by " + wo.org.pin.String() + ":" + wo.pin.String())
+		return errors.New("output pin already used as output or is one of the chip's input pin")
 	}
 	wi.outs = append(wi.outs, wo)
-	return nil
-}
-
-// check wiring:
-func (wr wiring) check(root *node) error {
-	again := true
-	for again {
-		again = false
-		for _, n := range wr {
-			if n.isInput() {
-				continue
-			} else {
-				// remove intermediary pins
-				for i := 0; i < len(n.outs); {
-					next := n.outs[i]
-					if next.isInput() || len(next.outs) == 0 {
-						i++
-						continue
-					}
-					again = true
-					for _, o := range next.outs {
-						o.org = n
-					}
-					n.outs = append(n.outs, next.outs...)
-					next.outs = nil
-					// remove orphaned internal chip pins that are not outputs
-					if next.pin.p == nil && !next.isOutput() {
-						// delete next
-						n.outs[i] = n.outs[len(n.outs)-1]
-						n.outs = n.outs[:len(n.outs)-1]
-						delete(wr, next.pin)
-					}
-				}
-			}
-		}
-	}
-
-	// try to set-up pin mappings for sub-parts.
-	// mount needs to know quickly the pin number given a part's pin.
-	// we need to assign each element of ws an internal pin name:
-	//	- an input name
-	//	- an output name
-	//	- a temp name
-	//	and propagate to others.
-
-	i := 0
-	for _, n := range wr {
-		if len(n.outs) == 0 {
-			if n.org == nil || n.org == root {
-				// probably an ignored output
-				delete(wr, n.pin)
-				continue
-			}
-			if n.pin.p == nil && !n.isOutput() {
-				return errors.New("pin " + n.pin.String() + " not connected to any input")
-			}
-		} else if n.org == nil && !n.isOutput() {
-			return errors.New("pin " + n.pin.String() + " not connected to any output")
-		}
-
-		if n.name == "" {
-			t := n
-			for prev := t.org; prev != nil && prev != root; t, prev = prev, t.org {
-			}
-			if t.org == nil {
-				t.setName("__internal__" + strconv.Itoa(i))
-			} else {
-				t.setName(t.pin.name)
-			}
-			i++
-		}
-	}
 	return nil
 }

@@ -1,28 +1,30 @@
 package hdl
 
 import (
+	"strconv"
+
 	"github.com/pkg/errors"
 )
 
 type chip struct {
 	PartSpec
-	parts []Part
-	w     wiring
+	specs
+	w map[pin]string
 }
 
 func (c *chip) mount(s *Socket) []Component {
 	var updaters []Component
 
-	for _, p := range c.parts {
+	for i, p := range c.specs {
 		// make a sub-socket
 		sub := newSocket(s.c)
-		for k, subK := range p.Spec().Pinout {
+		for k, subK := range p.Pinout {
 			// subK is the pin name in the part's namespace
-			if n := c.w[pin{p, k}]; n != nil {
-				sub.m[subK] = s.PinOrNew(n.name)
+			if n := c.w[pin{i, k}]; n != "" {
+				sub.m[subK] = s.PinOrNew(n)
 			}
 		}
-		updaters = append(updaters, p.Spec().Mount(sub)...)
+		updaters = append(updaters, p.Mount(sub)...)
 	}
 	return updaters
 }
@@ -60,42 +62,47 @@ func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPart
 
 	// build wiring
 	wr, root := newWiring(inputs, outputs)
+	specs := make(specs, len(parts))
 
-	for _, p := range parts {
+	for pnum, p := range parts {
 		sp := p.Spec()
+		specs[pnum] = sp
 		ex := p.wires()
 		for _, k := range sp.In {
 			if vs, ok := ex[k]; ok {
 				if len(vs) > 1 {
 					return nil, errors.New(sp.Name + " input pin " + k + ": invalid pin mapping")
 				}
-				if err := wr.add(nil, vs[0], typeUnknown, p, k, typeInput); err != nil {
-					return nil, err
+				i, o := pin{-1, vs[0]}, pin{pnum, k}
+				if err := wr.add(i, typeUnknown, o, typeInput); err != nil {
+					return nil, errors.Wrap(err, specs.pinName(i)+":"+specs.pinName(o))
 				}
 			}
 		}
 		for _, k := range sp.Out {
 			for _, v := range ex[k] {
-				if err := wr.add(p, k, typeOutput, nil, v, typeUnknown); err != nil {
-					return nil, err
+				i, o := pin{pnum, k}, pin{-1, v}
+				if err := wr.add(i, typeOutput, o, typeUnknown); err != nil {
+					return nil, errors.Wrap(err, specs.pinName(i)+":"+specs.pinName(o))
 				}
 			}
 		}
 	}
 
-	if err := wr.check(root); err != nil {
+	pins, err := checkWiring(wr, root, specs)
+	if err != nil {
 		return nil, err
 	}
 
 	pinout := make(W)
 	for _, i := range inputs {
-		if n := wr[pin{nil, i}]; n != nil {
-			pinout[i] = n.name
+		if n := pins[pin{-1, i}]; n != "" {
+			pinout[i] = n
 		}
 	}
 	for _, o := range outputs {
-		if n := wr[pin{nil, o}]; n != nil {
-			pinout[o] = n.name
+		if n := pins[pin{-1, o}]; n != "" {
+			pinout[o] = n
 		}
 	}
 
@@ -106,9 +113,91 @@ func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPart
 			Out:    outputs,
 			Pinout: pinout,
 		},
-		parts,
-		wr,
+		specs,
+		pins,
 	}
 	c.PartSpec.Mount = c.mount
-	return c.Wire, nil
+	return c.PartSpec.Wire, nil
+}
+
+type specs []*PartSpec
+
+func (sp specs) pinName(p pin) string {
+	if p.p < 0 {
+		return p.name
+	}
+	return sp[p.p].Name + "." + p.name
+}
+
+func checkWiring(wr wiring, root *node, specs specs) (map[pin]string, error) {
+	pins := make(map[pin]string, len(wr))
+	again := true
+	for again {
+		again = false
+		for _, n := range wr {
+			if n.isInput() {
+				continue
+			} else {
+				// remove intermediary pins
+				for i := 0; i < len(n.outs); {
+					next := n.outs[i]
+					if next.isInput() || len(next.outs) == 0 {
+						i++
+						continue
+					}
+					again = true
+					for _, o := range next.outs {
+						o.org = n
+					}
+					n.outs = append(n.outs, next.outs...)
+					next.outs = nil
+					// remove orphaned internal chip pins that are not outputs
+					if next.pin.p < 0 && !next.isOutput() {
+						// delete next
+						n.outs[i] = n.outs[len(n.outs)-1]
+						n.outs = n.outs[:len(n.outs)-1]
+						delete(wr, next.pin)
+					}
+				}
+			}
+		}
+	}
+
+	// try to set-up pin mappings for sub-parts.
+	// mount needs to know quickly the pin number given a part's pin.
+	// we need to assign each element of ws an internal pin name:
+	//	- an input name
+	//	- an output name
+	//	- a temp name
+	//	and propagate to others.
+
+	i := 0
+	for _, n := range wr {
+		if len(n.outs) == 0 {
+			if n.org == nil || n.org == root {
+				// probably an ignored output
+				delete(wr, n.pin)
+				continue
+			}
+			if n.pin.p < 0 && !n.isOutput() {
+				return nil, errors.New("pin " + specs.pinName(n.pin) + " not connected to any input")
+			}
+		} else if n.org == nil && !n.isOutput() {
+			return nil, errors.New("pin " + specs.pinName(n.pin) + " not connected to any output")
+		}
+
+		if n.name == "" {
+			t := n
+			for prev := t.org; prev != nil && prev != root; t, prev = prev, t.org {
+			}
+			if t.org == nil {
+				t.setName("__internal__" + strconv.Itoa(i))
+			} else {
+				t.setName(t.pin.name)
+			}
+			i++
+		}
+		pins[n.pin] = n.name
+	}
+	return pins, nil
 }

@@ -221,11 +221,11 @@ func Test_chip_errors(t *testing.T) {
 		{"true_out", []string{"a", "b"}, []string{"out"}, []hdl.Part{
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": hdl.True}),
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "out"}),
-		}, "output pin NAND.out connected to constant \"true\" input"},
+		}, "NAND.out:true: output pin connected to constant \"true\" input"},
 		{"multi_out", []string{"a", "b"}, []string{"out"}, []hdl.Part{
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "a"}),
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "out"}),
-		}, "pin NAND.out:a: output pin already used by __INPUT__:a"},
+		}, "NAND.out:a: output pin already used as output or is one of the chip's input pin"},
 		{"no_output", []string{"a", "b"}, []string{"out"}, []hdl.Part{
 			hdl.Nand(hdl.W{"a": "a", "b": "wx", "out": "out"}),
 		}, "pin wx not connected to any output"},

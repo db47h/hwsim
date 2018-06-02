@@ -8,33 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// TODO:
-//
-//	- handle buses. Chip i/o pin spec should accept thins like a[8] (i.e. an 8 pin bus), while wiring specs
-//	  should accept things like: W{"my4biBus": "input[0..3]"}
-//	- check how map[x]y arguments are re-used/saved by the callees.
-//	- Add more built-in things.
-
-// CHIP Xor {
-// 	IN a, b;
-// 	OUT out;
-// 	PARTS:
-// 	Not(in=a, out=nota);
-// 	Not(in=b, out=notb);
-// 	And(a=a, b=notb, out=w1);
-// 	And(a=nota, b=b, out=w2);
-// 	Or(a=w1, b=w2, out=out);
-// }
-
-// CHIP Mux16 {
-// 	IN a[16], a[16], sel;
-// 	OUT out[16];
-// 	BUILTIN Mux; // Reference to builtIn/Mux.class, that
-// 	// implements both the Mux.hdl and the
-// 	// Mux16.hdl built-in chips.
-// }
-
-// An Component is component in a circuit that can Get and Set states.
+// A Component is a component in a circuit that can Get and Set states.
 //
 type Component func(c *Circuit)
 
@@ -73,7 +47,7 @@ func ExpandBus(pins ...string) []string {
 }
 
 // A MountFn mounts a part into the given socket.
-// In effect, it creates a new instance of a part as an Updater slice.
+// In effect, it creates a new instance of a part as []Component slice.
 //
 type MountFn func(s *Socket) []Component
 
@@ -93,7 +67,7 @@ type PartSpec struct {
 // Wire is a NewPartFunc that returns a wired part based on the given spec and wiring.
 //
 func (p *PartSpec) Wire(w W) Part {
-	ex, err := w.expand(p.In, p.Out)
+	ex, err := w.expand()
 	if err != nil {
 		panic(err)
 	}

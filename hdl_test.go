@@ -99,46 +99,6 @@ func Test_gate_custom(t *testing.T) {
 	}
 }
 
-// func TestW_Wire(t *testing.T) {
-// 	cmp := func(w1, w2 hdl.W) bool {
-// 		if len(w1) != len(w2) {
-// 			return false
-// 		}
-// 		for k, v := range w1 {
-// 			if t, ok := w2[k]; !ok || t != v {
-// 				return false
-// 			}
-// 		}
-// 		return true
-// 	}
-// 	data := []struct {
-// 		name string
-// 		w    hdl.W
-// 		in   []string
-// 		out  []string
-// 		ret  hdl.W
-// 		err  string
-// 	}{
-// 		{"AllWired", hdl.W{"a": "x", "b": "y", "out": "z"}, []string{"a", "b"}, []string{"out"}, hdl.W{"a": "x", "b": "y", "out": "z"}, ""},
-// 		{"UnwiredB", hdl.W{"a": "x", "out": "z"}, []string{"a", "b"}, []string{"out"}, hdl.W{"a": "x", "b": hdl.False, "out": "z"}, ""},
-// 		{"ExtraPin", hdl.W{"a": "x", "b": "y", "out": "z"}, []string{"a", "b"}, nil, nil, "unknown pin \"out\""},
-// 		{"nil", nil, []string{"in"}, nil, hdl.W{"in": hdl.False}, ""},
-// 		{"nilnil", nil, nil, nil, nil, ""},
-// 	}
-// 	for _, d := range data {
-// 		t.Run(d.name, func(t *testing.T) {
-// 			n, err := d.w.Wire(d.in, d.out)
-// 			if err == nil && d.err != "" || err != nil && err.Error() != d.err {
-// 				t.Errorf("Got error %q, expected %q", err, d.err)
-// 				return
-// 			}
-// 			if !cmp(n, d.ret) {
-// 				t.Errorf("Got %v, expected %v", n, d.ret)
-// 			}
-// 		})
-// 	}
-// }
-
 // Test a basic clock with a Nor gate.
 //
 // The purpose of this test is to catch changes in propagation delays
@@ -211,6 +171,13 @@ func Test_clock(t *testing.T) {
 }
 
 func Test_chip_errors(t *testing.T) {
+	unkChip, err := hdl.Chip("TESTCHIP", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+		// chip input a is unused
+		hdl.Nand(hdl.W{"a": "b", "b": "b", "out": "out"}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	data := []struct {
 		name  string
 		in    []string
@@ -234,6 +201,15 @@ func Test_chip_errors(t *testing.T) {
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "out"}),
 		}, "pin foo not connected to any input"},
 		{"unconnected_in", []string{"a", "b"}, []string{"out"}, []hdl.Part{}, ""},
+		{"unknown_pin", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+			hdl.Nand(hdl.W{"a": "a", "typo": "b", "out": "out"}),
+		}, "invalid pin name typo for part NAND"},
+		{"unknown_pin", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+			unkChip(hdl.W{"a": "a", "typo": "b", "out": "out"}),
+		}, "invalid pin name typo for part TESTCHIP"},
+		{"unknown_pin", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+			unkChip(hdl.W{"a": "a", "b": "b", "out": "out"}),
+		}, ""},
 	}
 	for _, d := range data {
 		t.Run(d.name, func(t *testing.T) {

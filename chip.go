@@ -19,6 +19,9 @@ func (c *chip) mount(s *Socket) []Component {
 		// make a sub-socket
 		sub := newSocket(s.c)
 		for k, subK := range p.Pinout {
+			if subK == "" {
+				continue
+			}
 			// subK is the pin name in the part's namespace
 			if n := c.w[pin{i, k}]; n != "" {
 				sub.m[subK] = s.PinOrNew(n)
@@ -62,12 +65,18 @@ func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPart
 
 	// build wiring
 	wr, root := newWiring(inputs, outputs)
-	specs := make(specs, len(parts))
+	spcs := make(specs, len(parts))
 
 	for pnum, p := range parts {
 		sp := p.Spec()
-		specs[pnum] = sp
+		spcs[pnum] = sp
 		ex := p.wires()
+		// check wiring
+		for k := range ex {
+			if _, ok := sp.Pinout[k]; !ok {
+				return nil, errors.New("invalid pin name " + k + " for part " + sp.Name)
+			}
+		}
 		for _, k := range sp.In {
 			if vs, ok := ex[k]; ok {
 				if len(vs) > 1 {
@@ -75,7 +84,7 @@ func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPart
 				}
 				i, o := pin{-1, vs[0]}, pin{pnum, k}
 				if err := wr.add(i, typeUnknown, o, typeInput); err != nil {
-					return nil, errors.Wrap(err, specs.pinName(i)+":"+specs.pinName(o))
+					return nil, errors.Wrap(err, spcs.pinName(i)+":"+spcs.pinName(o))
 				}
 			}
 		}
@@ -83,27 +92,25 @@ func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPart
 			for _, v := range ex[k] {
 				i, o := pin{pnum, k}, pin{-1, v}
 				if err := wr.add(i, typeOutput, o, typeUnknown); err != nil {
-					return nil, errors.Wrap(err, specs.pinName(i)+":"+specs.pinName(o))
+					return nil, errors.Wrap(err, spcs.pinName(i)+":"+spcs.pinName(o))
 				}
 			}
 		}
 	}
 
-	pins, err := checkWiring(wr, root, specs)
+	pins, err := checkWiring(wr, root, spcs)
 	if err != nil {
 		return nil, err
 	}
 
 	pinout := make(W)
+	// map all input and output pins, even if not used.
+	// mount will ignore pins with an empty value.
 	for _, i := range inputs {
-		if n := pins[pin{-1, i}]; n != "" {
-			pinout[i] = n
-		}
+		pinout[i] = pins[pin{-1, i}]
 	}
 	for _, o := range outputs {
-		if n := pins[pin{-1, o}]; n != "" {
-			pinout[o] = n
-		}
+		pinout[o] = pins[pin{-1, o}]
 	}
 
 	c := &chip{
@@ -113,7 +120,7 @@ func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPart
 			Out:    outputs,
 			Pinout: pinout,
 		},
-		specs,
+		spcs,
 		pins,
 	}
 	c.PartSpec.Mount = c.mount
@@ -191,7 +198,7 @@ func checkWiring(wr wiring, root *node, specs specs) (map[pin]string, error) {
 			for prev := t.org; prev != nil && prev != root; t, prev = prev, t.org {
 			}
 			if t.org == nil {
-				t.setName("__internal__" + strconv.Itoa(i))
+				t.setName("__" + strconv.Itoa(i))
 			} else {
 				t.setName(t.pin.name)
 			}

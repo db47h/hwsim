@@ -13,9 +13,12 @@ type W map[string]string
 
 // wire builds a wire map by expanding bus ranges.
 //
-func (w W) expand(in, out []string) (map[string][]string, error) {
+func (w W) expand() (map[string][]string, error) {
 	r := make(map[string][]string)
 	for k, v := range w {
+		if k == "" || v == "" {
+			return nil, errors.New("invalid pin mapping " + k + ":" + v)
+		}
 		ks, err := expandRange(k)
 		if err != nil {
 			return nil, errors.Wrap(err, "expand key "+k)
@@ -51,6 +54,9 @@ func expandRange(name string) ([]string, error) {
 		return []string{name}, nil
 	}
 	bus := name[:i]
+	if bus == "" {
+		return nil, errors.New("empty bus name")
+	}
 	n := name[i+1:]
 	i = strings.Index(n, "..")
 	if i < 0 {
@@ -80,10 +86,6 @@ func expandRange(name string) ([]string, error) {
 type pin struct {
 	p    int
 	name string
-}
-
-func (p *pin) eq(prt int, n string) bool {
-	return p.p == prt && p.name == n
 }
 
 const (

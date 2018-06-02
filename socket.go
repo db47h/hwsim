@@ -23,22 +23,10 @@ type Socket struct {
 
 func newSocket(c *Circuit) *Socket {
 	return &Socket{
-		m: map[string]int{False: cstFalse, True: cstTrue},
+		m: make(map[string]int),
 		c: c,
 	}
 }
-
-// // Mount mounts the given sub-part and allocates new internal pins as necessary
-// // (according to pin mappings in p.Wires()).
-// //
-// func (s *Socket) Mount(p Part) []Component {
-// 	// sub-socket for p
-// 	sub := newSocket(s.c)
-// 	for k, v := range p.Wires() {
-// 		sub.m[k] = s.PinOrNew(v)
-// 	}
-// 	return p.Spec().Mount(sub)
-// }
 
 // Pin returns the pin number allocated to the given pin name.
 // This function returns the "False" pin if the requested name was not found.
@@ -53,7 +41,14 @@ func (s *Socket) Pin(name string) int {
 func (s *Socket) PinOrNew(name string) int {
 	n, ok := s.m[name]
 	if !ok {
-		n = s.c.allocPin()
+		switch name {
+		case False:
+			n = cstFalse
+		case True:
+			n = cstTrue
+		default:
+			n = s.c.allocPin()
+		}
 		s.m[name] = n
 	}
 	return n

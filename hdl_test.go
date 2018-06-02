@@ -7,7 +7,7 @@ import (
 	"github.com/db47h/hdl"
 )
 
-var workers = runtime.NumCPU() // this is naive but should be good enough for testing.
+var workers = runtime.NumCPU()
 
 func Test_gate_custom(t *testing.T) {
 	and, err := hdl.Chip("AND", []string{"a", "b"}, []string{"out"},
@@ -99,45 +99,45 @@ func Test_gate_custom(t *testing.T) {
 	}
 }
 
-func TestW_Wire(t *testing.T) {
-	cmp := func(w1, w2 hdl.W) bool {
-		if len(w1) != len(w2) {
-			return false
-		}
-		for k, v := range w1 {
-			if t, ok := w2[k]; !ok || t != v {
-				return false
-			}
-		}
-		return true
-	}
-	data := []struct {
-		name string
-		w    hdl.W
-		in   []string
-		out  []string
-		ret  hdl.W
-		err  string
-	}{
-		{"AllWired", hdl.W{"a": "x", "b": "y", "out": "z"}, []string{"a", "b"}, []string{"out"}, hdl.W{"a": "x", "b": "y", "out": "z"}, ""},
-		{"UnwiredB", hdl.W{"a": "x", "out": "z"}, []string{"a", "b"}, []string{"out"}, hdl.W{"a": "x", "b": hdl.False, "out": "z"}, ""},
-		{"ExtraPin", hdl.W{"a": "x", "b": "y", "out": "z"}, []string{"a", "b"}, nil, nil, "unknown pin \"out\""},
-		{"nil", nil, []string{"in"}, nil, hdl.W{"in": hdl.False}, ""},
-		{"nilnil", nil, nil, nil, nil, ""},
-	}
-	for _, d := range data {
-		t.Run(d.name, func(t *testing.T) {
-			n, err := d.w.Wire(d.in, d.out)
-			if err == nil && d.err != "" || err != nil && err.Error() != d.err {
-				t.Errorf("Got error %q, expected %q", err, d.err)
-				return
-			}
-			if !cmp(n, d.ret) {
-				t.Errorf("Got %v, expected %v", n, d.ret)
-			}
-		})
-	}
-}
+// func TestW_Wire(t *testing.T) {
+// 	cmp := func(w1, w2 hdl.W) bool {
+// 		if len(w1) != len(w2) {
+// 			return false
+// 		}
+// 		for k, v := range w1 {
+// 			if t, ok := w2[k]; !ok || t != v {
+// 				return false
+// 			}
+// 		}
+// 		return true
+// 	}
+// 	data := []struct {
+// 		name string
+// 		w    hdl.W
+// 		in   []string
+// 		out  []string
+// 		ret  hdl.W
+// 		err  string
+// 	}{
+// 		{"AllWired", hdl.W{"a": "x", "b": "y", "out": "z"}, []string{"a", "b"}, []string{"out"}, hdl.W{"a": "x", "b": "y", "out": "z"}, ""},
+// 		{"UnwiredB", hdl.W{"a": "x", "out": "z"}, []string{"a", "b"}, []string{"out"}, hdl.W{"a": "x", "b": hdl.False, "out": "z"}, ""},
+// 		{"ExtraPin", hdl.W{"a": "x", "b": "y", "out": "z"}, []string{"a", "b"}, nil, nil, "unknown pin \"out\""},
+// 		{"nil", nil, []string{"in"}, nil, hdl.W{"in": hdl.False}, ""},
+// 		{"nilnil", nil, nil, nil, nil, ""},
+// 	}
+// 	for _, d := range data {
+// 		t.Run(d.name, func(t *testing.T) {
+// 			n, err := d.w.Wire(d.in, d.out)
+// 			if err == nil && d.err != "" || err != nil && err.Error() != d.err {
+// 				t.Errorf("Got error %q, expected %q", err, d.err)
+// 				return
+// 			}
+// 			if !cmp(n, d.ret) {
+// 				t.Errorf("Got %v, expected %v", n, d.ret)
+// 			}
+// 		})
+// 	}
+// }
 
 // Test a basic clock with a Nor gate.
 //
@@ -221,14 +221,14 @@ func Test_chip_errors(t *testing.T) {
 		{"true_out", []string{"a", "b"}, []string{"out"}, []hdl.Part{
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": hdl.True}),
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "out"}),
-		}, "NAND pin out connected to constant True input"},
+		}, "output pin NAND.out connected to constant \"true\" input"},
 		{"multi_out", []string{"a", "b"}, []string{"out"}, []hdl.Part{
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "a"}),
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "out"}),
-		}, "NAND pin out:a: pin already used as output by another part or is an input pin of the chip"},
+		}, "pin NAND.out:a: output pin already used by __INPUT__:a"},
 		{"no_output", []string{"a", "b"}, []string{"out"}, []hdl.Part{
 			hdl.Nand(hdl.W{"a": "a", "b": "wx", "out": "out"}),
-		}, "NAND pin b:wx not connected to any output"},
+		}, "pin wx not connected to any output"},
 		{"no_input", []string{"a", "b"}, []string{"out"}, []hdl.Part{
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "foo"}),
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "out"}),

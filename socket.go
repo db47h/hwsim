@@ -28,27 +28,23 @@ func newSocket(c *Circuit) *Socket {
 	}
 }
 
-// Mount mounts the given sub-part and allocates new internal pins as necessary
-// (according to pin mappings in p.Wires()).
-//
-func (s *Socket) Mount(p Part) []Component {
-	// sub-socket for p
-	sub := newSocket(s.c)
-	for k, v := range p.Wires() {
-		sub.m[k] = s.PinOrNew(v)
-	}
-	return p.Spec().Mount(sub)
-}
+// // Mount mounts the given sub-part and allocates new internal pins as necessary
+// // (according to pin mappings in p.Wires()).
+// //
+// func (s *Socket) Mount(p Part) []Component {
+// 	// sub-socket for p
+// 	sub := newSocket(s.c)
+// 	for k, v := range p.Wires() {
+// 		sub.m[k] = s.PinOrNew(v)
+// 	}
+// 	return p.Spec().Mount(sub)
+// }
 
 // Pin returns the pin number allocated to the given pin name.
-// This function panics if the pin does not exist.
+// This function returns the "False" pin if the requested name was not found.
 //
 func (s *Socket) Pin(name string) int {
-	n, ok := s.m[name]
-	if !ok {
-		panic("pin " + name + " does not exist")
-	}
-	return n
+	return s.m[name]
 }
 
 // PinOrNew returns the pin number allocated to the given pin name.
@@ -65,19 +61,10 @@ func (s *Socket) PinOrNew(name string) int {
 
 // Bus returns the pin numbers allocated to the given bus name.
 //
-func (s *Socket) Bus(name string) []int {
-	out := make([]int, 0)
-	i := 0
-	for {
-		n, ok := s.m[BusPinName(name, i)]
-		if !ok {
-			break
-		}
-		out = append(out, n)
-		i++
-	}
-	if len(out) == 0 {
-		panic("bus " + name + " does not exist")
+func (s *Socket) Bus(name string, size int) []int {
+	out := make([]int, size)
+	for i := range out {
+		out[i] = s.m[BusPinName(name, i)]
 	}
 	return out
 }

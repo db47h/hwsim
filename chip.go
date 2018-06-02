@@ -1,17 +1,28 @@
 package hdl
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+)
 
 type chip struct {
 	PartSpec
 	parts []Part
+	w     wiring
 }
 
 func (c *chip) mount(s *Socket) []Component {
 	var updaters []Component
-	// mount contained parts
+
 	for _, p := range c.parts {
-		updaters = append(updaters, s.Mount(p)...)
+		// make a sub-socket
+		sub := newSocket(s.c)
+		for k, subK := range p.Spec().Pinout {
+			// subK is the pin name in the part's namespace
+			if n := c.w[pin{p, k}]; n != nil {
+				sub.m[subK] = s.PinOrNew(n.name)
+			}
+		}
+		updaters = append(updaters, p.Spec().Mount(sub)...)
 	}
 	return updaters
 }
@@ -46,72 +57,58 @@ func (c *chip) mount(s *Socket) []Component {
 func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPartFunc, error) {
 	inputs = ExpandBus(inputs...)
 	outputs = ExpandBus(outputs...)
-	// check that no outputs are connected together.
-	// outs is a map of chip name to # of inputs ising it
-	outs := make(map[string]int)
-	// add our inputs as outputs within the chip
-	for _, i := range inputs {
-		// set to one because when the returned NewPartFn will be called,
-		// unconnected I/O wires will be automatically connected to False
-		outs[i] = 1
-	}
-	// for each part, add its outputs
+
+	// build wiring
+	wr, root := newWiring(inputs, outputs)
+
 	for _, p := range parts {
-		w := p.Wires()
 		sp := p.Spec()
-		for _, o := range sp.Out {
-			n := w[o]
-			if n == False {
-				// nil or unconnected output, ignore.
-				continue
+		ex := p.wires()
+		for _, k := range sp.In {
+			if vs, ok := ex[k]; ok {
+				if len(vs) > 1 {
+					return nil, errors.New(sp.Name + " input pin " + k + ": invalid pin mapping")
+				}
+				if err := wr.add(nil, vs[0], typeUnknown, p, k, typeInput); err != nil {
+					return nil, err
+				}
 			}
-			if n == True {
-				return nil, errors.New(sp.Name + " pin " + o + " connected to constant True input")
+		}
+		for _, k := range sp.Out {
+			for _, v := range ex[k] {
+				if err := wr.add(p, k, typeOutput, nil, v, typeUnknown); err != nil {
+					return nil, err
+				}
 			}
-			if _, ok := outs[n]; ok {
-				return nil, errors.New(sp.Name + " pin " + o + ":" + n + ": pin already used as output by another part or is an input pin of the chip")
-			}
-			outs[n] = 0
 		}
 	}
 
-	// Check that each output is used as an input somewhere.
-	// Start by assuming that the chip's outputs are connected.
-	for _, o := range outputs {
-		outs[o] = 1
+	if err := wr.check(root); err != nil {
+		return nil, err
 	}
-	// add False and True as a valid, connected outputs
-	outs[False] = 1
-	outs[True] = 1
-	for _, p := range parts {
-		w := p.Wires()
-		sp := p.Spec()
-		for _, o := range sp.In {
-			n := w[o]
-			if n == True {
-				continue
-			}
-			if cnt, ok := outs[n]; ok {
-				outs[n] = cnt + 1
-				continue
-			}
-			return nil, errors.New(sp.Name + " pin " + o + ":" + n + " not connected to any output")
+
+	pinout := make(W)
+	for _, i := range inputs {
+		if n := wr[pin{nil, i}]; n != nil {
+			pinout[i] = n.name
 		}
 	}
-	for k, v := range outs {
-		if v == 0 {
-			return nil, errors.New("pin " + k + " not connected to any input")
+	for _, o := range outputs {
+		if n := wr[pin{nil, o}]; n != nil {
+			pinout[o] = n.name
 		}
 	}
 
 	c := &chip{
 		PartSpec{
-			Name: name,
-			In:   inputs,
-			Out:  outputs,
+			Name:   name,
+			In:     inputs,
+			Out:    outputs,
+			Pinout: pinout,
 		},
 		parts,
+		wr,
 	}
-	c.Mount = c.mount
+	c.PartSpec.Mount = c.mount
 	return c.Wire, nil
 }

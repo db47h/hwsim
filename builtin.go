@@ -188,8 +188,8 @@ func notN(n int) *PartSpec {
 		In:   ExpandBus(bus(pIn, n)),
 		Out:  ExpandBus(bus(pOut, n)),
 		Mount: func(s *Socket) []Component {
-			ins := s.Bus(pIn)
-			outs := s.Bus(pOut)
+			ins := s.Bus(pIn, n)
+			outs := s.Bus(pOut, n)
 			return []Component{func(c *Circuit) {
 				for i, pin := range ins {
 					c.Set(outs[i], !c.Get(pin))
@@ -209,11 +209,11 @@ func Not16(w W) Part { return not16.Wire(w) }
 
 func inputN(bits int, f func() int64) *PartSpec {
 	return &PartSpec{
-		Name: "INPUTBUS" + strconv.Itoa(bits),
+		Name: "INPUT" + strconv.Itoa(bits),
 		In:   nil,
 		Out:  ExpandBus(bus(pOut, bits)),
 		Mount: func(s *Socket) []Component {
-			pins := s.Bus(pOut)
+			pins := s.Bus(pOut, bits)
 			return []Component{func(c *Circuit) {
 				in := f()
 				for bit := 0; bit < len(pins); bit++ {
@@ -236,7 +236,7 @@ func outputN(bits int, f func(int64)) *PartSpec {
 		In:   ExpandBus(bus(pIn, bits)),
 		Out:  nil,
 		Mount: func(s *Socket) []Component {
-			pins := s.Bus(pIn)
+			pins := s.Bus(pIn, bits)
 			return []Component{func(c *Circuit) {
 				var out int64
 				for i := 0; i < len(pins); i++ {
@@ -256,25 +256,29 @@ func Output16(f func(int64)) NewPartFunc {
 	return outputN(16, f).Wire
 }
 
-type gateN func(bool, bool) bool
+type gateN struct {
+	bits int
+	fn   func(bool, bool) bool
+}
 
-func (g gateN) mount(s *Socket) []Component {
-	a, b, out := s.Bus(pA), s.Bus(pB), s.Bus(pOut)
+func (g *gateN) mount(s *Socket) []Component {
+	a, b, out := s.Bus(pA, g.bits), s.Bus(pB, g.bits), s.Bus(pOut, g.bits)
 	return []Component{
 		func(c *Circuit) {
 			for i := range a {
-				c.Set(out[i], g(c.Get(a[i]), c.Get(b[i])))
+				c.Set(out[i], g.fn(c.Get(a[i]), c.Get(b[i])))
 			}
 		},
 	}
 }
 
 func newGateN(name string, bits int, f func(bool, bool) bool) *PartSpec {
+	g := &gateN{bits, f}
 	return &PartSpec{
 		Name:  name + strconv.Itoa(bits),
 		In:    ExpandBus(bus(pA, 16), bus(pB, 16)),
 		Out:   ExpandBus(bus(pOut, bits)),
-		Mount: gateN(f).mount,
+		Mount: g.mount,
 	}
 }
 

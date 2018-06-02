@@ -38,131 +38,10 @@ import (
 //
 type Component func(c *Circuit)
 
-// type Component interface {
-// 	Func(c *Circuit) ComponentFn
-// 	Children() []Part
-// }
-
-// type ComponentFn func(c *Circuit)
-
-// func (f ComponentFn) Func() ComponentFn { return f }
-// func (ComponentFn) Children() []Part    { return nil }
-
-// W is a set of wires, connecting a part's I/O pins (the map key) to pins in its container.
-//
-type W map[string]string
-
-// Copy returns a copy of w with bus ranges expanded.
-//
-func (w W) Copy() (W, error) {
-	t := make(W, len(w))
-	for k, v := range w {
-		ks, err := expandRange(k)
-		if err != nil {
-			return nil, err
-		}
-		vs, err := expandRange(v)
-		if err != nil {
-			return nil, err
-		}
-		switch {
-		case len(ks) == len(vs):
-			for i := range ks {
-				t[ks[i]] = vs[i]
-			}
-		case len(ks) == 1:
-			return nil, errors.New("one to many pin mapping not supported: " + k + ":" + v)
-		case len(vs) == 1:
-			for _, k := range ks {
-				t[k] = v
-			}
-		default:
-			return nil, errors.New("pin count mismatch in pin mapping: " + k + ":" + v)
-		}
-	}
-	return t, nil
-}
-
-func expandRange(name string) ([]string, error) {
-	i := strings.IndexRune(name, '[')
-	if i < 0 {
-		return []string{name}, nil
-	}
-	bus := name[:i]
-	n := name[i+1:]
-	i = strings.Index(n, "..")
-	if i < 0 {
-		return []string{name}, nil
-	}
-	start, err := strconv.Atoi(n[:i])
-	if err != nil {
-		return nil, err
-	}
-	n = n[i+2:]
-	i = strings.IndexRune(n, ']')
-	if i < 0 {
-		return nil, errors.New("no terminamting ] in bus range")
-	}
-	end, err := strconv.Atoi(n[:i])
-	if err != nil {
-		return nil, err
-	}
-	r := make([]string, 0, end-start+1)
-	for i := start; i <= end; i++ {
-		r = append(r, BusPinName(bus, i))
-	}
-	return r, nil
-}
-
-// Wire returns a copy of w where keys for the in/out pins are guaranteed to be
-// present (unconnected pins are set to False). If w contains pin names
-// not present in either in or out, it will return an error.
-//
-// This function should be called first in any function behaving like a NewPartFunc.
-//
-func (w W) Wire(in, out []string) (W, error) {
-	w, err := w.Copy()
-	if err != nil {
-		return nil, err
-	}
-	wires := make(W, len(w))
-	for _, name := range in {
-		if outer, ok := w[name]; ok {
-			wires[name] = outer
-			delete(w, name)
-		} else {
-			wires[name] = False
-		}
-	}
-	for _, name := range out {
-		if outer, ok := w[name]; ok {
-			wires[name] = outer
-			delete(w, name)
-		} else {
-			wires[name] = False
-		}
-	}
-	// check unknown pins
-	for name := range w {
-		return nil, errors.New("unknown pin \"" + name + "\"")
-	}
-	return wires, nil
-}
-
 // BusPinName returns the pin name for the n-th bit of the named bus.
 //
 func BusPinName(name string, bit int) string {
 	return name + "[" + strconv.Itoa(bit) + "]"
-}
-
-// Bus returns individual pin names for the specified bus name and size.
-//
-func Bus(name string, bits int) []string {
-	out := make([]string, 0, bits)
-	for i := 0; i < bits; i++ {
-		out = append(out, BusPinName(name, i))
-	}
-	return out
 }
 
 // ExpandBus returns a copy of the pin names with buses expanded as individual
@@ -204,18 +83,30 @@ type PartSpec struct {
 	Name string   // Part name
 	In   []string // Input pin names
 	Out  []string // Output pin names
+	// Pinout maps input/output pin names to a part's internal names
+	// for them. If nil, the In/Out values will be used.
+	Pinout W
 
 	Mount MountFn // Mount function.
 }
 
-// Wire returns a wired part based on the given spec and wiring.
+// Wire is a NewPartFunc that returns a wired part based on the given spec and wiring.
 //
 func (p *PartSpec) Wire(w W) Part {
-	w, err := w.Wire(p.In, p.Out)
+	ex, err := w.expand(p.In, p.Out)
 	if err != nil {
 		panic(err)
 	}
-	return &part{p, w}
+	if p.Pinout == nil {
+		p.Pinout = make(W)
+		for _, i := range p.In {
+			p.Pinout[i] = i
+		}
+		for _, o := range p.Out {
+			p.Pinout[o] = o
+		}
+	}
+	return &part{p, ex}
 }
 
 // A Part wraps a part specification together with its wiring
@@ -223,19 +114,19 @@ func (p *PartSpec) Wire(w W) Part {
 //
 type Part interface {
 	Spec() *PartSpec
-	Wires() W
+	wires() map[string][]string
 }
 
 type part struct {
 	p *PartSpec
-	w W
+	w map[string][]string // Initial wiring
 }
 
 func (p *part) Spec() *PartSpec {
 	return p.p
 }
 
-func (p *part) Wires() W {
+func (p *part) wires() map[string][]string {
 	return p.w
 }
 

@@ -7,7 +7,7 @@ import (
 	"github.com/db47h/hdl"
 )
 
-func testGate(t *testing.T, name string, gate hdl.NewPartFunc, result [][]bool) {
+func testGate(t *testing.T, name string, gate hdl.NewPartFn, result [][]bool) {
 	t.Helper()
 	part := gate(nil) // dummy gate
 	inputs := make([]bool, len(part.Spec().In))
@@ -66,7 +66,7 @@ func Test_gate_builtin(t *testing.T) {
 	}
 	td := []struct {
 		name   string
-		gate   hdl.NewPartFunc
+		gate   hdl.NewPartFn
 		result [][]bool // a=0 && b=0, a=0 && b=1, a=1 && b=0, a=1 && b=1
 	}{
 		{"NOT", hdl.Not, [][]bool{{true, false}}},

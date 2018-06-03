@@ -80,7 +80,7 @@ func Test_gate_custom(t *testing.T) {
 	}
 	td := []struct {
 		name   string
-		gate   hdl.NewPartFunc
+		gate   hdl.NewPartFn
 		result [][]bool
 	}{
 		{"AND", and, [][]bool{{false, false, false, true}}},

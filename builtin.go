@@ -21,7 +21,7 @@ func bus(name string, bits int) string {
 //	Outputs: out
 //	Function: out = f()
 //
-func Input(f func() bool) NewPartFunc {
+func Input(f func() bool) NewPartFn {
 	p := &PartSpec{
 		Name: "Input",
 		In:   nil,
@@ -44,7 +44,7 @@ func Input(f func() bool) NewPartFunc {
 //	Inputs: in
 //	Function: f(in)
 //
-func Output(f func(bool)) NewPartFunc {
+func Output(f func(bool)) NewPartFn {
 	p := &PartSpec{
 		Name: "Output",
 		In:   []string{pIn},
@@ -226,7 +226,7 @@ func inputN(bits int, f func() int64) *PartSpec {
 
 // Input16 creates a 16 bits input bus.
 //
-func Input16(f func() int64) NewPartFunc {
+func Input16(f func() int64) NewPartFn {
 	return inputN(16, f).Wire
 }
 
@@ -252,7 +252,7 @@ func outputN(bits int, f func(int64)) *PartSpec {
 
 // Output16 creates a 16 bits output bus.
 //
-func Output16(f func(int64)) NewPartFunc {
+func Output16(f func(int64)) NewPartFn {
 	return outputN(16, f).Wire
 }
 

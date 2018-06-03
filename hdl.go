@@ -83,6 +83,13 @@ func (p *PartSpec) Wire(w W) Part {
 	return &part{p, ex}
 }
 
+// MakePart returns a NewPartFunc for the given PartSpec. It is a utility
+// wrapper around PartSpec.Wire.
+//
+func MakePart(p *PartSpec) NewPartFn {
+	return p.Wire
+}
+
 // A Part wraps a part specification together with its wiring
 // in a container part.
 //
@@ -104,9 +111,9 @@ func (p *part) wires() map[string][]string {
 	return p.w
 }
 
-// A NewPartFunc is a function that takes a set of wires and returns a new Part.
+// A NewPartFn is a function that takes a set of wires and returns a new Part.
 //
-type NewPartFunc func(pins W) Part
+type NewPartFn func(wires W) Part
 
 // Circuit is a runable circuit simulation.
 //

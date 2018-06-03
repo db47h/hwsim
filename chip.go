@@ -59,7 +59,7 @@ func (c *chip) mount(s *Socket) []Component {
 //			hdl.Not(hdl.W{"in": "xorAB", "out": "out"}),
 //		})
 //
-func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPartFunc, error) {
+func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPartFn, error) {
 	inputs = ExpandBus(inputs...)
 	outputs = ExpandBus(outputs...)
 

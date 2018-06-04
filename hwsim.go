@@ -286,7 +286,6 @@ func (c *Circuit) Step() {
 }
 
 // Tick runs the simulation until the beginning of the next half clock cycle.
-// Once Tick returns, the output of clocked components should have stabilized.
 //
 func (c *Circuit) Tick() {
 	for c.Get(cstClk) {
@@ -295,6 +294,7 @@ func (c *Circuit) Tick() {
 }
 
 // Tock runs the simulation until the beginning of the next clock cycle.
+// Once Tock returns, the output of clocked components should have stabilized.
 //
 func (c *Circuit) Tock() {
 	for !c.Get(cstClk) {

@@ -31,16 +31,23 @@ func TestDFF(t *testing.T) {
 	}
 	defer c.Dispose()
 
-	for in < 16 {
+	var prev int64
+	for i := int64(15); i >= 0; i-- {
 		// because inputs are delayed by one tick, DFFs do not see the new value
-		// if we change it right at the beginning of a new clock cycle,
-		// hence we set it in between clock cycles, i.e. after Tick()
-		//
-		c.Tock()
-		c.Tick()
-		if in != out {
-			t.Fatalf("bad output for input %d: expected out = %d, got %d", in, in, out)
+		// when we change it right at the beginning of a new clock cycle.
+		// Additionally when a DFF is used as a part of another chip, that chip's
+		// output should be read only at the next tick.
+
+		// input i
+		in = i
+
+		c.TickTock()
+
+		if prev != out {
+			t.Fatalf("bad output for input %d: expected out = %d, got %d", prev, prev, out)
 		}
-		in++
+
+		// here's the value that we should see at the end of the next cycle
+		prev = i
 	}
 }

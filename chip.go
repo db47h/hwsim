@@ -39,27 +39,28 @@ func (c *chip) mount(s *Socket) []Component {
 // An Xor gate could be created like this:
 //
 //	xor := Chip(
-//		[]string{"a", "b"},
-//		[]string{"out"},
-//		[]hdl.Part{
-//			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "nandAB"}),
-//			hdl.Nand(hdl.W{"a": "a", "b": "nandAB", "out": "w0"}),
-//			hdl.Nand(hdl.W{"a": "b", "b": "nandAB", "out": "w1"}),
-//			hdl.Nand(hdl.W{"a": "w0", "b": "w1", "out": "out"}),
+//		"XOR",
+//		In{"a", "b"},
+//		Out{"out"},
+//		Parts{
+//			Nand(W{"a": "a", "b": "b", "out": "nandAB"}),
+//			Nand(W{"a": "a", "b": "nandAB", "out": "w0"}),
+//			Nand(W{"a": "b", "b": "nandAB", "out": "w1"}),
+//			Nand(W{"a": "w0", "b": "w1", "out": "out"}),
 //		})
 //
 // The returned value is a function of type NewPartFunc that can be used to
 // compose the new part with others into other chips:
 //
-//	xnor := hdl.Chip(
-//		[]string{"a", "b"},
-//		[]string{"out"},
-//		[]hdl.Part{
-//			xor(hdl.W{"a": "a", "b": "b", "xorAB"}),
-//			hdl.Not(hdl.W{"in": "xorAB", "out": "out"}),
+//	xnor := Chip(
+//		In{"a", "b"},
+//		Out{"out"},
+//		Parts{
+//			xor(W{"a": "a", "b": "b", "xorAB"}),
+//			Not(W{"in": "xorAB", "out": "out"}),
 //		})
 //
-func Chip(name string, inputs []string, outputs []string, parts []Part) (NewPartFn, error) {
+func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 	inputs = ExpandBus(inputs...)
 	outputs = ExpandBus(outputs...)
 

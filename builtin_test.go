@@ -13,7 +13,7 @@ func testGate(t *testing.T, name string, gate hdl.NewPartFn, result [][]bool) {
 	inputs := make([]bool, len(part.Spec().In))
 	outputs := make([]bool, len(part.Spec().Out))
 	w := make(hdl.W)
-	parts := make([]hdl.Part, 0, len(part.Spec().In)+len(part.Spec().Out)+1)
+	parts := make(hdl.Parts, 0, len(part.Spec().In)+len(part.Spec().Out)+1)
 	for i, n := range part.Spec().In {
 		w[n] = n
 		in := &inputs[i]
@@ -52,13 +52,13 @@ func testGate(t *testing.T, name string, gate hdl.NewPartFn, result [][]bool) {
 }
 
 func Test_gate_builtin(t *testing.T) {
-	tr, err := hdl.Chip("TRUE", []string{"a"}, []string{"out"}, []hdl.Part{
+	tr, err := hdl.Chip("TRUE", hdl.In{"a"}, hdl.Out{"out"}, hdl.Parts{
 		hdl.And(hdl.W{"a": hdl.True, "b": hdl.True, "out": "out"}),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	fa, err := hdl.Chip("FALSE", []string{"a"}, []string{"out"}, []hdl.Part{
+	fa, err := hdl.Chip("FALSE", hdl.In{"a"}, hdl.Out{"out"}, hdl.Parts{
 		hdl.Or(hdl.W{"a": hdl.False, "b": hdl.False, "out": "out"}),
 	})
 	if err != nil {
@@ -91,7 +91,7 @@ func Test_gate_builtin(t *testing.T) {
 func TestInput16(t *testing.T) {
 	in := int64(0)
 	out := int64(0)
-	c, err := hdl.NewCircuit([]hdl.Part{
+	c, err := hdl.NewCircuit(hdl.Parts{
 		hdl.Input16(func() int64 { return in })(hdl.W{"out[0..15]": "t[0..15]"}),
 		hdl.Output16(func(n int64) { out = n })(hdl.W{"in[0..15]": "t[0..15]"}),
 	})
@@ -127,14 +127,14 @@ func Test_gateN_builtin(t *testing.T) {
 			var a, b int16
 			var out int16
 
-			chip, err := hdl.Chip(d.gate.Spec().Name+"wrapper", []string{"a[16]", "b[16]"}, []string{"out[16]"}, []hdl.Part{
+			chip, err := hdl.Chip(d.gate.Spec().Name+"wrapper", hdl.In{"a[16]", "b[16]"}, hdl.Out{"out[16]"}, hdl.Parts{
 				d.gate,
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			c, err := hdl.NewCircuit([]hdl.Part{
+			c, err := hdl.NewCircuit(hdl.Parts{
 				hdl.Input16(func() int64 { return int64(a) })(hdl.W{"out[0..15]": "a[0..15]"}),
 				hdl.Input16(func() int64 { return int64(b) })(hdl.W{"out[0..15]": "b[0..15]"}),
 				chip(twoIn),

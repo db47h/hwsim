@@ -118,7 +118,7 @@ func (n *node) setName(name string) {
 
 type wiring map[pin]*node
 
-func newWiring(ins, outs []string) (wr wiring, inputRoot *node) {
+func newWiring(ins In, outs Out) (wr wiring, inputRoot *node) {
 	wr = make(wiring, len(ins)+len(outs)+1)
 	// inputRoot serves as a parent marker for chip inputs.
 	inputRoot = &node{pin: pin{-1, "__INPUT__"}, outs: make([]*node, len(ins)), typ: typeInput}

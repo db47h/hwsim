@@ -54,9 +54,9 @@ type MountFn func(s *Socket) []Component
 // A PartSpec represents a part specification.
 //
 type PartSpec struct {
-	Name string   // Part name
-	In   []string // Input pin names
-	Out  []string // Output pin names
+	Name string // Part name
+	In          // Input pin names
+	Out         // Output pin names
 	// Pinout maps input/output pin names to a part's internal names
 	// for them. If nil, the In/Out values will be used.
 	Pinout W
@@ -89,6 +89,18 @@ func (p *PartSpec) Wire(w W) Part {
 func MakePart(p *PartSpec) NewPartFn {
 	return p.Wire
 }
+
+// Parts is a convenience wrapper for []Part.
+//
+type Parts []Part
+
+// In is a slice of input pin names.
+//
+type In []string
+
+// Out is a slice of output pin names.
+//
+type Out []string
 
 // A Part wraps a part specification together with its wiring
 // in a container part.
@@ -126,7 +138,7 @@ type Circuit struct {
 
 // NewCircuit builds a new circuit based on the given parts.
 //
-func NewCircuit(ps []Part) (*Circuit, error) {
+func NewCircuit(ps Parts) (*Circuit, error) {
 	// new circuit with room for constant value pins.
 	cc := &Circuit{count: cstCount}
 	wrap, err := Chip("CIRCUIT", nil, nil, ps)

@@ -10,16 +10,16 @@ import (
 var workers = runtime.NumCPU()
 
 func Test_gate_custom(t *testing.T) {
-	and, err := hdl.Chip("AND", []string{"a", "b"}, []string{"out"},
-		[]hdl.Part{
+	and, err := hdl.Chip("AND", hdl.In{"a", "b"}, hdl.Out{"out"},
+		hdl.Parts{
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "nand"}),
 			hdl.Nand(hdl.W{"a": "nand", "b": "nand", "out": "out"}),
 		})
 	if err != nil {
 		t.Fatal(err)
 	}
-	or, err := hdl.Chip("OR", []string{"a", "b"}, []string{"out"},
-		[]hdl.Part{
+	or, err := hdl.Chip("OR", hdl.In{"a", "b"}, hdl.Out{"out"},
+		hdl.Parts{
 			hdl.Nand(hdl.W{"a": "a", "b": "a", "out": "notA"}),
 			hdl.Nand(hdl.W{"a": "b", "b": "b", "out": "notB"}),
 			hdl.Nand(hdl.W{"a": "notA", "b": "notB", "out": "out"}),
@@ -27,16 +27,16 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	nor, err := hdl.Chip("NOR", []string{"a", "b"}, []string{"out"},
-		[]hdl.Part{
+	nor, err := hdl.Chip("NOR", hdl.In{"a", "b"}, hdl.Out{"out"},
+		hdl.Parts{
 			or(hdl.W{"a": "a", "b": "b", "out": "orAB"}),
 			hdl.Nand(hdl.W{"a": "orAB", "b": "orAB", "out": "out"}),
 		})
 	if err != nil {
 		t.Fatal(err)
 	}
-	xor, err := hdl.Chip("XOR", []string{"a", "b"}, []string{"out"},
-		[]hdl.Part{
+	xor, err := hdl.Chip("XOR", hdl.In{"a", "b"}, hdl.Out{"out"},
+		hdl.Parts{
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "nandAB"}),
 			hdl.Nand(hdl.W{"a": "a", "b": "nandAB", "out": "w0"}),
 			hdl.Nand(hdl.W{"a": "b", "b": "nandAB", "out": "w1"}),
@@ -45,8 +45,8 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	xnor, err := hdl.Chip("XNOR", []string{"a", "b"}, []string{"out"},
-		[]hdl.Part{
+	xnor, err := hdl.Chip("XNOR", hdl.In{"a", "b"}, hdl.Out{"out"},
+		hdl.Parts{
 			or(hdl.W{"a": "a", "b": "b", "out": "or"}),
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "nand"}),
 			hdl.Nand(hdl.W{"a": "or", "b": "nand", "out": "out"}),
@@ -54,14 +54,14 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	not, err := hdl.Chip("NOT", []string{"a"}, []string{"out"},
-		[]hdl.Part{
+	not, err := hdl.Chip("NOT", hdl.In{"a"}, hdl.Out{"out"},
+		hdl.Parts{
 			hdl.Nand(hdl.W{"a": "a", "b": "a", "out": "out"}),
 		})
 	if err != nil {
 		t.Fatal(err)
 	}
-	mux, err := hdl.Chip("NUX", []string{"a", "b", "sel"}, []string{"out"}, []hdl.Part{
+	mux, err := hdl.Chip("NUX", hdl.In{"a", "b", "sel"}, hdl.Out{"out"}, hdl.Parts{
 		hdl.Not(hdl.W{"in": "sel", "out": "notSel"}),
 		hdl.And(hdl.W{"a": "a", "b": "notSel", "out": "w0"}),
 		hdl.And(hdl.W{"a": "b", "b": "sel", "out": "w1"}),
@@ -70,7 +70,7 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dmux, err := hdl.Chip("DMUX", []string{"in", "sel"}, []string{"a", "b"}, []hdl.Part{
+	dmux, err := hdl.Chip("DMUX", hdl.In{"in", "sel"}, hdl.Out{"a", "b"}, hdl.Parts{
 		hdl.Not(hdl.W{"in": "sel", "out": "notSel"}),
 		hdl.And(hdl.W{"a": "in", "b": "notSel", "out": "a"}),
 		hdl.And(hdl.W{"a": "in", "b": "sel", "out": "b"}),
@@ -118,13 +118,13 @@ func Test_clock(t *testing.T) {
 	// we could implement the clock directly as a Nor in the cisrcuit (with no less gate delays)
 	// but we wrap it into a stand-alone chip in order to add a layer complexity
 	// for testing purposes.
-	clk, err := hdl.Chip("CLK", []string{"disable"}, []string{"tick"}, []hdl.Part{
+	clk, err := hdl.Chip("CLK", hdl.In{"disable"}, hdl.Out{"tick"}, hdl.Parts{
 		hdl.Nor(hdl.W{"a": "disable", "b": "tick", "out": "tick"}),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := hdl.NewCircuit([]hdl.Part{
+	c, err := hdl.NewCircuit(hdl.Parts{
 		hdl.Input(func() bool { return disable })(hdl.W{"out": "disable"}),
 		clk(hdl.W{"disable": "disable", "tick": "out"}),
 		hdl.Output(func(out bool) { tick = out })(hdl.W{"in": "out"}),
@@ -171,7 +171,7 @@ func Test_clock(t *testing.T) {
 }
 
 func Test_chip_errors(t *testing.T) {
-	unkChip, err := hdl.Chip("TESTCHIP", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+	unkChip, err := hdl.Chip("TESTCHIP", hdl.In{"a", "b"}, hdl.Out{"out"}, hdl.Parts{
 		// chip input a is unused
 		hdl.Nand(hdl.W{"a": "b", "b": "b", "out": "out"}),
 	})
@@ -180,34 +180,34 @@ func Test_chip_errors(t *testing.T) {
 	}
 	data := []struct {
 		name  string
-		in    []string
-		out   []string
-		parts []hdl.Part
+		in    hdl.In
+		out   hdl.Out
+		parts hdl.Parts
 		err   string
 	}{
-		{"true_out", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+		{"true_out", hdl.In{"a", "b"}, hdl.Out{"out"}, hdl.Parts{
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": hdl.True}),
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "out"}),
 		}, "NAND.out:true: output pin connected to constant \"true\" input"},
-		{"multi_out", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+		{"multi_out", hdl.In{"a", "b"}, hdl.Out{"out"}, hdl.Parts{
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "a"}),
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "out"}),
 		}, "NAND.out:a: output pin already used as output or is one of the chip's input pin"},
-		{"no_output", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+		{"no_output", hdl.In{"a", "b"}, hdl.Out{"out"}, hdl.Parts{
 			hdl.Nand(hdl.W{"a": "a", "b": "wx", "out": "out"}),
 		}, "pin wx not connected to any output"},
-		{"no_input", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+		{"no_input", hdl.In{"a", "b"}, hdl.Out{"out"}, hdl.Parts{
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "foo"}),
 			hdl.Nand(hdl.W{"a": "a", "b": "b", "out": "out"}),
 		}, "pin foo not connected to any input"},
-		{"unconnected_in", []string{"a", "b"}, []string{"out"}, []hdl.Part{}, ""},
-		{"unknown_pin", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+		{"unconnected_in", hdl.In{"a", "b"}, hdl.Out{"out"}, hdl.Parts{}, ""},
+		{"unknown_pin", hdl.In{"a", "b"}, hdl.Out{"out"}, hdl.Parts{
 			hdl.Nand(hdl.W{"a": "a", "typo": "b", "out": "out"}),
 		}, "invalid pin name typo for part NAND"},
-		{"unknown_pin", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+		{"unknown_pin", hdl.In{"a", "b"}, hdl.Out{"out"}, hdl.Parts{
 			unkChip(hdl.W{"a": "a", "typo": "b", "out": "out"}),
 		}, "invalid pin name typo for part TESTCHIP"},
-		{"unknown_pin", []string{"a", "b"}, []string{"out"}, []hdl.Part{
+		{"unknown_pin", hdl.In{"a", "b"}, hdl.Out{"out"}, hdl.Parts{
 			unkChip(hdl.W{"a": "a", "b": "b", "out": "out"}),
 		}, ""},
 	}

@@ -25,7 +25,7 @@ func Input(f func() bool) NewPartFn {
 	p := &PartSpec{
 		Name: "Input",
 		In:   nil,
-		Out:  []string{pOut},
+		Out:  Out{pOut},
 		Mount: func(s *Socket) []Component {
 			pin := s.Pin(pOut)
 			return []Component{
@@ -47,7 +47,7 @@ func Input(f func() bool) NewPartFn {
 func Output(f func(bool)) NewPartFn {
 	p := &PartSpec{
 		Name: "Output",
-		In:   []string{pIn},
+		In:   In{pIn},
 		Out:  nil,
 		Mount: func(s *Socket) []Component {
 			in := s.Pin(pIn)
@@ -59,7 +59,7 @@ func Output(f func(bool)) NewPartFn {
 	return p.Wire
 }
 
-var notGate = PartSpec{Name: "NOR", In: []string{pIn}, Out: []string{pOut},
+var notGate = PartSpec{Name: "NOR", In: In{pIn}, Out: Out{pOut},
 	Mount: func(s *Socket) []Component {
 		in, out := s.Pin(pIn), s.Pin(pOut)
 		return []Component{
@@ -96,8 +96,8 @@ func newGate(name string, fn func(a, b bool) bool) *PartSpec {
 }
 
 var (
-	gateIn  = []string{pA, pB}
-	gateOut = []string{pOut}
+	gateIn  = In{pA, pB}
+	gateOut = Out{pOut}
 
 	and  = newGate("AND", func(a, b bool) bool { return a && b })
 	nand = newGate("NAND", func(a, b bool) bool { return !(a && b) })
@@ -141,8 +141,8 @@ func Mux(w W) Part { return mux.Wire(w) }
 
 var mux = PartSpec{
 	Name: "MUX",
-	In:   []string{pA, pB, pSel},
-	Out:  []string{pOut},
+	In:   In{pA, pB, pSel},
+	Out:  Out{pOut},
 	Mount: func(s *Socket) []Component {
 		a, b, sel, out := s.Pin(pA), s.Pin(pB), s.Pin(pSel), s.Pin(pOut)
 		return []Component{func(c *Circuit) {
@@ -165,8 +165,8 @@ func DMux(w W) Part { return dmux.Wire(w) }
 
 var dmux = PartSpec{
 	Name: "DMUX",
-	In:   []string{pIn, pSel},
-	Out:  []string{pA, pB},
+	In:   In{pIn, pSel},
+	Out:  Out{pA, pB},
 	Mount: func(s *Socket) []Component {
 		in, sel, a, b := s.Pin(pIn), s.Pin(pSel), s.Pin(pA), s.Pin(pB)
 		return []Component{func(c *Circuit) {

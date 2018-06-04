@@ -1,4 +1,4 @@
-package hdl
+package hwsim
 
 // Constant input pin names.
 //

@@ -1,4 +1,4 @@
-package hdl
+package hwsim
 
 import "strconv"
 

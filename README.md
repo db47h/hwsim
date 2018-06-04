@@ -35,9 +35,9 @@ The same in Go:
 ```go
     xor, err := hw.Chip(
         "XOR",
-        []string{"a", "b"}, // inputs of the created xor gate
-        []string{"out"},    // outputs
-        []hw.Parts{
+        hw.In{"a", "b"}, // inputs of the created xor gate
+        hw.Out{"out"},    // outputs
+        hw.Parts{
             hw.Nand(hw.W{"a": "a", "b": "b", "out": "nandAB"}),    // leftmost NAND
             hw.Nand(hw.W{"a": "a", "b": "nandAB", "out": "outA"}), // top NAND
             hw.Nand(hw.W{"a": "nandAB", "b": "b", "out": "outB"}), // bottom NAND
@@ -79,17 +79,15 @@ Custom parts can be created by simply creating a `PartSpec` struct:
     // a printed circuit board...). It must create an instance of the part,
     // get its assigned pin/wire numbers and then return the part's actual
     // update function (as a closure over the part instance).
-    var xorSpec = PartSpec{
+    var xorSpec = hw.PartSpec{
         Name: "XOR",
-        In:   []string{"a", "b"},
-        Out:  []string{"out"},
+        In:   hw.In{"a", "b"},
+        Out:  hw.Out{"out"},
         Mount: func(s *Socket) []hw.Component {
             // collect pin numbers
             g := xorInstance{s.Pin("a"), s.Pin("b"), s.Pin("out")}
             // return a single component that just does the XOR
-            return []hw.Component{
-                g.tick,
-            }
+            return []hw.Component{g.tick}
         }}
 
     // Finally, we turn this spec into a usable part.
@@ -101,8 +99,8 @@ Well, it doesn't look that simple, but this example deliberately details every s
 ```go
     var xor = hw.MakePart(&PartSpec{
         Name: "XOR",
-        In:   []string{"a", "b"},
-        Out:  []string{"out"},
+        In:   hw.In{"a", "b"},
+        Out:  hw.Out{"out"},
         Mount: func(s *Socket) []hw.Component {
             a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
             return []hw.Component{
@@ -116,10 +114,10 @@ Well, it doesn't look that simple, but this example deliberately details every s
 If defining custom components as functions is preferable, for example in a Go package providing a library of components (where we do not want to export variables):
 
 ```go
-    var xorSpec = &PartSpec{
+    var xorSpec = hw.PartSpec{
         Name: "XOR",
-        In:   []string{"a", "b"},
-        Out:  []string{"out"},
+        In:   hw.In{"a", "b"},
+        Out:  hw.Out{"out"},
         Mount: func(s *Socket) []hw.Component {
             a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
             return []hw.Component{
@@ -128,7 +126,7 @@ If defining custom components as functions is preferable, for example in a Go pa
                     c.Set(g.out, a && !b || !a && b)
                 }}
         }}
-    func xor(w W) Part { return xorSpec.Wire(w) }
+    func xor(w W) hw.Part { return xorSpec.Wire(w) }
 ```
 
 Now we can go ahead and build a half-adder:
@@ -136,9 +134,9 @@ Now we can go ahead and build a half-adder:
 ```go
     hAdder, _ := hw.Chip(
         "H-ADDER",
-        []string{"a", "b"},
-        []string{"s", "c"}, //output sum and carry
-        []hw.Part{
+        hw.In{"a", "b"},
+        hw.Out{"s", "c"}, //output sum and carry
+        hw.Parts{
             xor(hw.W{"a": "a", "b": "b", "out": "s"}), // our custom xor gate!
             hw.And(hw.W{"a": "a", "b": "b", "out": "c"}),
         })
@@ -151,7 +149,7 @@ A circuit is made of a set of parts connected together. Time to test our adder:
 ```go
     var a, b, ci bool
     var s, co bool
-    c, err := hw.NewCirtuit([]hw.Part{
+    c, err := hw.NewCirtuit(hw.Parts{
         // feed variables a, b and ci as inputs in the circuit
         hw.Input(func() bool { return a })(hw.W{"out": "a"}),
         hw.Input(func() bool { return b })(hw.W{"out": "b"}),
@@ -192,11 +190,11 @@ A good API has good names with clearly defined entities. This package's API is f
 And then write calls to `Chip` like this:
 
 ```go
-    not, err := Chip(
+    not, err := hw.Chip(
         "NOT",
-        []string{"in"},
-        []string{"out"},
-        Parts{
+        hw.In{"in"},
+        hw.Out{"out"},
+        hw.Parts{
             {hw.Nand, hw.W{"a": "in", "b": "in", "out": "out"}},
         })
 ```

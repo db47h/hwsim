@@ -3,14 +3,16 @@ package hwsim
 // Constant input pin names.
 //
 var (
-	True  = "true"
 	False = "false"
+	True  = "true"
 	GND   = "false"
+	Clk   = "clk"
 )
 
 const (
 	cstFalse = iota
 	cstTrue
+	cstClk
 	cstCount
 )
 
@@ -42,6 +44,8 @@ func (s *Socket) PinOrNew(name string) int {
 	n, ok := s.m[name]
 	if !ok {
 		switch name {
+		case Clk:
+			n = cstClk
 		case False:
 			n = cstFalse
 		case True:

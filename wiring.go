@@ -149,6 +149,8 @@ func (wr wiring) add(in pin, iType int, out pin, oType int) error {
 		switch out.name {
 		case False:
 			return nil
+		case Clk:
+			return errors.New("output pin connected to clock signal")
 		case True:
 			return errors.New("output pin connected to constant \"true\" input")
 		}

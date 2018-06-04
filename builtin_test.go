@@ -25,10 +25,11 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 		parts = append(parts, hw.Output(func(v bool) { *out = v })(hw.W{"in": n}))
 	}
 	parts = append(parts, gate(w))
-	c, err := hw.NewCircuit(parts)
+	c, err := hw.NewCircuit(0, testTPC, parts)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer c.Dispose()
 
 	tot := 1 << uint(len(part.Spec().In))
 	// t.Log(tot)
@@ -39,9 +40,7 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 		for bit := range inputs {
 			inputs[len(inputs)-bit-1] = (i & (1 << uint(bit))) != 0
 		}
-		for u := 0; u < 10; u++ {
-			c.Update(workers)
-		}
+		c.TickTock()
 		for o, out := range outputs {
 			exp := result[o][i]
 			if exp != out {
@@ -91,17 +90,17 @@ func Test_gate_builtin(t *testing.T) {
 func TestInput16(t *testing.T) {
 	in := int64(0)
 	out := int64(0)
-	c, err := hw.NewCircuit(hw.Parts{
+	c, err := hw.NewCircuit(0, testTPC, hw.Parts{
 		hw.Input16(func() int64 { return in })(hw.W{"out[0..15]": "t[0..15]"}),
 		hw.Output16(func(n int64) { out = n })(hw.W{"in[0..15]": "t[0..15]"}),
 	})
 	if err != nil {
 		panic(err)
 	}
+	defer c.Dispose()
+
 	in = 0x80a2
-	for i := 0; i < 2; i++ {
-		c.Update(workers)
-	}
+	c.TickTock()
 	if out != in {
 		t.Fatalf("Expected %x, got %x", in, out)
 	}
@@ -134,7 +133,7 @@ func Test_gateN_builtin(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			c, err := hw.NewCircuit(hw.Parts{
+			c, err := hw.NewCircuit(0, testTPC, hw.Parts{
 				hw.Input16(func() int64 { return int64(a) })(hw.W{"out[0..15]": "a[0..15]"}),
 				hw.Input16(func() int64 { return int64(b) })(hw.W{"out[0..15]": "b[0..15]"}),
 				chip(twoIn),
@@ -143,11 +142,11 @@ func Test_gateN_builtin(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer c.Dispose()
+
 			f := func(x, y int16) bool {
 				a, b = x, y
-				for i := 0; i < 3; i++ {
-					c.Update(workers)
-				}
+				c.TickTock()
 				return out == d.ctrl(x, y)
 			}
 			if err = quick.Check(f, nil); err != nil {

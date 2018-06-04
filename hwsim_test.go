@@ -1,13 +1,12 @@
 package hwsim_test
 
 import (
-	"runtime"
 	"testing"
 
 	hw "github.com/db47h/hwsim"
 )
 
-var workers = runtime.NumCPU()
+const testTPC = 16
 
 func Test_gate_custom(t *testing.T) {
 	and, err := hw.Chip("AND", hw.In{"a", "b"}, hw.Out{"out"},
@@ -124,7 +123,7 @@ func Test_clock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := hw.NewCircuit(hw.Parts{
+	c, err := hw.NewCircuit(0, testTPC, hw.Parts{
 		hw.Input(func() bool { return disable })(hw.W{"out": "disable"}),
 		clk(hw.W{"disable": "disable", "tick": "out"}),
 		hw.Output(func(out bool) { tick = out })(hw.W{"in": "out"}),
@@ -132,41 +131,43 @@ func Test_clock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer c.Dispose()
+
 	// we have two wires: "disable" and "out".
 	// note that Output("out", ...) is delayed by one tick after the Nand updates it.
 
 	disable = true
-	c.Update(0)
+	c.Step()
 	check(false)
-	c.Update(0)
+	c.Step()
 	// this is an expected signal change appearing in the first couple of ticks due to signal propagation delay
 	check(true)
-	c.Update(0)
+	c.Step()
 	check(false)
-	c.Update(0)
+	c.Step()
 	check(false)
 
 	disable = false
-	c.Update(0)
+	c.Step()
 	check(false)
-	c.Update(0)
+	c.Step()
 	check(false)
-	c.Update(0)
+	c.Step()
 	// the clock starts ticking now.
 	check(true)
-	c.Update(0)
+	c.Step()
 	check(false)
-	c.Update(0)
+	c.Step()
 	check(true)
 	disable = true
-	c.Update(0)
+	c.Step()
 	check(false)
-	c.Update(0)
+	c.Step()
 	check(true)
-	c.Update(0)
+	c.Step()
 	// the clock stops ticking now.
 	check(false)
-	c.Update(0)
+	c.Step()
 	check(false)
 }
 

@@ -1,6 +1,7 @@
 package hwsim
 
 import (
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -134,22 +135,106 @@ type Circuit struct {
 	s1    []bool // wire states frame #1
 	cs    []Component
 	count int // wire count
+	tpc   int // ticks per clock cycle
+
+	wc []chan struct{}
+	wg sync.WaitGroup
 }
 
 // NewCircuit builds a new circuit based on the given parts.
 //
-func NewCircuit(ps Parts) (*Circuit, error) {
+func NewCircuit(workers int, ticksPerCycle int, ps Parts) (*Circuit, error) {
+	if len(ps) == 0 {
+		return nil, errors.New("empty part list")
+	}
+
+	if ticksPerCycle > 0 {
+		ticksPerCycle--
+		ticksPerCycle |= ticksPerCycle >> 1
+		ticksPerCycle |= ticksPerCycle >> 2
+		ticksPerCycle |= ticksPerCycle >> 4
+		ticksPerCycle |= ticksPerCycle >> 8
+		ticksPerCycle |= ticksPerCycle >> 16
+		ticksPerCycle |= ticksPerCycle >> 32
+		ticksPerCycle++
+	} else {
+		ticksPerCycle = 256
+	}
+
 	// new circuit with room for constant value pins.
-	cc := &Circuit{count: cstCount}
+	cc := &Circuit{count: cstCount, tpc: ticksPerCycle}
 	wrap, err := Chip("CIRCUIT", nil, nil, ps)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create chip wrapper")
 	}
 	ups := wrap(nil).Spec().Mount(newSocket(cc))
+	ups = append(ups, clock(cc))
 	cc.cs = ups
 	cc.s0 = make([]bool, cc.count)
 	cc.s1 = make([]bool, cc.count)
+
+	// workers
+	if workers == 0 {
+		workers = runtime.NumCPU()
+	}
+	if workers == 0 {
+		workers = 1
+	}
+
+	// # of updaters per worker
+	size := len(ups) / workers
+	if size*workers < len(ups) {
+		size++
+	}
+	for len(ups) > 0 {
+		size = min(size, len(ups))
+		wc := make(chan struct{}, 1)
+		cc.wc = append(cc.wc, wc)
+		go worker(cc, ups[:size], wc)
+		ups = ups[size:]
+	}
+
 	return cc, nil
+}
+
+// Dispose releases all resources for a circuit.
+//
+func (c *Circuit) Dispose() {
+	c.wg.Add(len(c.wc))
+	for _, wc := range c.wc {
+		close(wc)
+	}
+	c.wg.Wait()
+}
+
+func worker(c *Circuit, cs []Component, wc <-chan struct{}) {
+	for {
+		_, ok := <-wc
+		if !ok {
+			c.wg.Done()
+			return
+		}
+		for _, f := range cs {
+			f(c)
+		}
+		c.wg.Done()
+	}
+}
+
+// clock returns a clock for this circuit
+//
+func clock(c *Circuit) Component {
+	ticks := 0
+	hafTicks := c.tpc/2 - 1
+	return func(c *Circuit) {
+		ticks++
+		if ticks&hafTicks == 0 {
+			c.Toggle(cstClk)
+			ticks = 0
+		} else {
+			c.Set(cstClk, c.Get(cstClk))
+		}
+	}
 }
 
 // alloc allocates a pin and returns its number.
@@ -172,6 +257,12 @@ func (c *Circuit) Set(n int, s bool) {
 	c.s1[n] = s
 }
 
+// Toggle toggles the state of a given pin.
+//
+func (c *Circuit) Toggle(n int) {
+	c.s1[n] = !c.s0[n]
+}
+
 func min(a, b int) int {
 	if a <= b {
 		return a
@@ -179,38 +270,57 @@ func min(a, b int) int {
 	return b
 }
 
-// Update advances a simulation by one step.
+// Step advances a simulation by one step.
 //
-func (c *Circuit) Update(workers int) {
+func (c *Circuit) Step() {
 	// set constant pins
 	c.s0[cstFalse] = false
 	c.s0[cstTrue] = true
 
-	if workers <= 0 {
-		for _, u := range c.cs {
-			u(c)
-		}
-		c.s0, c.s1 = c.s1, c.s0
-		return
+	c.wg.Add(len(c.wc))
+	for _, wc := range c.wc {
+		wc <- struct{}{}
 	}
-
-	var wg sync.WaitGroup
-	p := c.cs
-	l := len(p) / workers
-	if l*workers < len(p) {
-		l++
-	}
-	for len(p) > 0 {
-		wg.Add(1)
-		l = min(l, len(p))
-		go func(cs []Component) {
-			for _, f := range cs {
-				f(c)
-			}
-			wg.Done()
-		}(p[:l])
-		p = p[l:]
-	}
-	wg.Wait()
+	c.wg.Wait()
 	c.s0, c.s1 = c.s1, c.s0
+}
+
+// Tick runs the simulation until the end of a true clock signal.
+//
+func (c *Circuit) Tick() {
+	// wait for end of tock
+	for c.Get(cstClk) == false {
+		c.Step()
+	}
+	for c.Get(cstClk) == true {
+		c.Step()
+	}
+}
+
+// Tock runs the simulation until the end of a false clock signal.
+// At this point, the output of clocked components should have stabilized.
+//
+func (c *Circuit) Tock() {
+	// wait for end of tick
+	for c.Get(cstClk) == true {
+		c.Step()
+	}
+	for c.Get(cstClk) == false {
+		c.Step()
+	}
+}
+
+// TickTock runs the simulation for a whole clock cycle.
+//
+func (c *Circuit) TickTock() {
+	// wait for end of tick
+	for c.Get(cstClk) == false {
+		c.Step()
+	}
+	for c.Get(cstClk) == true {
+		c.Step()
+	}
+	for c.Get(cstClk) == false {
+		c.Step()
+	}
 }

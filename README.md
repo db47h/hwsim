@@ -149,7 +149,7 @@ A circuit is made of a set of parts connected together. Time to test our adder:
 ```go
     var a, b, ci bool
     var s, co bool
-    c, err := hw.NewCirtuit(hw.Parts{
+    c, err := hw.NewCirtuit(0, 0, w.Parts{
         // feed variables a, b and ci as inputs in the circuit
         hw.Input(func() bool { return a })(hw.W{"out": "a"}),
         hw.Input(func() bool { return b })(hw.W{"out": "b"}),
@@ -162,6 +162,10 @@ A circuit is made of a set of parts connected together. Time to test our adder:
         hw.Output(func (bit bool) { s = bit })(hw.W{"in": "sum"}),
         hw.Output(func (bit bool) { co = bit })(hw.W{"in": "co"}),
     })
+    if err != nil {
+        // panic!
+    }
+    defer c.Dispose()
 ```
 
 And run it:

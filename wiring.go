@@ -123,11 +123,11 @@ func newWiring(ins In, outs Out) (wr wiring, inputRoot *node) {
 	// inputRoot serves as a parent marker for chip inputs.
 	inputRoot = &node{pin: pin{-1, "__INPUT__"}, outs: make([]*node, len(ins)), typ: typeInput}
 
-	// add true and false as chip inputs
-	p := pin{-1, True}
-	wr[p] = &node{pin: p, org: inputRoot, typ: typeUnknown}
-	p = pin{-1, False}
-	wr[p] = &node{pin: p, org: inputRoot, typ: typeUnknown}
+	// add constant pins
+	for _, pn := range []string{Clk, False, True} {
+		p := pin{-1, pn}
+		wr[p] = &node{pin: p, org: inputRoot, typ: typeUnknown}
+	}
 
 	for i, in := range ins {
 		p := pin{-1, in}
@@ -147,10 +147,10 @@ func newWiring(ins In, outs Out) (wr wiring, inputRoot *node) {
 func (wr wiring) add(in pin, iType int, out pin, oType int) error {
 	if out.p < 0 {
 		switch out.name {
-		case False:
-			return nil
 		case Clk:
 			return errors.New("output pin connected to clock signal")
+		case False:
+			return nil
 		case True:
 			return errors.New("output pin connected to constant \"true\" input")
 		}

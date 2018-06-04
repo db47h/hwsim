@@ -1,6 +1,8 @@
 package hwsim
 
-import "strconv"
+import (
+	"strconv"
+)
 
 // common pin names
 const (
@@ -320,3 +322,28 @@ func Or16(w W) Part { return or16.Wire(w) }
 //	Function: for i := range out { out[i] = !(a[i] || b[i]) }
 //
 func Nor16(w W) Part { return nor16.Wire(w) }
+
+// DFF returns a clocked data flip flop.
+//
+//	Inputs: in
+//	Outputs: out
+//	Function: out(t) = in(t-1)
+//
+func DFF(w W) Part {
+	return MakePart(&PartSpec{
+		In:  In{pIn},
+		Out: Out{pOut},
+		Mount: func(s *Socket) []Component {
+			in, out := s.Pin(pIn), s.Pin(pOut)
+			var curOut bool
+			return []Component{
+				func(c *Circuit) {
+					// raising edge?
+					// here we cheat by using private fields to speed up clock state tracking
+					if c.tick&(c.tpc-1) == 0 {
+						curOut = c.Get(in)
+					}
+					c.Set(out, curOut)
+				}}
+		}})(w)
+}

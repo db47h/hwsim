@@ -1,6 +1,7 @@
 package hwsim_test
 
 import (
+	"log"
 	"testing"
 
 	hw "github.com/db47h/hwsim"
@@ -222,4 +223,31 @@ func Test_chip_errors(t *testing.T) {
 		})
 	}
 
+}
+
+func Test_clock_builtin(t *testing.T) {
+	var out bool
+	var tick int
+	c, err := hw.NewCircuit(1, 4, hw.Parts{
+		hw.Output(func(b bool) {
+			out = b
+			log.Printf("tick %v clock %v", tick, out)
+			tick++
+		})(hw.W{"in": "clk"}), // dunny thing
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Print("tock")
+	c.Tock()
+	log.Print("clk next ", c.Get(2))
+	log.Print("tick")
+	c.Tick()
+	log.Print("clk next ", c.Get(2))
+	log.Print("tock")
+	c.Tock()
+	log.Print("clk next ", c.Get(2))
+	log.Print("ticktock")
+	c.TickTock()
+	log.Print("clk next ", c.Get(2))
 }

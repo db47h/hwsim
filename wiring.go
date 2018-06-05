@@ -7,6 +7,22 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Constant input pin names.
+//
+var (
+	False       = "false"
+	True        = "true"
+	Clk         = "clk"
+	cstPinNames = [...]string{"false", "true", "clk"}
+)
+
+const (
+	cstFalse = iota
+	cstTrue
+	cstClk
+	cstCount
+)
+
 // W is a set of wires, connecting a part's I/O pins (the map key) to pins in its container.
 //
 type W map[string]string
@@ -161,7 +177,7 @@ func newWiring(ins In, outs Out) wiring {
 	wr := make(wiring, len(ins)+len(outs)+1)
 
 	// add constant pins
-	for _, pn := range []string{Clk, False, True} {
+	for _, pn := range cstPinNames {
 		p := pin{-1, pn}
 		wr[p] = &node{pin: p, typ: typeInput}
 	}

@@ -1,20 +1,5 @@
 package hwsim
 
-// Constant input pin names.
-//
-var (
-	False = "false"
-	True  = "true"
-	Clk   = "clk"
-)
-
-const (
-	cstFalse = iota
-	cstTrue
-	cstClk
-	cstCount
-)
-
 // A Socket maps a part's pin names to pin numbers in a circuit.
 //
 type Socket struct {

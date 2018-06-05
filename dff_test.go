@@ -20,6 +20,7 @@ func TestDFF(t *testing.T) {
 		hw.DFF(hw.W{"in": "in[3]", "out": "out4[3]"}),
 	})
 	if err != nil {
+		trace(t, err)
 		t.Fatal(err)
 	}
 
@@ -29,6 +30,7 @@ func TestDFF(t *testing.T) {
 		hw.Output16(func(o int64) { out = o })(hw.W{"in[0..3]": "out[0..3]"}),
 	})
 	if err != nil {
+		trace(t, err)
 		t.Fatal(err)
 	}
 	defer c.Dispose()
@@ -61,6 +63,7 @@ func Test_bit_register(t *testing.T) {
 	})
 
 	if err != nil {
+		trace(t, err)
 		t.Fatal(err)
 	}
 
@@ -74,6 +77,7 @@ func Test_bit_register(t *testing.T) {
 	})
 
 	if err != nil {
+		trace(t, err)
 		t.Fatal(err)
 	}
 

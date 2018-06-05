@@ -93,7 +93,7 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 		for _, k := range sp.In {
 			if vs, ok := ex[k]; ok {
 				if len(vs) > 1 {
-					return nil, errors.New(sp.Name + " input pin " + k + ": invalid pin mapping")
+					return nil, errors.New(sp.Name + " input pin " + k + "connected to more than one output")
 				}
 				i, o := pin{-1, vs[0]}, pin{pnum, k}
 				if err := wr.add(i, typeUnknown, o, typeInput); err != nil {

@@ -55,12 +55,14 @@ func Test_gate_builtin(t *testing.T) {
 		hw.And(hw.W{"a": hw.True, "b": hw.True, "out": "out"}),
 	})
 	if err != nil {
+		trace(t, err)
 		t.Fatal(err)
 	}
 	fa, err := hw.Chip("FALSE", hw.In{"a"}, hw.Out{"out"}, hw.Parts{
 		hw.Or(hw.W{"a": hw.False, "b": hw.False, "out": "out"}),
 	})
 	if err != nil {
+		trace(t, err)
 		t.Fatal(err)
 	}
 	td := []struct {

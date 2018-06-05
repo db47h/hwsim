@@ -116,6 +116,23 @@ func (n *node) setName(name string) {
 	}
 }
 
+// setType possibly changes the type of a node.
+// it may result in turning n into an input or output type,
+// in which case the node must be checked for correctnes.
+// add() already does these checks.
+func (n *node) setType(typ int) error {
+	if typ != typeUnknown && n.typ != typ {
+		if n.typ == typeUnknown {
+			n.typ = typ
+		} else if n.typ == typeInput {
+			return errors.New("cannot turn input pin into an output pin")
+		} else {
+			return errors.New("cannot turn output pin into an input pin")
+		}
+	}
+	return nil
+}
+
 type wiring map[pin]*node
 
 func newWiring(ins In, outs Out) (wr wiring, inputRoot *node) {
@@ -155,25 +172,34 @@ func (wr wiring) add(in pin, iType int, out pin, oType int) error {
 			return errors.New("output pin connected to constant true input")
 		}
 	}
+
 	wi := wr[in]
 	if wi == nil {
 		wi = &node{pin: in, typ: iType}
 		wr[in] = wi
+	} else if err := wi.setType(iType); err != nil {
+		return err
 	}
+	if wi.isInput() {
+		return errors.New("input pin used as output pin")
+	}
+
 	wo := wr[out]
-	switch {
-	case wo == nil:
-		wo = &node{pin: out, org: wi, typ: oType}
+	if wo == nil {
+		wo = &node{pin: out, typ: oType}
 		wr[out] = wo
+	} else if err := wo.setType(oType); err != nil {
+		return err
+	}
+	switch {
 	case wo.isOutput() && wo.pin.p >= 0:
 		return errors.New("part output pin used as output")
-	case wo.isInput():
-		return errors.New("input pin used as output")
 	case wo.org == nil:
 		wo.org = wi
 	default:
-		return errors.New("output pin already used as output or is one of the chip's input pin")
+		return errors.New("output pin already used as output or is one of the chip's input pins")
 	}
+
 	wi.outs = append(wi.outs, wo)
 	return nil
 }

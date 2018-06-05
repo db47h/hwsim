@@ -4,9 +4,21 @@ import (
 	"testing"
 
 	hw "github.com/db47h/hwsim"
+	"github.com/pkg/errors"
 )
 
 const testTPC = 16
+
+func trace(t *testing.T, err error) {
+	t.Helper()
+	if err, ok := err.(interface {
+		StackTrace() errors.StackTrace
+	}); ok {
+		for _, f := range err.StackTrace() {
+			t.Logf("%+v ", f)
+		}
+	}
+}
 
 func Test_gate_custom(t *testing.T) {
 	and, err := hw.Chip("AND", hw.In{"a", "b"}, hw.Out{"out"},
@@ -197,7 +209,12 @@ func Test_chip_errors(t *testing.T) {
 		{"multi_out", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
 			hw.Nand(hw.W{"a": "a", "b": "b", "out": "a"}),
 			hw.Nand(hw.W{"a": "a", "b": "b", "out": "out"}),
-		}, "NAND.out:a: output pin already used as output or is one of the chip's input pin"},
+		}, "NAND.out:a: output pin already used as output or is one of the chip's input pins"},
+		{"multi_out2", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
+			hw.Nand(hw.W{"a": "a", "b": "b", "out": "x"}),
+			hw.Nand(hw.W{"a": "a", "b": "b", "out": "x"}),
+			hw.Not(hw.W{"in": "x", "out": "out"}),
+		}, "NAND.out:x: output pin already used as output or is one of the chip's input pins"},
 		{"no_output", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
 			hw.Nand(hw.W{"a": "a", "b": "wx", "out": "out"}),
 		}, "pin wx not connected to any output"},

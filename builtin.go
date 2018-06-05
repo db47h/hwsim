@@ -15,7 +15,7 @@ const (
 
 // make a bus name
 func bus(name string, bits int) string {
-	return BusPinName(name, bits)
+	return busPinName(name, bits)
 }
 
 // Input creates a function based input.

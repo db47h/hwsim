@@ -93,7 +93,7 @@ func expandRange(name string) ([]string, error) {
 	}
 	r := make([]string, 0, end-start+1)
 	for i := start; i <= end; i++ {
-		r = append(r, BusPinName(bus, i))
+		r = append(r, busPinName(bus, i))
 	}
 	return r, nil
 }

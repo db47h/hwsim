@@ -13,12 +13,6 @@ import (
 //
 type Component func(c *Circuit)
 
-// BusPinName returns the pin name for the n-th bit of the named bus.
-//
-func BusPinName(name string, bit int) string {
-	return name + "[" + strconv.Itoa(bit) + "]"
-}
-
 // ExpandBus returns a copy of the pin names with buses expanded as individual
 // pin names. e.g. "in[2]" will be expanded to "in[0]", "in[1]"
 //
@@ -41,7 +35,7 @@ func ExpandBus(pins ...string) []string {
 			panic(err)
 		}
 		for i := 0; i < l; i++ {
-			out = append(out, BusPinName(n, i))
+			out = append(out, busPinName(n, i))
 		}
 	}
 	return out

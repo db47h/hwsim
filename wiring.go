@@ -239,7 +239,7 @@ func (wr wiring) wireName(p pin) string {
 //
 func (wr wiring) pruneEphemeral() error {
 	wireNum := 0
-	for _, n := range wr {
+	for k, n := range wr {
 		// Error on ephemeral pins with no source or dest.
 		if n.typ == typeUnknown {
 			if n.src == nil {
@@ -248,6 +248,11 @@ func (wr wiring) pruneEphemeral() error {
 			if len(n.outs) == 0 {
 				return errors.New("pin " + n.pin.name + " not connected to any input")
 			}
+		}
+		// remove input pins with no outs
+		if n.isChipInput() && len(n.outs) == 0 {
+			delete(wr, k)
+			continue
 		}
 
 		// remove temporary pins.

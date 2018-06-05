@@ -180,8 +180,8 @@ func newWiring(ins In, outs Out) wiring {
 	return wr
 }
 
-// add adds a wire between two pins src (the pin powering the wire) and dst.
-func (wr wiring) add(src pin, sType int, dst pin, dType int) error {
+// connect wires pins src and dst (src being the pin powering the wire).
+func (wr wiring) connect(src pin, sType int, dst pin, dType int) error {
 	if dst.p < 0 {
 		switch dst.name {
 		case Clk:
@@ -223,5 +223,73 @@ func (wr wiring) add(src pin, sType int, dst pin, dType int) error {
 	}
 
 	ws.outs = append(ws.outs, wd)
+	return nil
+}
+
+func (wr wiring) wireName(p pin) string {
+	if n := wr[p]; n != nil {
+		return n.name
+	}
+	return ""
+}
+
+// pruneEphemeral should be called after adding all connections.
+// It removes ephemeral pins by establishing direct connections
+// between parts and I/O pins and assigns names to individual wires.
+//
+func (wr wiring) pruneEphemeral() error {
+	wireNum := 0
+	for _, n := range wr {
+		// Error on ephemeral pins with no source or dest.
+		if n.typ == typeUnknown {
+			if n.src == nil {
+				return errors.New("pin " + n.pin.name + " not connected to any output")
+			}
+			if len(n.outs) == 0 {
+				return errors.New("pin " + n.pin.name + " not connected to any input")
+			}
+		}
+
+		// remove temporary pins.
+		// input pins can safely be ignored since len(n.outs) is 0 for them.
+		// Inspect every "next" output pin in the wire chain.
+		for i := 0; i < len(n.outs); {
+			next := n.outs[i]
+			if len(next.outs) == 0 {
+				i++
+				continue
+			}
+			// there is a wire chain: n -> next -> next.outs
+			// merge it into n.outs = n.outs + next.outs
+			for _, o := range next.outs {
+				o.src = n
+			}
+			n.outs = append(n.outs, next.outs...)
+			next.outs = nil
+			// remove ephemeral internal chip pins
+			if next.pin.p < 0 && next.typ == typeUnknown {
+				// delete next
+				n.outs[i] = n.outs[len(n.outs)-1]
+				n.outs = n.outs[:len(n.outs)-1]
+				delete(wr, next.pin)
+			} else {
+				i++
+			}
+		}
+
+		// assign a wire name to the pin tree
+		if n.name == "" {
+			t := n
+			for prev := t.src; prev != nil; t, prev = prev, t.src {
+			}
+			if t.isChipInput() {
+				t.setName(t.pin.name)
+			} else {
+				t.setName("__" + strconv.Itoa(wireNum))
+			}
+			wireNum++
+		}
+	}
+
 	return nil
 }

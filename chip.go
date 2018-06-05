@@ -1,17 +1,13 @@
 package hwsim
 
 import (
-	"strconv"
-
 	"github.com/pkg/errors"
 )
 
 type chip struct {
 	PartSpec             // PartSpec for this chip
 	parts    []*PartSpec // sub parts
-	// wires maps pins used in a chip to the internal wire name which may be the
-	// name of any input/output of the chip or dynamically allocated (__0, __1, etc.)
-	wires map[pin]string
+	w        wiring
 }
 
 func (c *chip) mount(s *Socket) []Component {
@@ -26,7 +22,7 @@ func (c *chip) mount(s *Socket) []Component {
 			if subK == "" {
 				continue
 			}
-			if n := c.wires[pin{i, k}]; n != "" {
+			if n := c.w.wireName(pin{i, k}); n != "" {
 				sub.m[subK] = s.PinOrNew(n)
 			} else {
 				// wire unknown pins to False.
@@ -94,7 +90,7 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 					return nil, errors.New(sp.Name + " input pin " + k + "connected to more than one output")
 				}
 				i, o := pin{-1, vs[0]}, pin{pnum, k}
-				if err := wr.add(i, typeUnknown, o, typeInput); err != nil {
+				if err := wr.connect(i, typeUnknown, o, typeInput); err != nil {
 					return nil, errors.Wrap(err, pinName(spcs, i)+":"+pinName(spcs, o))
 				}
 			}
@@ -104,7 +100,7 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 			if vs, ok := ex[k]; ok {
 				for _, v := range vs {
 					i, o := pin{pnum, k}, pin{-1, v}
-					if err := wr.add(i, typeOutput, o, typeUnknown); err != nil {
+					if err := wr.connect(i, typeOutput, o, typeUnknown); err != nil {
 						return nil, errors.Wrap(err, pinName(spcs, i)+":"+pinName(spcs, o))
 					}
 				}
@@ -115,8 +111,7 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 		}
 	}
 
-	pins, err := checkWiring(wr, spcs)
-	if err != nil {
+	if err := wr.pruneEphemeral(); err != nil {
 		return nil, err
 	}
 
@@ -124,10 +119,10 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 	// map all input and output pins, even if not used.
 	// mount will ignore pins with an empty value.
 	for _, i := range inputs {
-		pinout[i] = pins[pin{-1, i}]
+		pinout[i] = wr.wireName(pin{-1, i})
 	}
 	for _, o := range outputs {
-		pinout[o] = pins[pin{-1, o}]
+		pinout[o] = wr.wireName(pin{-1, o})
 	}
 
 	c := &chip{
@@ -138,7 +133,7 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 			Pinout: pinout,
 		},
 		spcs,
-		pins,
+		wr,
 	}
 	c.PartSpec.Mount = c.mount
 	return c.PartSpec.Wire, nil
@@ -149,60 +144,4 @@ func pinName(sp []*PartSpec, p pin) string {
 		return p.name
 	}
 	return sp[p.p].Name + "." + p.name
-}
-
-func checkWiring(wr wiring, spcs []*PartSpec) (map[pin]string, error) {
-	pins := make(map[pin]string, len(wr))
-	wireNum := 0
-	for _, n := range wr {
-		// Error on ephemeral pins with no source.
-		if n.typ == typeUnknown && n.src == nil {
-			return nil, errors.New("pin " + pinName(spcs, n.pin) + " not connected to any output")
-		}
-
-		// remove temporary pins.
-		// input pins can safely be ignored since len(n.outs) is 0 for them.
-		// Inspect every "next" output pin in the wire chain.
-		for i := 0; i < len(n.outs); {
-			next := n.outs[i]
-			if len(next.outs) == 0 {
-				if next.pin.p < 0 && !next.isOutput() {
-					return nil, errors.New("pin " + pinName(spcs, next.pin) + " not connected to any input")
-				}
-				i++
-				continue
-			}
-			// there is a wire chain: n -> next -> next.outs
-			// merge it into n.outs = n.outs + next.outs
-			for _, o := range next.outs {
-				o.src = n
-			}
-			n.outs = append(n.outs, next.outs...)
-			next.outs = nil
-			// now decide what to do with next
-			// remove ephemeral internal chip pins
-			if next.pin.p < 0 && next.typ == typeUnknown {
-				// delete next
-				n.outs[i] = n.outs[len(n.outs)-1]
-				n.outs = n.outs[:len(n.outs)-1]
-				delete(wr, next.pin)
-			}
-		}
-
-		// assign a wire name to the pin tree
-		if n.name == "" {
-			t := n
-			for prev := t.src; prev != nil; t, prev = prev, t.src {
-			}
-			if t.isChipInput() {
-				t.setName(t.pin.name)
-			} else {
-				t.setName("__" + strconv.Itoa(wireNum))
-			}
-			wireNum++
-		}
-		pins[n.pin] = n.name
-	}
-
-	return pins, nil
 }

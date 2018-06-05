@@ -185,7 +185,7 @@ And run it:
 
 ## Help Wanted
 
-A good API has good names with clearly defined entities. This package's API is far from good, with some quirks. For example, `Part` is not an actual part, it just binds together a part specification (bluprint) with how it's wired into a chip and has no use beyond that. I could have gone with something like this instead:
+A good API has good names with clearly defined entities. This package's API is far from good, with some quirks. For example, `Part` is not an actual part, it just binds together a part specification (blueprint) with how it's wired into a chip and has no use beyond that. I could have gone with something like this instead:
 
 ```go
     type Parts []struct{*PartSpec, W}

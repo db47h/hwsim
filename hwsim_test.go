@@ -209,12 +209,12 @@ func Test_chip_errors(t *testing.T) {
 		{"multi_out", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
 			hw.Nand(hw.W{"a": "a", "b": "b", "out": "a"}),
 			hw.Nand(hw.W{"a": "a", "b": "b", "out": "out"}),
-		}, "NAND.out:a: output pin already used as output or is one of the chip's input pins"},
+		}, "NAND.out:a: chip input pin used as output"},
 		{"multi_out2", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
 			hw.Nand(hw.W{"a": "a", "b": "b", "out": "x"}),
 			hw.Nand(hw.W{"a": "a", "b": "b", "out": "x"}),
 			hw.Not(hw.W{"in": "x", "out": "out"}),
-		}, "NAND.out:x: output pin already used as output or is one of the chip's input pins"},
+		}, "NAND.out:x: output pin already used as output"},
 		{"no_output", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
 			hw.Nand(hw.W{"a": "a", "b": "wx", "out": "out"}),
 		}, "pin wx not connected to any output"},

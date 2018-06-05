@@ -94,16 +94,20 @@ const (
 	typeOutput
 )
 
+// node is a node in a wire (see wiring).
 type node struct {
-	name string // chip internal pin name
-	pin  pin
-	outs []*node
-	org  *node // pin feeding that node
+	name string  // wire name (propagates to outs)
+	pin  pin     // pin connecting this node
+	src  *node   // power source
+	outs []*node // nodes powered by this node
 	typ  int
 }
 
-func (n *node) isInput() bool {
-	return n.typ == typeInput
+func (n *node) isChipInput() bool {
+	return n.pin.p < 0 && n.typ == typeInput
+}
+func (n *node) isPartInput() bool {
+	return n.pin.p >= 0 && n.typ == typeInput
 }
 func (n *node) isOutput() bool {
 	return n.typ == typeOutput
@@ -133,37 +137,53 @@ func (n *node) setType(typ int) error {
 	return nil
 }
 
+// wiring represents the wiring within a chip. It is organised as a set of node trees.
+// Each node tree represents a wire.
+// Pins are each assigned a node, and nodes are connected together to form a wire.
+// Wires can have only one pin powering them (the root node, with n.src == nil),
+// and branch out in sub-wires.
+//
+// There are six pin types:
+//
+//	             SRC? DST?
+//	Chip Input    Y    N
+//	Chip Output   Y    Y
+//	Part Input    N    Y
+//	Part Output   Y    N
+//	Ephemeral     Y    Y
+//
+// plus constant inputs true, false and clk that are wired in as
+// chip inputs.
+//
 type wiring map[pin]*node
 
-func newWiring(ins In, outs Out) (wr wiring, inputRoot *node) {
-	wr = make(wiring, len(ins)+len(outs)+1)
-	// inputRoot serves as a parent marker for chip inputs.
-	inputRoot = &node{pin: pin{-1, "__INPUT__"}, outs: make([]*node, len(ins)), typ: typeInput}
+func newWiring(ins In, outs Out) wiring {
+	wr := make(wiring, len(ins)+len(outs)+1)
 
 	// add constant pins
 	for _, pn := range []string{Clk, False, True} {
 		p := pin{-1, pn}
-		wr[p] = &node{pin: p, org: inputRoot, typ: typeUnknown}
+		wr[p] = &node{pin: p, typ: typeInput}
 	}
 
-	for i, in := range ins {
+	for _, in := range ins {
 		p := pin{-1, in}
-		n := &node{pin: p, org: inputRoot, typ: typeUnknown}
+		n := &node{pin: p, typ: typeInput}
 		wr[p] = n
-		inputRoot.outs[i] = n
 	}
 
 	for _, out := range outs {
 		p := pin{-1, out}
-		n := &node{pin: p, org: nil, typ: typeOutput}
+		n := &node{pin: p, typ: typeOutput}
 		wr[p] = n
 	}
-	return wr, inputRoot
+	return wr
 }
 
-func (wr wiring) add(in pin, iType int, out pin, oType int) error {
-	if out.p < 0 {
-		switch out.name {
+// add adds a wire between two pins src (the pin powering the wire) and dst.
+func (wr wiring) add(src pin, sType int, dst pin, dType int) error {
+	if dst.p < 0 {
+		switch dst.name {
 		case Clk:
 			return errors.New("output pin connected to clock signal")
 		case False:
@@ -173,33 +193,35 @@ func (wr wiring) add(in pin, iType int, out pin, oType int) error {
 		}
 	}
 
-	wi := wr[in]
-	if wi == nil {
-		wi = &node{pin: in, typ: iType}
-		wr[in] = wi
-	} else if err := wi.setType(iType); err != nil {
+	ws := wr[src]
+	if ws == nil {
+		ws = &node{pin: src, typ: sType}
+		wr[src] = ws
+	} else if err := ws.setType(sType); err != nil {
 		return err
 	}
-	if wi.isInput() {
-		return errors.New("input pin used as output pin")
+	if ws.isPartInput() {
+		return errors.New("part input pin used as output pin")
 	}
 
-	wo := wr[out]
-	if wo == nil {
-		wo = &node{pin: out, typ: oType}
-		wr[out] = wo
-	} else if err := wo.setType(oType); err != nil {
+	wd := wr[dst]
+	if wd == nil {
+		wd = &node{pin: dst, typ: dType}
+		wr[dst] = wd
+	} else if err := wd.setType(dType); err != nil {
 		return err
 	}
 	switch {
-	case wo.isOutput() && wo.pin.p >= 0:
+	case wd.isOutput() && wd.pin.p >= 0:
 		return errors.New("part output pin used as output")
-	case wo.org == nil:
-		wo.org = wi
+	case wd.isChipInput():
+		return errors.New("chip input pin used as output")
+	case wd.src == nil:
+		wd.src = ws
 	default:
-		return errors.New("output pin already used as output or is one of the chip's input pins")
+		return errors.New("output pin already used as output")
 	}
 
-	wi.outs = append(wi.outs, wo)
+	ws.outs = append(ws.outs, wd)
 	return nil
 }

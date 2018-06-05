@@ -28,11 +28,9 @@ func (c *chip) mount(s *Socket) []Component {
 			}
 			if n := c.wires[pin{i, k}]; n != "" {
 				sub.m[subK] = s.PinOrNew(n)
-				//				log.Printf("%s: wire for %s.%s (%s):%s = %d", c.Name, p.Name, k, subK, n, sub.m[subK])
 			} else {
 				// wire unknown pins to False.
 				// Chip() makes sure that unknown pins can only be inputs.
-				//				log.Printf("%s: wire for %s.%s (%s):%s = %d", c.Name, p.Name, k, subK, "???", sub.m[subK])
 				sub.m[subK] = cstFalse
 			}
 		}
@@ -75,7 +73,7 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 	outputs = ExpandBus(outputs...)
 
 	// build wiring
-	wr, root := newWiring(inputs, outputs)
+	wr := newWiring(inputs, outputs)
 	spcs := make([]*PartSpec, len(parts))
 
 	for pnum, p := range parts {
@@ -117,7 +115,7 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 		}
 	}
 
-	pins, err := checkWiring(wr, root, spcs)
+	pins, err := checkWiring(wr, spcs)
 	if err != nil {
 		return nil, err
 	}
@@ -153,12 +151,12 @@ func pinName(sp []*PartSpec, p pin) string {
 	return sp[p.p].Name + "." + p.name
 }
 
-func checkWiring(wr wiring, root *node, spcs []*PartSpec) (map[pin]string, error) {
+func checkWiring(wr wiring, spcs []*PartSpec) (map[pin]string, error) {
 	pins := make(map[pin]string, len(wr))
 	wireNum := 0
 	for _, n := range wr {
-		// Error on non-output pins with no inbound connection.
-		if !n.isOutput() && n.org == nil {
+		// Error on ephemeral pins with no source.
+		if n.typ == typeUnknown && n.src == nil {
 			return nil, errors.New("pin " + pinName(spcs, n.pin) + " not connected to any output")
 		}
 
@@ -177,13 +175,13 @@ func checkWiring(wr wiring, root *node, spcs []*PartSpec) (map[pin]string, error
 			// there is a wire chain: n -> next -> next.outs
 			// merge it into n.outs = n.outs + next.outs
 			for _, o := range next.outs {
-				o.org = n
+				o.src = n
 			}
 			n.outs = append(n.outs, next.outs...)
 			next.outs = nil
 			// now decide what to do with next
-			// remove orphaned internal chip pins that are not outputs
-			if next.pin.p < 0 && !next.isOutput() {
+			// remove ephemeral internal chip pins
+			if next.pin.p < 0 && next.typ == typeUnknown {
 				// delete next
 				n.outs[i] = n.outs[len(n.outs)-1]
 				n.outs = n.outs[:len(n.outs)-1]
@@ -194,15 +192,12 @@ func checkWiring(wr wiring, root *node, spcs []*PartSpec) (map[pin]string, error
 		// assign a wire name to the pin tree
 		if n.name == "" {
 			t := n
-			for prev := t.org; prev != nil && prev != root; t, prev = prev, t.org {
+			for prev := t.src; prev != nil; t, prev = prev, t.src {
 			}
-			if t.org == nil {
-				t.setName("__" + strconv.Itoa(wireNum))
-			} else {
-				// chip input pin, use its name.
-				// TODO: this could be removed and only use internal pin names
-				// but there is an issue with True/False/Clk
+			if t.isChipInput() {
 				t.setName(t.pin.name)
+			} else {
+				t.setName("__" + strconv.Itoa(wireNum))
 			}
 			wireNum++
 		}

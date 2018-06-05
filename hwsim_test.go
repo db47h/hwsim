@@ -189,7 +189,11 @@ func Test_chip_errors(t *testing.T) {
 		{"true_out", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
 			hw.Nand(hw.W{"a": "a", "b": "b", "out": hw.True}),
 			hw.Nand(hw.W{"a": "a", "b": "b", "out": "out"}),
-		}, "NAND.out:true: output pin connected to constant \"true\" input"},
+		}, "NAND.out:true: output pin connected to constant true input"},
+		{"false_out", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
+			hw.Nand(hw.W{"a": "a", "b": "b", "out": hw.False}),
+			hw.Nand(hw.W{"a": "a", "b": "b", "out": "out"}),
+		}, "NAND.out:false: output pin connected to constant false input"},
 		{"multi_out", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
 			hw.Nand(hw.W{"a": "a", "b": "b", "out": "a"}),
 			hw.Nand(hw.W{"a": "a", "b": "b", "out": "out"}),
@@ -222,4 +226,42 @@ func Test_chip_errors(t *testing.T) {
 		})
 	}
 
+}
+
+func Test_omitted_pins(t *testing.T) {
+	var a, b, c, tr, f, o0, o1 int
+	dummy := hw.MakePart(&hw.PartSpec{
+		Name: "dummy",
+		In:   hw.In{"a", "b", "c", "t", "f"},
+		Out:  hw.Out{"o0", "o1"},
+		Mount: func(s *hw.Socket) []hw.Component {
+			a, b, c, tr, f, o0, o1 = s.Pin("a"), s.Pin("b"), s.Pin("c"), s.Pin("t"), s.Pin("f"), s.Pin("o0"), s.Pin("o1")
+			return nil
+		}})
+	// this is just to add another layer of testing.
+	// inspecting o0 and o1 shows that another dummy wire was allocated for dummy.o0:wo0
+	wrapper, err := hw.Chip("wrapper", hw.In{"wa", "wb"}, hw.Out{"wo0", "wo1"}, hw.Parts{
+		dummy(hw.W{"a": "wa", "c": hw.Clk, "t": hw.True, "f": hw.False, "o0": "wo0"}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = hw.NewCircuit(0, 0, hw.Parts{wrapper(nil)})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if a != 0 || b != 0 || f != 0 { // 0 = cstFalse
+		t.Errorf("a = %v, b = %v, f = %v, all must be 0", a, b, f)
+	}
+	if tr != 1 { // 1 = cstTrue
+		t.Errorf("t = %v, must be 1", tr)
+	}
+	if c != 2 { // 2 = cstClk
+		t.Errorf("c = %v, must be 2", c)
+	}
+	if o0 < 3 || o1 < 3 { // 3 = cstCount
+		t.Errorf("o0 = %v, o1 = %v, both must be > 3", o0, o1)
+	}
 }

@@ -150,9 +150,9 @@ func (wr wiring) add(in pin, iType int, out pin, oType int) error {
 		case Clk:
 			return errors.New("output pin connected to clock signal")
 		case False:
-			return nil
+			return errors.New("output pin connected to constant false input")
 		case True:
-			return errors.New("output pin connected to constant \"true\" input")
+			return errors.New("output pin connected to constant true input")
 		}
 	}
 	wi := wr[in]
@@ -165,6 +165,10 @@ func (wr wiring) add(in pin, iType int, out pin, oType int) error {
 	case wo == nil:
 		wo = &node{pin: out, org: wi, typ: oType}
 		wr[out] = wo
+	case wo.isOutput() && wo.pin.p >= 0:
+		return errors.New("part output pin used as output")
+	case wo.isInput():
+		return errors.New("input pin used as output")
 	case wo.org == nil:
 		wo.org = wi
 	default:

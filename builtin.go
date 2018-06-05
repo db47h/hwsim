@@ -331,8 +331,9 @@ func Nor16(w W) Part { return nor16.Wire(w) }
 //
 func DFF(w W) Part {
 	return MakePart(&PartSpec{
-		In:  In{pIn},
-		Out: Out{pOut},
+		Name: "DFF",
+		In:   In{pIn},
+		Out:  Out{pOut},
 		Mount: func(s *Socket) []Component {
 			in, out := s.Pin(pIn), s.Pin(pOut)
 			var curOut bool

@@ -5,7 +5,6 @@ package hwsim
 var (
 	False = "false"
 	True  = "true"
-	GND   = "false"
 	Clk   = "clk"
 )
 

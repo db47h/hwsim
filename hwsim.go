@@ -175,6 +175,8 @@ func NewCircuit(workers int, ticksPerCycle uint, ps Parts) (*Circuit, error) {
 	cc.s0[cstClk] = true
 	cc.s0[cstFalse] = false
 	cc.s0[cstTrue] = true
+	cc.s1[cstFalse] = false
+	cc.s1[cstTrue] = true
 
 	// workers
 	if workers == 0 {
@@ -260,17 +262,16 @@ func min(a, b int) int {
 // Step advances a simulation by one step.
 //
 func (c *Circuit) Step() {
-	// we let unconnected outputs write freely to c.s1[cstFalse], reset it
-	c.s0[cstFalse] = false
-
 	c.wg.Add(len(c.wc))
 	for _, wc := range c.wc {
 		wc <- struct{}{}
 	}
 
-	// update constant pins (Chip takes care of preventing writes to these)
-	c.Set(cstTrue, true)
-	// set clock signal
+	if c.s0[cstFalse] || !c.s0[cstTrue] {
+		panic("true or false constants have been overwritten")
+	}
+
+	// update clock signal
 	tick := c.tick + 1
 	if tick&(c.tpc-1) == 0 {
 		c.Set(cstClk, true)
@@ -281,7 +282,7 @@ func (c *Circuit) Step() {
 	}
 
 	c.wg.Wait()
-	c.tick++
+	c.tick = tick
 	c.s0, c.s1 = c.s1, c.s0
 }
 

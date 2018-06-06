@@ -7,12 +7,15 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Constant input pin names.
+// Constant input pin names. These pins can only be connected to the input pins of a chip.
+//
+// They are reserved names and should not be used as input or output names in
+// custom chips.
 //
 var (
-	False       = "false"
-	True        = "true"
-	Clk         = "clk"
+	False       = "false" // always false input
+	True        = "true"  // alwyas true input
+	Clk         = "clk"   // clock signal. True during Tick, False during Tock.
 	cstPinNames = [...]string{"false", "true", "clk"}
 )
 
@@ -23,25 +26,25 @@ const (
 	cstCount
 )
 
-// Connections represents the connections between a part's pins (the map keys)
-// to other pins in its host chip (the map values).
+// Connections represents the connections between the pins of a part (the map
+// keys) to other pins in its host chip (the map values).
 //
 // The map value is a slice because any output pin of a part can
 // be connected to more than one other pin within the chip.
 //
 type Connections map[string][]string
 
-// ParseConnections parses a wiring configuration like "partPinX=chipPinY, ..."
+// ParseConnections parses a connection configuration like "partPinX=chipPinY, ..."
 // into a Connections{"partPinX": []string{"chipPinX"}}.
 //
-//	Wire          = Assignment { [ space ] "," [ space ] Assignment } .
-//	Assignment    = pin "=" pin .
-//  Pin           = identifier [ "[" Range | index "]" ] .
-//	Range		  = index ".." index .
-//	identifier    = letter { letter | digit } .
-//	index         = { digit } .
-//	letter        = "A" .. "Z" | "a" .. "z" | "_" .
-//	digit         = "0" .. "9" .
+//	Wire       = Assignment { [ space ] "," [ space ] Assignment } .
+//	Assignment = pin "=" pin .
+//	Pin        = identifier [ "[" Range | index "]" ] .
+//	Range      = index ".." index .
+//	identifier = letter { letter | digit } .
+//	index      = { digit } .
+//	letter     = "A" .. "Z" | "a" .. "z" | "_" .
+//	digit      = "0" .. "9" .
 //
 func ParseConnections(c string) (conns Connections, err error) {
 	// just split the input string, syntax check is done somewhere else

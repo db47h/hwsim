@@ -37,7 +37,7 @@ func Input(f func() bool) NewPartFn {
 			}
 		},
 	}
-	return p.Wire
+	return p.NewPart
 }
 
 // Output creates an output or probe. The fn function is
@@ -58,7 +58,7 @@ func Output(f func(bool)) NewPartFn {
 			}
 		},
 	}
-	return p.Wire
+	return p.NewPart
 }
 
 var notGate = PartSpec{Name: "NOR", In: In{pIn}, Out: Out{pOut},
@@ -75,7 +75,7 @@ var notGate = PartSpec{Name: "NOR", In: In{pIn}, Out: Out{pOut},
 // Input pin name: in
 //
 func Not(w string) Part {
-	return notGate.Wire(w)
+	return notGate.NewPart(w)
 }
 
 // other gates
@@ -111,27 +111,27 @@ var (
 
 // And returns a AND gate.
 //
-func And(w string) Part { return and.Wire(w) }
+func And(w string) Part { return and.NewPart(w) }
 
 // Nand returns a NAND gate.
 //
-func Nand(w string) Part { return nand.Wire(w) }
+func Nand(w string) Part { return nand.NewPart(w) }
 
 // Or returns a OR gate.
 //
-func Or(w string) Part { return or.Wire(w) }
+func Or(w string) Part { return or.NewPart(w) }
 
 // Nor returns a NOR gate.
 //
-func Nor(w string) Part { return nor.Wire(w) }
+func Nor(w string) Part { return nor.NewPart(w) }
 
 // Xor returns a XOR gate.
 //
-func Xor(w string) Part { return xor.Wire(w) }
+func Xor(w string) Part { return xor.NewPart(w) }
 
 // Xnor returns a XNOR gate.
 //
-func Xnor(w string) Part { return xnor.Wire(w) }
+func Xnor(w string) Part { return xnor.NewPart(w) }
 
 // Mux returns a multiplexer.
 //
@@ -139,7 +139,7 @@ func Xnor(w string) Part { return xnor.Wire(w) }
 //	Outputs: out
 //	Function: If sel=0 then out=a else out=b.
 //
-func Mux(w string) Part { return mux.Wire(w) }
+func Mux(w string) Part { return mux.NewPart(w) }
 
 var mux = PartSpec{
 	Name: "MUX",
@@ -163,7 +163,7 @@ var mux = PartSpec{
 //	Outputs: a, b
 //	Function: If sel=0 then {a=in, b=0} else {a=0, b=in}
 //
-func DMux(w string) Part { return dmux.Wire(w) }
+func DMux(w string) Part { return dmux.NewPart(w) }
 
 var dmux = PartSpec{
 	Name: "DMUX",
@@ -207,7 +207,7 @@ var (
 
 // Not16 returns a 16 bits NOT gate.
 //
-func Not16(w string) Part { return not16.Wire(w) }
+func Not16(w string) Part { return not16.NewPart(w) }
 
 func inputN(bits int, f func() int64) *PartSpec {
 	return &PartSpec{
@@ -229,7 +229,7 @@ func inputN(bits int, f func() int64) *PartSpec {
 // Input16 creates a 16 bits input bus.
 //
 func Input16(f func() int64) NewPartFn {
-	return inputN(16, f).Wire
+	return inputN(16, f).NewPart
 }
 
 func outputN(bits int, f func(int64)) *PartSpec {
@@ -255,7 +255,7 @@ func outputN(bits int, f func(int64)) *PartSpec {
 // Output16 creates a 16 bits output bus.
 //
 func Output16(f func(int64)) NewPartFn {
-	return outputN(16, f).Wire
+	return outputN(16, f).NewPart
 }
 
 type gateN struct {
@@ -297,7 +297,7 @@ var (
 //	Outputs: out[16]
 //	Function: for i := range out { out[i] = a[i] && b[i] }
 //
-func And16(w string) Part { return and16.Wire(w) }
+func And16(w string) Part { return and16.NewPart(w) }
 
 // Nand16 returns a 16 bits NAND gate.
 //
@@ -305,7 +305,7 @@ func And16(w string) Part { return and16.Wire(w) }
 //	Outputs: out[16]
 //	Function: for i := range out { out[i] = !(a[i] && b[i]) }
 //
-func Nand16(w string) Part { return nand16.Wire(w) }
+func Nand16(w string) Part { return nand16.NewPart(w) }
 
 // Or16 returns a 16 bits OR gate.
 //
@@ -313,7 +313,7 @@ func Nand16(w string) Part { return nand16.Wire(w) }
 //	Outputs: out[16]
 //	Function: for i := range out { out[i] = (a[i] || b[i]) }
 //
-func Or16(w string) Part { return or16.Wire(w) }
+func Or16(w string) Part { return or16.NewPart(w) }
 
 // Nor16 returns a 16 bits NOR gate.
 //
@@ -321,7 +321,7 @@ func Or16(w string) Part { return or16.Wire(w) }
 //	Outputs: out[16]
 //	Function: for i := range out { out[i] = !(a[i] || b[i]) }
 //
-func Nor16(w string) Part { return nor16.Wire(w) }
+func Nor16(w string) Part { return nor16.NewPart(w) }
 
 // DFF returns a clocked data flip flop.
 //
@@ -330,7 +330,7 @@ func Nor16(w string) Part { return nor16.Wire(w) }
 //	Function: out(t) = in(t-1)
 //
 func DFF(w string) Part {
-	return MakePart(&PartSpec{
+	return (&PartSpec{
 		Name: "DFF",
 		In:   In{pIn},
 		Out:  Out{pOut},
@@ -346,5 +346,5 @@ func DFF(w string) Part {
 					}
 					c.Set(out, curOut)
 				}}
-		}})(w)
+		}}).NewPart(w)
 }

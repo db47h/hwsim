@@ -70,14 +70,14 @@ func Test_Chip(t *testing.T) {
 
 func Test_Chip_omitted_pins(t *testing.T) {
 	var a, b, c, tr, f, o0, o1 int
-	dummy := hw.MakePart(&hw.PartSpec{
+	dummy := (&hw.PartSpec{
 		Name: "dummy",
 		In:   hw.In{"a", "b", "c", "t", "f"},
 		Out:  hw.Out{"o0", "o1"},
 		Mount: func(s *hw.Socket) []hw.Component {
 			a, b, c, tr, f, o0, o1 = s.Pin("a"), s.Pin("b"), s.Pin("c"), s.Pin("t"), s.Pin("f"), s.Pin("o0"), s.Pin("o1")
 			return nil
-		}})
+		}}).NewPart
 	// this is just to add another layer of testing.
 	// inspecting o0 and o1 shows that another dummy wire was allocated for dummy.o0:wo0
 	wrapper, err := hw.Chip("wrapper", hw.In{"wa", "wb"}, hw.Out{"wo0", "wo1"}, hw.Parts{

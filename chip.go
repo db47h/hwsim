@@ -138,7 +138,7 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 		wr,
 	}
 	c.PartSpec.Mount = c.mount
-	return c.PartSpec.Wire, nil
+	return c.PartSpec.NewPart, nil
 }
 
 func pinName(sp []*PartSpec, p pin) string {

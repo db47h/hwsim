@@ -90,8 +90,8 @@ Custom parts can be created by simply creating a `PartSpec` struct:
             return []hw.Component{g.tick}
         }}
 
-    // Finally, we turn this spec into a usable part.
-    var xor = hw.MakePart(xorSpec)
+    // Finally, we turn this spec into a part usable in a chip definition.
+    var xor hw.NewPartFn = xorSpec.NewPart
 ```
 
 Well, it doesn't look that simple, but this example deliberately details every step involved. Basically, it all boils down to:
@@ -126,7 +126,7 @@ If defining custom components as functions is preferable, for example in a Go pa
                     c.Set(g.out, a && !b || !a && b)
                 }}
         }}
-    func xor(w W) hw.PartWiring { return xorSpec.Wire(w) }
+    func xor(c string) hw.Part { return xorSpec.NewPart(w) }
 ```
 
 Now we can go ahead and build a half-adder:
@@ -138,7 +138,7 @@ Now we can go ahead and build a half-adder:
         hw.Out{"s", "c"}, //output sum and carry
         hw.Parts{
             xor("a=a, b=b, out=s"), // our custom xor gate!
-            hw.And("a=a, b=b, out=c),
+            hw.And("a=a, b=b, out=c"),
         })
 ```
 

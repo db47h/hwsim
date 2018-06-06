@@ -62,6 +62,34 @@ type MountFn func(s *Socket) []Component
 
 // A PartSpec wraps a part specification (its blueprint).
 //
+// Custom parts are implemented by creating a PartSpec:
+//
+//	notSpec := &PartSpec{
+//		Name: "Not",
+//		In: In("in"),
+//		Out: Out("out"),
+//		Mount: func (s *Socket) []Component {
+//			in, out := s.Pin("in"), s.Pin("out")
+//			return []Component{
+//				func (c *Circuit) { c.Set(out, !c.Get(in)) }
+//			}
+//		}}
+//
+// Then get a NewPartFn for that PartSpec:
+//
+//	var notGate = notSpec.NewPart
+//
+// or:
+//
+//	func Not(c string) Part { return notSpec.NewPart(c) }
+//
+// Which can the be used as a NewPartFn when building other chips:
+//
+//	c, _ := Chip("dummy", In("a, b"), Out("c, d"), Parts{
+//		notGate("in: a, out: c"),
+//		Not("in: b, out: d"),
+//	})
+//
 type PartSpec struct {
 	Name string // Part name
 	In          // Input pins
@@ -78,34 +106,9 @@ type PartSpec struct {
 	Mount MountFn
 }
 
-// Wire is a NewPartFn that wraps p with the given connections into a Part.
-// Most custom part implementations should just create a PartSpec and retturn
-// its Wire method:
+// NewPart is a NewPartFn that wraps p with the given connections into a Part.
 //
-//	notSpec := &PartSpec{
-//		Name: "Not",
-//		In: In("in"),
-//		Out: Out("out"),
-//		Mount: func (s *Socket) []Component {
-//			in, out := s.Pin("in"), s.Pin("out")
-//			return []Component{
-//				func (c *Circuit) { c.Set(out, !c.Get(in)) }
-//			}
-//		}}
-//
-//	// then either:
-//	var notGate = notSpec.Wire
-//	// or:
-//	func Not(c string) Part { return notSpec.Wire(c) }
-//
-// Which can the be used as a NewPartFn when building other chips:
-//
-//	c, _ := Chip("dummy", In("a, b"), Out("c, d"), Parts{
-//		notGate("in: a, out: c"),
-//		Not("in: b, out: d"),
-//	})
-//
-func (p *PartSpec) Wire(connections string) Part {
+func (p *PartSpec) NewPart(connections string) Part {
 	ex, err := ParseConnections(connections)
 	if err != nil {
 		panic(err)
@@ -120,13 +123,6 @@ func (p *PartSpec) Wire(connections string) Part {
 		}
 	}
 	return Part{p, ex}
-}
-
-// MakePart returns a NewPartFn for the given PartSpec. It is a utility wrapper
-// around PartSpec.Wire.
-//
-func MakePart(p *PartSpec) NewPartFn {
-	return p.Wire
 }
 
 // In is a slice of input pin names.

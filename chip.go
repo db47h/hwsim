@@ -23,7 +23,7 @@ func (c *chip) mount(s *Socket) []Component {
 				continue
 			}
 			if n := c.w.wireName(pin{i, k}); n != "" {
-				sub.m[subK] = s.PinOrNew(n)
+				sub.m[subK] = s.pinOrNew(n)
 			} else {
 				// wire unknown pins to False.
 				// Chip() makes sure that unknown pins can only be inputs.
@@ -35,33 +35,35 @@ func (c *chip) mount(s *Socket) []Component {
 	return updaters
 }
 
-// Chip composes existing parts into a new part packaged into a chip.
-// The pin names specified as inputs and outputs will be the inputs
-// and outputs of the chip.
+// Chip composes existing parts into a new chip.
 //
-// An Xor gate could be created like this:
+// The pin names specified as inputs and outputs will be the inputs
+// and outputs of the chip (the chip interface).
+//
+// A XOR gate could be created like this:
 //
 //	xor, err := Chip(
 //		"XOR",
-//		In{"a", "b"},
-//		Out{"out"},
+//		In("a, b"),
+//		Out("out"),
 //		Parts{
-//			Nand(W{"a": "a", "b": "b", "out": "nandAB"}),
-//			Nand(W{"a": "a", "b": "nandAB", "out": "w0"}),
-//			Nand(W{"a": "b", "b": "nandAB", "out": "w1"}),
-//			Nand(W{"a": "w0", "b": "w1", "out": "out"}),
+//			Nand("a=a, b=b, out=nandAB")),
+//			Nand("a=a, b=nandAB, out=w0")),
+//			Nand("a=b, b=nandAB, out=w1")),
+//			Nand("a=w0, b=w1, out=out")),
 //		})
 //
-// The returned value is a function of type NewPartFunc that can be used to
-// compose the new part with others into other chips:
+// The created chip can be composed with other parts to create other chips
+// simply by calling the returned NewPartFn with a connection configuration:
 //
 //	xnor, err := Chip(
 //		"XNOR",
-//		In{"a", "b"},
-//		Out{"out"},
+//		In("a, b"),
+//		Out("out"),
 //		Parts{
-//			xor(W{"a": "a", "b": "b", "xorAB"}),
-//			Not(W{"in": "xorAB", "out": "out"}),
+//			// reuse the xor chip created above
+//			xor("a=a, b=b, out=xorAB"}),
+//			Not("in=xorAB, out=out"}),
 //		})
 //
 func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {

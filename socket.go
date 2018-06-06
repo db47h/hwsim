@@ -8,7 +8,8 @@ func busPinName(name string, bit int) string {
 	return name + "[" + strconv.Itoa(bit) + "]"
 }
 
-// A Socket maps a part's pin names to pin numbers in a circuit.
+// A Socket maps a part's internal pin names to pin numbers in a circuit.
+// See PartSpec.Pinout.
 //
 type Socket struct {
 	m map[string]int
@@ -22,14 +23,15 @@ func newSocket(c *Circuit) *Socket {
 	}
 }
 
-// Pin returns the pin number allocated to the given pin name.
-// This function returns the "False" pin if the requested name was not found.
+// Pin returns the pin number assigned to the given pin name.
+// This function returns the constant False pin if the requested name was not
+// found.
 //
 func (s *Socket) Pin(name string) int {
 	return s.m[name]
 }
 
-// Pins returns the pin numbers allocated to the given pin names.
+// Pins returns the pin numbers assigned to the given pin names.
 //
 func (s *Socket) Pins(name ...string) []int {
 	t := make([]int, len(name))
@@ -39,10 +41,10 @@ func (s *Socket) Pins(name ...string) []int {
 	return t
 }
 
-// PinOrNew returns the pin number allocated to the given pin name.
-// If no such pin exists a new one is allocated.
+// pinOrNew returns the pin number assigned to the given pin name.
+// If no such pin exists a new one is assigned.
 //
-func (s *Socket) PinOrNew(name string) int {
+func (s *Socket) pinOrNew(name string) int {
 	n, ok := s.m[name]
 	if !ok {
 		switch name {
@@ -60,7 +62,7 @@ func (s *Socket) PinOrNew(name string) int {
 	return n
 }
 
-// Bus returns the pin numbers allocated to the given bus name.
+// Bus returns the pin numbers assigned to the given bus name.
 //
 func (s *Socket) Bus(name string, size int) []int {
 	out := make([]int, size)

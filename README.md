@@ -126,7 +126,7 @@ If defining custom components as functions is preferable, for example in a Go pa
                     c.Set(g.out, a && !b || !a && b)
                 }}
         }}
-    func xor(w W) hw.Part { return xorSpec.Wire(w) }
+    func xor(w W) hw.PartWiring { return xorSpec.Wire(w) }
 ```
 
 Now we can go ahead and build a half-adder:

@@ -23,10 +23,16 @@ const (
 	cstCount
 )
 
-// parseWiring parses a wiring configuration like "partPinX=chipPinY, ..."
-// into a map map[string][]string{"partPinX": []string{"chipPinX"}}.
-// The map value is a slice because for any given part pin, it can
-// be connected to more than one chip pin.
+// Connections represents the connections between a part's pins (the map keys)
+// to other pins in its host chip (the map values).
+//
+// The map value is a slice because any output pin of a part can
+// be connected to more than one other pin within the chip.
+//
+type Connections map[string][]string
+
+// ParseConnections parses a wiring configuration like "partPinX=chipPinY, ..."
+// into a Connections{"partPinX": []string{"chipPinX"}}.
 //
 //	Wire          = Assignment { [ space ] "," [ space ] Assignment } .
 //	Assignment    = pin "=" pin .
@@ -37,57 +43,48 @@ const (
 //	letter        = "A" .. "Z" | "a" .. "z" | "_" .
 //	digit         = "0" .. "9" .
 //
-func parseWiring(w string) (map[string][]string, error) {
-	wr := make(map[string]string)
+func ParseConnections(c string) (conns Connections, err error) {
 	// just split the input string, syntax check is done somewhere else
-	mappings := strings.FieldsFunc(w, func(r rune) bool { return r == ',' })
+	mappings := strings.FieldsFunc(c, func(r rune) bool { return r == ',' })
+	conns = make(Connections)
 
 	for _, m := range mappings {
+		var ks, vs []string
 		m = strings.TrimSpace(m)
 		i := strings.IndexRune(m, '=')
 		if i < 0 {
-			panic(m + ": not a valid pin mapping (missing =)")
+			return nil, errors.New(m + ": not a valid pin mapping (missing =)")
 		}
-		wr[strings.TrimSpace(m[:i])] = strings.TrimSpace(m[i+1:])
-	}
-	return expandWiring(wr)
-}
-
-// expandWiring builds a wire map.
-//
-func expandWiring(w map[string]string) (map[string][]string, error) {
-	r := make(map[string][]string)
-	for k, v := range w {
+		k, v := strings.TrimSpace(m[:i]), strings.TrimSpace(m[i+1:])
+		// parse and expand
 		if k == "" || v == "" {
 			return nil, errors.New("invalid pin mapping " + k + ":" + v)
 		}
-		ks, err := expandRange(k)
-		if err != nil {
+		if ks, err = expandRange(k); err != nil {
 			return nil, errors.Wrap(err, "expand key "+k)
 		}
-		vs, err := expandRange(v)
-		if err != nil {
+		if vs, err = expandRange(v); err != nil {
 			return nil, errors.Wrap(err, "expand value "+v)
 		}
 		switch {
 		case len(ks) == len(vs):
 			// many to many
 			for i := range ks {
-				r[ks[i]] = []string{vs[i]}
+				conns[ks[i]] = []string{vs[i]}
 			}
 		case len(ks) == 1:
 			// one to nany
-			r[k] = vs
+			conns[k] = vs
 		case len(vs) == 1:
 			// many to one
 			for _, k := range ks {
-				r[k] = vs
+				conns[k] = vs
 			}
 		default:
 			return nil, errors.New("pin count mismatch in pin mapping: " + k + ":" + v)
 		}
 	}
-	return r, nil
+	return conns, nil
 }
 
 func expandRange(name string) ([]string, error) {

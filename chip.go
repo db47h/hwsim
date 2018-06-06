@@ -72,22 +72,22 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 	wr := newWiring(inputs, outputs)
 	spcs := make([]*PartSpec, len(parts))
 
-	for pnum, p := range parts {
-		sp := p.Spec()
-		spcs[pnum] = sp
-		ex := p.wires()
+	for pnum := range parts {
+		p := &parts[pnum]
+		spcs[pnum] = p.PartSpec
+		conns := p.Connections
 
 		// check that all keys match one of the part's input or output pins
-		for k := range ex {
-			if _, ok := sp.Pinout[k]; !ok {
-				return nil, errors.New("invalid pin name " + k + " for part " + sp.Name)
+		for k := range conns {
+			if _, ok := p.Pinout[k]; !ok {
+				return nil, errors.New("invalid pin name " + k + " for part " + p.Name)
 			}
 		}
 		// add inputs
-		for _, k := range sp.In {
-			if vs, ok := ex[k]; ok {
+		for _, k := range p.In {
+			if vs, ok := conns[k]; ok {
 				if len(vs) > 1 {
-					return nil, errors.New(sp.Name + " input pin " + k + "connected to more than one output")
+					return nil, errors.New(p.Name + " input pin " + k + "connected to more than one output")
 				}
 				i, o := pin{-1, vs[0]}, pin{pnum, k}
 				if err := wr.connect(i, typeUnknown, o, typeInput); err != nil {
@@ -96,8 +96,8 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 			}
 		}
 		// add outputs
-		for _, k := range sp.Out {
-			if vs, ok := ex[k]; ok {
+		for _, k := range p.Out {
+			if vs, ok := conns[k]; ok {
 				for _, v := range vs {
 					i, o := pin{pnum, k}, pin{-1, v}
 					if err := wr.connect(i, typeOutput, o, typeUnknown); err != nil {

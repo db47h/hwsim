@@ -10,12 +10,12 @@ import (
 
 func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 	t.Helper()
-	part := gate("") // dummy gate
-	inputs := make([]bool, len(part.Spec().In))
-	outputs := make([]bool, len(part.Spec().Out))
+	part := gate("").PartSpec // build dummy gate just to get to the partspec
+	inputs := make([]bool, len(part.In))
+	outputs := make([]bool, len(part.Out))
 	var w strings.Builder
-	parts := make(hw.Parts, 0, len(part.Spec().In)+len(part.Spec().Out)+1)
-	for i, n := range part.Spec().In {
+	parts := make(hw.Parts, 0, len(part.In)+len(part.Out)+1)
+	for i, n := range part.In {
 		w.WriteByte(',')
 		w.WriteString(n)
 		w.WriteByte('=')
@@ -23,7 +23,7 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 		in := &inputs[i]
 		parts = append(parts, hw.Input(func() bool { return *in })("out="+n))
 	}
-	for i, n := range part.Spec().Out {
+	for i, n := range part.Out {
 		w.WriteByte(',')
 		w.WriteString(n)
 		w.WriteByte('=')
@@ -43,7 +43,7 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 	}
 	defer c.Dispose()
 
-	tot := 1 << uint(len(part.Spec().In))
+	tot := 1 << uint(len(part.In))
 	// t.Log(tot)
 	// for _, p := range parts {
 	// 	t.Log(p.Spec().Name, " ", p.Wires())
@@ -56,7 +56,7 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 		for o, out := range outputs {
 			exp := result[o][i]
 			if exp != out {
-				t.Errorf("%s %v = %v, got %v", part.Spec().Name, inputs, exp, out)
+				t.Errorf("%s %v = %v, got %v", part.Name, inputs, exp, out)
 			}
 		}
 	}
@@ -123,7 +123,7 @@ func TestInput16(t *testing.T) {
 func Test_gateN_builtin(t *testing.T) {
 	twoIn := "a[0..15]=a[0..15], b[0..15]=b[0..15], out[0..15]=out[0..15]"
 	td := []struct {
-		gate hw.PartWiring
+		gate hw.Part
 		ctrl func(a, b int16) int16
 	}{
 		{hw.And16(twoIn), func(a, b int16) int16 { return a & b }},
@@ -136,11 +136,11 @@ func Test_gateN_builtin(t *testing.T) {
 	_ = td
 
 	for _, d := range td {
-		t.Run(d.gate.Spec().Name, func(t *testing.T) {
+		t.Run(d.gate.Name, func(t *testing.T) {
 			var a, b int16
 			var out int16
 
-			chip, err := hw.Chip(d.gate.Spec().Name+"wrapper", hw.In{"a[16]", "b[16]"}, hw.Out{"out[16]"}, hw.Parts{
+			chip, err := hw.Chip(d.gate.Name+"wrapper", hw.In{"a[16]", "b[16]"}, hw.Out{"out[16]"}, hw.Parts{
 				d.gate,
 			})
 			if err != nil {

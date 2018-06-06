@@ -54,20 +54,20 @@ type PartSpec struct {
 	Out         // Output pin names
 	// Pinout maps input/output pin names to a part's internal names
 	// for them. If nil, the In/Out values will be used.
-	Pinout W
+	Pinout Wiring
 
 	Mount MountFn // Mount function.
 }
 
 // Wire is a NewPartFunc that returns a wired part based on the given spec and wiring.
 //
-func (p *PartSpec) Wire(w W) Part {
+func (p *PartSpec) Wire(w Wiring) PartWiring {
 	ex, err := w.expand()
 	if err != nil {
 		panic(err)
 	}
 	if p.Pinout == nil {
-		p.Pinout = make(W)
+		p.Pinout = make(Wiring)
 		for _, i := range p.In {
 			p.Pinout[i] = i
 		}
@@ -87,7 +87,7 @@ func MakePart(p *PartSpec) NewPartFn {
 
 // Parts is a convenience wrapper for []Part.
 //
-type Parts []Part
+type Parts []PartWiring
 
 // In is a slice of input pin names.
 //
@@ -97,10 +97,10 @@ type In []string
 //
 type Out []string
 
-// A Part wraps a part specification together with its wiring
+// A PartWiring wraps a part specification together with its wiring
 // in a container part.
 //
-type Part interface {
+type PartWiring interface {
 	Spec() *PartSpec
 	wires() map[string][]string
 }
@@ -120,7 +120,7 @@ func (p *part) wires() map[string][]string {
 
 // A NewPartFn is a function that takes a set of wires and returns a new Part.
 //
-type NewPartFn func(wires W) Part
+type NewPartFn func(wires Wiring) PartWiring
 
 // Circuit is a runable circuit simulation.
 //

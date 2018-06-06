@@ -74,7 +74,7 @@ var notGate = PartSpec{Name: "NOR", In: In{pIn}, Out: Out{pOut},
 //
 // Input pin name: in
 //
-func Not(w W) Part {
+func Not(w Wiring) PartWiring {
 	return notGate.Wire(w)
 }
 
@@ -111,27 +111,27 @@ var (
 
 // And returns a AND gate.
 //
-func And(w W) Part { return and.Wire(w) }
+func And(w Wiring) PartWiring { return and.Wire(w) }
 
 // Nand returns a NAND gate.
 //
-func Nand(w W) Part { return nand.Wire(w) }
+func Nand(w Wiring) PartWiring { return nand.Wire(w) }
 
 // Or returns a OR gate.
 //
-func Or(w W) Part { return or.Wire(w) }
+func Or(w Wiring) PartWiring { return or.Wire(w) }
 
 // Nor returns a NOR gate.
 //
-func Nor(w W) Part { return nor.Wire(w) }
+func Nor(w Wiring) PartWiring { return nor.Wire(w) }
 
 // Xor returns a XOR gate.
 //
-func Xor(w W) Part { return xor.Wire(w) }
+func Xor(w Wiring) PartWiring { return xor.Wire(w) }
 
 // Xnor returns a XNOR gate.
 //
-func Xnor(w W) Part { return xnor.Wire(w) }
+func Xnor(w Wiring) PartWiring { return xnor.Wire(w) }
 
 // Mux returns a multiplexer.
 //
@@ -139,7 +139,7 @@ func Xnor(w W) Part { return xnor.Wire(w) }
 //	Outputs: out
 //	Function: If sel=0 then out=a else out=b.
 //
-func Mux(w W) Part { return mux.Wire(w) }
+func Mux(w Wiring) PartWiring { return mux.Wire(w) }
 
 var mux = PartSpec{
 	Name: "MUX",
@@ -163,7 +163,7 @@ var mux = PartSpec{
 //	Outputs: a, b
 //	Function: If sel=0 then {a=in, b=0} else {a=0, b=in}
 //
-func DMux(w W) Part { return dmux.Wire(w) }
+func DMux(w Wiring) PartWiring { return dmux.Wire(w) }
 
 var dmux = PartSpec{
 	Name: "DMUX",
@@ -207,7 +207,7 @@ var (
 
 // Not16 returns a 16 bits NOT gate.
 //
-func Not16(w W) Part { return not16.Wire(w) }
+func Not16(w Wiring) PartWiring { return not16.Wire(w) }
 
 func inputN(bits int, f func() int64) *PartSpec {
 	return &PartSpec{
@@ -297,7 +297,7 @@ var (
 //	Outputs: out[16]
 //	Function: for i := range out { out[i] = a[i] && b[i] }
 //
-func And16(w W) Part { return and16.Wire(w) }
+func And16(w Wiring) PartWiring { return and16.Wire(w) }
 
 // Nand16 returns a 16 bits NAND gate.
 //
@@ -305,7 +305,7 @@ func And16(w W) Part { return and16.Wire(w) }
 //	Outputs: out[16]
 //	Function: for i := range out { out[i] = !(a[i] && b[i]) }
 //
-func Nand16(w W) Part { return nand16.Wire(w) }
+func Nand16(w Wiring) PartWiring { return nand16.Wire(w) }
 
 // Or16 returns a 16 bits OR gate.
 //
@@ -313,7 +313,7 @@ func Nand16(w W) Part { return nand16.Wire(w) }
 //	Outputs: out[16]
 //	Function: for i := range out { out[i] = (a[i] || b[i]) }
 //
-func Or16(w W) Part { return or16.Wire(w) }
+func Or16(w Wiring) PartWiring { return or16.Wire(w) }
 
 // Nor16 returns a 16 bits NOR gate.
 //
@@ -321,7 +321,7 @@ func Or16(w W) Part { return or16.Wire(w) }
 //	Outputs: out[16]
 //	Function: for i := range out { out[i] = !(a[i] || b[i]) }
 //
-func Nor16(w W) Part { return nor16.Wire(w) }
+func Nor16(w Wiring) PartWiring { return nor16.Wire(w) }
 
 // DFF returns a clocked data flip flop.
 //
@@ -329,7 +329,7 @@ func Nor16(w W) Part { return nor16.Wire(w) }
 //	Outputs: out
 //	Function: out(t) = in(t-1)
 //
-func DFF(w W) Part {
+func DFF(w Wiring) PartWiring {
 	return MakePart(&PartSpec{
 		Name: "DFF",
 		In:   In{pIn},

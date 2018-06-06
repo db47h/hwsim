@@ -9,7 +9,7 @@ import (
 func Test_Chip(t *testing.T) {
 	unkChip, err := hw.Chip("TESTCHIP", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
 		// chip input a is unused
-		hw.Nand(hw.W{"a": "b", "b": "b", "out": "out"}),
+		hw.Nand(hw.W("a=b, b=b, out=out")),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -22,38 +22,38 @@ func Test_Chip(t *testing.T) {
 		err   string
 	}{
 		{"true_out", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
-			hw.Nand(hw.W{"a": "a", "b": "b", "out": hw.True}),
-			hw.Nand(hw.W{"a": "a", "b": "b", "out": "out"}),
+			hw.Nand(hw.W("a=a, b=b, out=true")),
+			hw.Nand(hw.W("a=a, b=b, out=out")),
 		}, "NAND.out:true: output pin connected to constant true input"},
 		{"false_out", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
-			hw.Nand(hw.W{"a": "a", "b": "b", "out": hw.False}),
-			hw.Nand(hw.W{"a": "a", "b": "b", "out": "out"}),
+			hw.Nand(hw.W("a=a, b=b, out=false")),
+			hw.Nand(hw.W("a=a, b=b, out=out")),
 		}, "NAND.out:false: output pin connected to constant false input"},
 		{"multi_out", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
-			hw.Nand(hw.W{"a": "a", "b": "b", "out": "a"}),
-			hw.Nand(hw.W{"a": "a", "b": "b", "out": "out"}),
+			hw.Nand(hw.W("a=a, b=b, out=a")),
+			hw.Nand(hw.W("a=a, b=b, out=out")),
 		}, "NAND.out:a: chip input pin used as output"},
 		{"multi_out2", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
-			hw.Nand(hw.W{"a": "a", "b": "b", "out": "x"}),
-			hw.Nand(hw.W{"a": "a", "b": "b", "out": "x"}),
-			hw.Not(hw.W{"in": "x", "out": "out"}),
+			hw.Nand(hw.W("a=a, b=b, out=x")),
+			hw.Nand(hw.W("a=a, b=b, out=x")),
+			hw.Not(hw.W("in=x, out=out")),
 		}, "NAND.out:x: output pin already used as output"},
 		{"no_output", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
-			hw.Nand(hw.W{"a": "a", "b": "wx", "out": "out"}),
+			hw.Nand(hw.W("a=a, b=wx, out=out")),
 		}, "pin wx not connected to any output"},
 		{"no_input", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
-			hw.Nand(hw.W{"a": "a", "b": "b", "out": "foo"}),
-			hw.Nand(hw.W{"a": "a", "b": "b", "out": "out"}),
+			hw.Nand(hw.W("a=a, b=b, out=foo")),
+			hw.Nand(hw.W("a=a, b=b, out=out")),
 		}, "pin foo not connected to any input"},
 		{"unconnected_in", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{}, ""},
 		{"unknown_pin", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
-			hw.Nand(hw.W{"a": "a", "typo": "b", "out": "out"}),
+			hw.Nand(hw.W("a=a, typo=b, out=out")),
 		}, "invalid pin name typo for part NAND"},
 		{"unknown_pin", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
-			unkChip(hw.W{"a": "a", "typo": "b", "out": "out"}),
+			unkChip(hw.W("a=a, typo=b, out=out")),
 		}, "invalid pin name typo for part TESTCHIP"},
 		{"unknown_pin", hw.In{"a", "b"}, hw.Out{"out"}, hw.Parts{
-			unkChip(hw.W{"a": "a", "b": "b", "out": "out"}),
+			unkChip(hw.W("a=a, b=b, out=out")),
 		}, ""},
 	}
 	for _, d := range data {
@@ -81,7 +81,7 @@ func Test_Chip_omitted_pins(t *testing.T) {
 	// this is just to add another layer of testing.
 	// inspecting o0 and o1 shows that another dummy wire was allocated for dummy.o0:wo0
 	wrapper, err := hw.Chip("wrapper", hw.In{"wa", "wb"}, hw.Out{"wo0", "wo1"}, hw.Parts{
-		dummy(hw.W{"a": "wa", "c": hw.Clk, "t": hw.True, "f": hw.False, "o0": "wo0"}),
+		dummy(hw.W("a=wa, c=clk, t=true, f=false, o0=wo0")),
 	})
 	if err != nil {
 		t.Fatal(err)

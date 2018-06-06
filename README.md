@@ -38,10 +38,10 @@ The same in Go:
         hw.In{"a", "b"}, // inputs of the created xor gate
         hw.Out{"out"},    // outputs
         hw.Parts{
-            hw.Nand(hw.W{"a": "a", "b": "b", "out": "nandAB"}),    // leftmost NAND
-            hw.Nand(hw.W{"a": "a", "b": "nandAB", "out": "outA"}), // top NAND
-            hw.Nand(hw.W{"a": "nandAB", "b": "b", "out": "outB"}), // bottom NAND
-            hw.Nand(hw.W{"a": "outA", "b": "outB", "out": "out"}), // rightmost NAND
+            hw.Nand(hw.W("a=a,      b=b,      out=nandAB")), // leftmost NAND
+            hw.Nand(hw.W("a=a,      b=nandAB, out=outA")),   // top NAND
+            hw.Nand(hw.W("a=nandAB, b=b,      out=outB")),   // bottom NAND
+            hw.Nand(hw.W("a=outA,   b=outB,   out=out")),    // rightmost NAND
         }
     )
 ```
@@ -137,8 +137,8 @@ Now we can go ahead and build a half-adder:
         hw.In{"a", "b"},
         hw.Out{"s", "c"}, //output sum and carry
         hw.Parts{
-            xor(hw.W{"a": "a", "b": "b", "out": "s"}), // our custom xor gate!
-            hw.And(hw.W{"a": "a", "b": "b", "out": "c"}),
+            xor(hw.W("a=a, b=b, out=s")), // our custom xor gate!
+            hw.And(hw.W("a=a, b=b, out=c)),
         })
 ```
 
@@ -151,16 +151,16 @@ A circuit is made of a set of parts connected together. Time to test our adder:
     var s, co bool
     c, err := hw.NewCirtuit(0, 0, w.Parts{
         // feed variables a, b and ci as inputs in the circuit
-        hw.Input(func() bool { return a })(hw.W{"out": "a"}),
-        hw.Input(func() bool { return b })(hw.W{"out": "b"}),
-        hw.Input(func() bool { return c })(hw.W{"out": "ci"}),
+        hw.Input(func() bool { return a })(hw.W("out=a")),
+        hw.Input(func() bool { return b })(hw.W("out=b")),
+        hw.Input(func() bool { return c })(hw.W("out=ci")),
         // full adder
-        hAdder(hw.W{"a": "a", "b": "b", "s": "s0", "c": "c0"}),
-        hAdder(hw.W{"a": "s0", "b": "ci", "s": "sum", "c": "c1"}),
-        hw.Or(hw.W{"a": "c0", "b": "c1", "out": "co"}),
+        hAdder(hw.W("a=a,  b=b,  s=s0,  c=c0")),
+        hAdder(hw.W("a=s0, b=ci, s=sum, c=c1")),
+        hw.Or( hw.W("a=c0, b=c1, out=co")),
         // outputs
-        hw.Output(func (bit bool) { s = bit })(hw.W{"in": "sum"}),
-        hw.Output(func (bit bool) { co = bit })(hw.W{"in": "co"}),
+        hw.Output(func (bit bool) { s = bit })(hw.W("in=sum")),
+        hw.Output(func (bit bool) { co = bit })(hw.W("in=co")),
     })
     if err != nil {
         // panic!
@@ -185,27 +185,9 @@ And run it:
 
 ## Help Wanted
 
-A good API has good names with clearly defined entities. This package's API is far from good, with some quirks. For example, `Part` is not an actual part, it just binds together a part specification (blueprint) with how it's wired into a chip and has no use beyond that. I could have gone with something like this instead:
+A good API has good names with clearly defined entities. This package's API is far from good, with some quirks.
 
-```go
-    type Parts []struct{*PartSpec, W}
-```
-
-And then write calls to `Chip` like this:
-
-```go
-    not, err := hw.Chip(
-        "NOT",
-        hw.In{"in"},
-        hw.Out{"out"},
-        hw.Parts{
-            {hw.Nand, hw.W{"a": "in", "b": "in", "out": "out"}},
-        })
-```
-
-But the functional approach just felt nicer to use. As a result, I have this `Part` thing that should be named something like `PartSpecWiringIntoHostChip`. But this is not Java land and for obvious usability reasons its name must be kept as short as possible.
-
-Another thing that bothers me is that `MountFn` functions need to return a slice of `Component`. This is because we want to get all `Components` into a single slice in `Circuit` so that updates can be split evenly between several goroutines (as opposed to organizing Components into a tree). It's mostly invisible until one gets into designing custom components where it adds yet another useless layer of slice creation and indentation just for the sake of that one internal API.
+One of those quirks that bothers me is `MountFn` functions. They need to return a slice of `Component` because we want to get all `Components` into a single slice in `Circuit` so that updates can be split evenly between several goroutines (as opposed to organizing Components into a tree). The `PartSpec` returned by `Chip` does not return a component of its own, it simply bundles together the `Component`'s of its parts and pushes that up to its own container. It's mostly invisible until one gets into designing custom components where it adds yet another useless layer of slice creation and indentation just for the sake of that one internal API.
 
 There are a lot of other things that would need some love. If you have any suggestions about naming or other API changes that would make everyone's life easier, feel free to file an issue or open a PR!
 

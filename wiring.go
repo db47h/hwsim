@@ -23,13 +23,42 @@ const (
 	cstCount
 )
 
-// W is a set of wires, connecting a part's I/O pins (the map key) to pins in its container.
+// Wiring is a set of wires, connecting a part's I/O pins (the map key) to pins in its container.
 //
-type W map[string]string
+type Wiring map[string]string
+
+// W parses its input string and returns a Wiring.
+//
+// The input syntax is:
+//
+//	Wire          = Assignment { [ space ] "," [ space ] Assignment } .
+//	Assignment    = pin "=" pin .
+//  Pin           = identifier [ "[" Range | index "]" ] .
+//	Range		  = index ".." index .
+//	identifier    = letter { letter | digit } .
+//	index         = { digit } .
+//	letter        = "A" .. "Z" | "a" .. "z" | "_" .
+//	digit         = "0" .. "9" .
+//
+func W(w string) Wiring {
+	wm := make(Wiring)
+	// just split the input string, syntax check is done somewhere else
+	mappings := strings.FieldsFunc(w, func(r rune) bool { return r == ',' })
+
+	for _, m := range mappings {
+		m = strings.TrimSpace(m)
+		i := strings.IndexRune(m, '=')
+		if i < 0 {
+			panic(m + ": not a valid pin mapping (missing =)")
+		}
+		wm[strings.TrimSpace(m[:i])] = strings.TrimSpace(m[i+1:])
+	}
+	return wm
+}
 
 // wire builds a wire map by expanding bus ranges.
 //
-func (w W) expand() (map[string][]string, error) {
+func (w Wiring) expand() (map[string][]string, error) {
 	r := make(map[string][]string)
 	for k, v := range w {
 		if k == "" || v == "" {

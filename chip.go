@@ -115,7 +115,7 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 		return nil, err
 	}
 
-	pinout := make(W)
+	pinout := make(Wiring)
 	// map all input and output pins, even if not used.
 	// mount will ignore pins with an empty value.
 	for _, i := range inputs {

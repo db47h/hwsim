@@ -38,10 +38,10 @@ The same in Go:
         hw.In{"a", "b"}, // inputs of the created xor gate
         hw.Out{"out"},    // outputs
         hw.Parts{
-            hw.Nand(hw.W("a=a,      b=b,      out=nandAB")), // leftmost NAND
-            hw.Nand(hw.W("a=a,      b=nandAB, out=outA")),   // top NAND
-            hw.Nand(hw.W("a=nandAB, b=b,      out=outB")),   // bottom NAND
-            hw.Nand(hw.W("a=outA,   b=outB,   out=out")),    // rightmost NAND
+            hw.Nand("a=a,      b=b,      out=nandAB"), // leftmost NAND
+            hw.Nand("a=a,      b=nandAB, out=outA"),   // top NAND
+            hw.Nand("a=nandAB, b=b,      out=outB"),   // bottom NAND
+            hw.Nand("a=outA,   b=outB,   out=out"),    // rightmost NAND
         }
     )
 ```
@@ -137,8 +137,8 @@ Now we can go ahead and build a half-adder:
         hw.In{"a", "b"},
         hw.Out{"s", "c"}, //output sum and carry
         hw.Parts{
-            xor(hw.W("a=a, b=b, out=s")), // our custom xor gate!
-            hw.And(hw.W("a=a, b=b, out=c)),
+            xor("a=a, b=b, out=s"), // our custom xor gate!
+            hw.And("a=a, b=b, out=c),
         })
 ```
 
@@ -151,16 +151,16 @@ A circuit is made of a set of parts connected together. Time to test our adder:
     var s, co bool
     c, err := hw.NewCirtuit(0, 0, w.Parts{
         // feed variables a, b and ci as inputs in the circuit
-        hw.Input(func() bool { return a })(hw.W("out=a")),
-        hw.Input(func() bool { return b })(hw.W("out=b")),
-        hw.Input(func() bool { return c })(hw.W("out=ci")),
+        hw.Input(func() bool { return a })("out=a"),
+        hw.Input(func() bool { return b })("out=b"),
+        hw.Input(func() bool { return c })("out=ci"),
         // full adder
-        hAdder(hw.W("a=a,  b=b,  s=s0,  c=c0")),
-        hAdder(hw.W("a=s0, b=ci, s=sum, c=c1")),
-        hw.Or( hw.W("a=c0, b=c1, out=co")),
+        hAdder("a=a,  b=b,  s=s0,  c=c0"),
+        hAdder("a=s0, b=ci, s=sum, c=c1"),
+        hw.Or(" a=c0, b=c1, out=co"),
         // outputs
-        hw.Output(func (bit bool) { s = bit })(hw.W("in=sum")),
-        hw.Output(func (bit bool) { co = bit })(hw.W("in=co")),
+        hw.Output(func (bit bool) { s = bit })("in=sum"),
+        hw.Output(func (bit bool) { co = bit })("in=co"),
     })
     if err != nil {
         // panic!

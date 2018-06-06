@@ -14,10 +14,10 @@ func TestDFF(t *testing.T) {
 	)
 
 	dff4, err := hw.Chip("DFF4", hw.In{"in[4]"}, hw.Out{"out4[5]"}, hw.Parts{
-		hw.DFF(hw.W("in=in[0], out=out4[0]")),
-		hw.DFF(hw.W("in=in[1], out=out4[1]")),
-		hw.DFF(hw.W("in=in[2], out=out4[2]")),
-		hw.DFF(hw.W("in=in[3], out=out4[3]")),
+		hw.DFF("in=in[0], out=out4[0]"),
+		hw.DFF("in=in[1], out=out4[1]"),
+		hw.DFF("in=in[2], out=out4[2]"),
+		hw.DFF("in=in[3], out=out4[3]"),
 	})
 	if err != nil {
 		trace(t, err)
@@ -25,9 +25,9 @@ func TestDFF(t *testing.T) {
 	}
 
 	c, err := hw.NewCircuit(0, 4, hw.Parts{
-		hw.Input16(func() int64 { return in })(hw.W("out[0..3]=in[0..3]")),
-		dff4(hw.W("in[0..3]=in[0..3], out4[0..3]=out[0..3]")),
-		hw.Output16(func(o int64) { out = o })(hw.W("in[0..3]=out[0..3]")),
+		hw.Input16(func() int64 { return in })("out[0..3]=in[0..3]"),
+		dff4("in[0..3]=in[0..3], out4[0..3]=out[0..3]"),
+		hw.Output16(func(o int64) { out = o })("in[0..3]=out[0..3]"),
 	})
 	if err != nil {
 		trace(t, err)
@@ -58,8 +58,8 @@ func TestDFF(t *testing.T) {
 
 func Test_bit_register(t *testing.T) {
 	reg, err := hw.Chip("BitReg", hw.In{"in", "load"}, hw.Out{"out"}, hw.Parts{
-		hw.Mux(hw.W("a=out, b=in, sel=load, out=muxOut")),
-		hw.DFF(hw.W("in=muxOut, out=out")),
+		hw.Mux("a=out, b=in, sel=load, out=muxOut"),
+		hw.DFF("in=muxOut, out=out"),
 	})
 
 	if err != nil {
@@ -70,10 +70,10 @@ func Test_bit_register(t *testing.T) {
 	var in, load, out bool
 
 	c, err := hw.NewCircuit(0, 4, hw.Parts{
-		hw.Input(func() bool { return in })(hw.W("out=dffI")),
-		hw.Input(func() bool { return load })(hw.W("out=dffLD")),
-		reg(hw.W("in=dffI, load=dffLD, out=dffO")),
-		hw.Output(func(b bool) { out = b })(hw.W("in=dffO")),
+		hw.Input(func() bool { return in })("out=dffI"),
+		hw.Input(func() bool { return load })("out=dffLD"),
+		reg("in=dffI, load=dffLD, out=dffO"),
+		hw.Output(func(b bool) { out = b })("in=dffO"),
 	})
 
 	if err != nil {

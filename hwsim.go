@@ -54,20 +54,20 @@ type PartSpec struct {
 	Out         // Output pin names
 	// Pinout maps input/output pin names to a part's internal names
 	// for them. If nil, the In/Out values will be used.
-	Pinout Wiring
+	Pinout map[string]string
 
 	Mount MountFn // Mount function.
 }
 
-// Wire is a NewPartFunc that returns a wired part based on the given spec and wiring.
+// Wire is a NewPartFunc that returns a part wiring based on the given spec and wiring.
 //
-func (p *PartSpec) Wire(w Wiring) PartWiring {
-	ex, err := w.expand()
+func (p *PartSpec) Wire(w string) PartWiring {
+	ex, err := parseWiring(w)
 	if err != nil {
 		panic(err)
 	}
 	if p.Pinout == nil {
-		p.Pinout = make(Wiring)
+		p.Pinout = make(map[string]string)
 		for _, i := range p.In {
 			p.Pinout[i] = i
 		}
@@ -85,10 +85,6 @@ func MakePart(p *PartSpec) NewPartFn {
 	return p.Wire
 }
 
-// Parts is a convenience wrapper for []Part.
-//
-type Parts []PartWiring
-
 // In is a slice of input pin names.
 //
 type In []string
@@ -96,6 +92,25 @@ type In []string
 // Out is a slice of output pin names.
 //
 type Out []string
+
+// A NewPartFn is a function that takes a wiring configuration and returns a new PartWiring.
+//
+// The syntax for the wiring string is:
+//
+//	Wire          = Assignment { [ space ] "," [ space ] Assignment } .
+//	Assignment    = pin "=" pin .
+//  Pin           = identifier [ "[" Range | index "]" ] .
+//	Range		  = index ".." index .
+//	identifier    = letter { letter | digit } .
+//	index         = { digit } .
+//	letter        = "A" .. "Z" | "a" .. "z" | "_" .
+//	digit         = "0" .. "9" .
+//
+type NewPartFn func(wiring string) PartWiring
+
+// Parts is a convenience wrapper for []Part.
+//
+type Parts []PartWiring
 
 // A PartWiring wraps a part specification together with its wiring
 // in a container part.
@@ -117,10 +132,6 @@ func (p *part) Spec() *PartSpec {
 func (p *part) wires() map[string][]string {
 	return p.w
 }
-
-// A NewPartFn is a function that takes a set of wires and returns a new Part.
-//
-type NewPartFn func(wires Wiring) PartWiring
 
 // Circuit is a runable circuit simulation.
 //
@@ -161,7 +172,7 @@ func NewCircuit(workers int, ticksPerCycle uint, ps Parts) (*Circuit, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create chip wrapper")
 	}
-	ups := wrap(nil).Spec().Mount(newSocket(cc))
+	ups := wrap("").Spec().Mount(newSocket(cc))
 	cc.cs = ups
 	cc.s0 = make([]bool, cc.count)
 	cc.s1 = make([]bool, cc.count)

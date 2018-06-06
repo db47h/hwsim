@@ -23,13 +23,10 @@ const (
 	cstCount
 )
 
-// Wiring is a set of wires, connecting a part's I/O pins (the map key) to pins in its container.
-//
-type Wiring map[string]string
-
-// W parses its input string and returns a Wiring.
-//
-// The input syntax is:
+// parseWiring parses a wiring configuration like "partPinX=chipPinY, ..."
+// into a map map[string][]string{"partPinX": []string{"chipPinX"}}.
+// The map value is a slice because for any given part pin, it can
+// be connected to more than one chip pin.
 //
 //	Wire          = Assignment { [ space ] "," [ space ] Assignment } .
 //	Assignment    = pin "=" pin .
@@ -40,8 +37,8 @@ type Wiring map[string]string
 //	letter        = "A" .. "Z" | "a" .. "z" | "_" .
 //	digit         = "0" .. "9" .
 //
-func W(w string) Wiring {
-	wm := make(Wiring)
+func parseWiring(w string) (map[string][]string, error) {
+	wr := make(map[string]string)
 	// just split the input string, syntax check is done somewhere else
 	mappings := strings.FieldsFunc(w, func(r rune) bool { return r == ',' })
 
@@ -51,14 +48,14 @@ func W(w string) Wiring {
 		if i < 0 {
 			panic(m + ": not a valid pin mapping (missing =)")
 		}
-		wm[strings.TrimSpace(m[:i])] = strings.TrimSpace(m[i+1:])
+		wr[strings.TrimSpace(m[:i])] = strings.TrimSpace(m[i+1:])
 	}
-	return wm
+	return expandWiring(wr)
 }
 
-// wire builds a wire map by expanding bus ranges.
+// expandWiring builds a wire map.
 //
-func (w Wiring) expand() (map[string][]string, error) {
+func expandWiring(w map[string]string) (map[string][]string, error) {
 	r := make(map[string][]string)
 	for k, v := range w {
 		if k == "" || v == "" {

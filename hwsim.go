@@ -2,11 +2,7 @@ package hwsim
 
 import (
 	"runtime"
-	"strconv"
-	"strings"
 	"sync"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/pkg/errors"
 )
@@ -110,99 +106,21 @@ type Outputs []string
 // In parses an input pin specification string and returns individual input pin names.
 //
 func In(inputs string) Inputs {
-	return parseIOspec(inputs)
+	r, err := parseIOspec(inputs)
+	if err != nil {
+		panic(errors.Wrap(err, "failed to parse inputs"))
+	}
+	return r
 }
 
 // Out parses an output pin specification string and returns individual output pin names.
 //
 func Out(outputs string) Outputs {
-	return parseIOspec(outputs)
-}
-
-// parseIOspec parses the pin specification string and returns individual pin
-// names in a slice, also expanding bus declarations to individual pin names.
-// For example:
-//
-//	parseIOspec("in[2] sel") // returns []string{"in[0]", "in[1]", "sel"}
-//
-func parseIOspec(names string) []string {
-	var (
-		out []string
-		pos int
-		n   string
-		err error
-	)
-
-	for pos < len(names) {
-		n, pos, err = parseIdentifier(names, pos)
-		switch {
-		case err != nil:
-			panic(err)
-		case pos >= len(names) || names[pos] == ',':
-			pos++
-			out = append(out, n)
-			continue
-		case names[pos] != '[':
-			panic(errors.Errorf("invalid character %#U at position %d in input/output declaration %q. Expecting ',' or '['", names[pos], pos+1, names))
-		}
-
-		t := names[pos+1:]
-		i := strings.IndexRune(t, ']')
-		if i < 0 {
-			panic(errors.Errorf("no terminamting ] for index or range. Opening [ at pos %d in %q", pos+1, names))
-		}
-		l, err := strconv.Atoi(strings.TrimSpace(t[:i]))
-		if err != nil {
-			panic(errors.Errorf("invalid bus size at pos %d in %q", pos+2, names))
-		}
-		pos += i + 2
-		for i := 0; i < l; i++ {
-			out = append(out, busPinName(n, i))
-		}
-		// skip next , and space
-		for pos < len(names) {
-			r, sz := utf8.DecodeRuneInString(names[pos:])
-			if r == ',' {
-				pos += sz
-				break
-			}
-			if !unicode.IsSpace(r) {
-				break
-			}
-			pos += sz
-		}
+	r, err := parseIOspec(outputs)
+	if err != nil {
+		panic(errors.Wrap(err, "failed to parse outputs"))
 	}
-	return out
-}
-
-func parseIdentifier(names string, pos int) (s string, next int, err error) {
-	var r rune
-	var sz int
-	start := pos
-	// initial state
-	for {
-		r, sz = utf8.DecodeRuneInString(names[start:])
-		if sz == 0 || r == '[' || r == ',' {
-			return "", -1, errors.Errorf("missing pin name at position %d in %q", pos+1, names)
-		}
-		if !unicode.IsSpace(r) {
-			break
-		}
-		start += sz
-	}
-	end := start
-	// identifier
-	for sz != 0 && (unicode.IsLetter(r) || (end > start && unicode.IsDigit(r)) || r == '.' || r == '_') {
-		end += sz
-		r, sz = utf8.DecodeRuneInString(names[end:])
-	}
-	next = end
-	// trailing space
-	for sz != 0 && unicode.IsSpace(r) {
-		next += sz
-		r, sz = utf8.DecodeRuneInString(names[next:])
-	}
-	return names[start:end], next, nil
+	return r
 }
 
 // A NewPartFn is a function that takes a connection configuration and returns a

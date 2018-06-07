@@ -41,13 +41,14 @@ func parseIOspec(names string) ([]string, error) {
 // into a Connections{"partPinX": []string{"chipPinX"}}.
 //
 //	Wire       = Assignment { [ space ] "," [ space ] Assignment } .
-//	Assignment = pin "=" pin .
-//	Pin        = identifier [ "[" Range | index "]" ] .
-//	Range      = index ".." index .
+//	Assignment = Pin "=" Pin .
+//	Pin        = identifier [ "[" Index | Range "]" ] .
+//	Index      = integer .
+//	Range      = integer ".." integer .
 //	identifier = letter { letter | digit } .
-//	index      = { digit } .
-//	letter     = "A" .. "Z" | "a" .. "z" | "_" .
-//	digit      = "0" .. "9" .
+//	integer    = { digit } .
+//	letter     = "A" ... "Z" | "a" ... "z" | "_" .
+//	digit      = "0" ... "9" .
 //
 func ParseConnections(c string) (conns Connections, err error) {
 	conns = make(Connections)

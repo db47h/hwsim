@@ -61,10 +61,16 @@ type MountFn func(s *Socket) []Component
 //	})
 //
 type PartSpec struct {
-	Name    string // Part name
-	Inputs         // Input pins
-	Outputs        // Output pins
-
+	// Part name.
+	Name string
+	// Input pins. Must be distinct pin names.
+	// Use the In() function to expand an input description like
+	// "a, b, bus[2]" to []string{"a", "b", "bus[0]", "bus[1]"}
+	// See In() for more details.
+	Inputs
+	// Output pins. Must be distinct pin names.
+	// Use the Out() function to expand an output description string.
+	Outputs
 	// Pinout maps the input and output pin names (public interface) of a part
 	// to internal (private) names. If nil, the In and Out values will be used
 	// and mapped one to one.
@@ -95,15 +101,32 @@ func (p *PartSpec) NewPart(connections string) Part {
 	return Part{p, ex}
 }
 
-// Inputs is a slice of input pin names.
+// Inputs is a slice of distinct input pin names.
 //
 type Inputs []string
 
-// Outputs is a slice of output pin names.
+// Outputs is a slice of distinct output pin names.
 //
 type Outputs []string
 
-// In parses an input pin specification string and returns individual input pin names.
+// In parses an input pin description string and returns a slice of individual input pin names
+// suitable for use as the Input field of a PartSpec.
+//
+// The input format is:
+//
+//	InputDecl  = PinDecl { "," PinDecl } .
+//	PinDecl    = PinIdentifier | BusIdentifier .
+//	BusId      = identifier "[" size "]" .
+//	PinId      = identifier .
+//	identifier = letter { letter | digit } .
+//	size       = { digit } .
+//	letter     = "A" ... "Z" | "a" ... "z" | "_" .
+//	digit      = "0" ... "9" .
+//
+// Buses are declared by simply specifying their size. For example,
+// the input description string "a, b, bus[4]" will be expanded to:
+//
+//	Input{"a", "b", "bus[0]", "bus[1]", "bus[2]", "bus[3]"}
 //
 func In(inputs string) Inputs {
 	r, err := parseIOspec(inputs)
@@ -113,7 +136,8 @@ func In(inputs string) Inputs {
 	return r
 }
 
-// Out parses an output pin specification string and returns individual output pin names.
+// Out parses an output pin description string and returns a slice of individual output pin names.
+// The output format is identical to In().
 //
 func Out(outputs string) Outputs {
 	r, err := parseIOspec(outputs)

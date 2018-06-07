@@ -13,7 +13,7 @@ func TestDFF(t *testing.T) {
 		in, out int64
 	)
 
-	dff4, err := hw.Chip("DFF4", hw.In("in[4]"), hw.Out("out4[5]"), hw.Parts{
+	dff4, err := hw.Chip("DFF4", hw.In("in[4],b[2]"), hw.Out("out4[5]"), hw.Parts{
 		hw.DFF("in=in[0], out=out4[0]"),
 		hw.DFF("in=in[1], out=out4[1]"),
 		hw.DFF("in=in[2], out=out4[2]"),

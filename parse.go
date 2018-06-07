@@ -2,7 +2,6 @@ package hwsim
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/db47h/hwsim/internal/hdl"
 	"github.com/pkg/errors"
@@ -18,7 +17,7 @@ func parseIOspec(names string) ([]string, error) {
 	var out []string
 	p := &hdl.Parser{Input: names}
 	for {
-		i, err := p.Next(false)
+		i, err := p.Next(false, false)
 		if err != nil {
 			return nil, err
 		}
@@ -26,14 +25,14 @@ func parseIOspec(names string) ([]string, error) {
 			return out, nil
 		}
 		switch p := i.(type) {
-		case hdl.PinRange:
-			return nil, errors.Errorf("in %q at pos %d: pin ranges forbidden in input/output declaration", names, p.Pos)
-		case hdl.Pin:
-			out = append(out, p.Name)
-		case hdl.PinIndex:
+		case *hdl.PinIndex:
 			for i := 0; i < p.Index; i++ {
 				out = append(out, p.Name+"["+strconv.Itoa(i)+"]")
 			}
+		case *hdl.Pin:
+			out = append(out, p.Name)
+		default:
+			panic("BUG: unexpected PinExpr type")
 		}
 	}
 }
@@ -51,28 +50,21 @@ func parseIOspec(names string) ([]string, error) {
 //	digit      = "0" .. "9" .
 //
 func ParseConnections(c string) (conns Connections, err error) {
-	// just split the input string, syntax check is done somewhere else
-	mappings := strings.FieldsFunc(c, func(r rune) bool { return r == ',' })
 	conns = make(Connections)
+	p := &hdl.Parser{Input: c}
 
-	for _, m := range mappings {
-		var ks, vs []string
-		m = strings.TrimSpace(m)
-		i := strings.IndexRune(m, '=')
-		if i < 0 {
-			return nil, errors.New(m + ": not a valid pin mapping (missing =)")
+	for {
+		e, err := p.Next(true, true)
+		if err != nil {
+			return nil, err
 		}
-		k, v := strings.TrimSpace(m[:i]), strings.TrimSpace(m[i+1:])
-		// parse and expand
-		if k == "" || v == "" {
-			return nil, errors.New("invalid pin mapping " + k + ":" + v)
+		if e == nil {
+			return conns, nil
 		}
-		if ks, err = expandRange(k); err != nil {
-			return nil, errors.Wrap(err, "expand key "+k)
-		}
-		if vs, err = expandRange(v); err != nil {
-			return nil, errors.Wrap(err, "expand value "+v)
-		}
+		// p.Next(true, ???) should only return PinAssignments. Failure to do so would be a bug, so just let it panic.
+		m := e.(*hdl.PinAssignment)
+		ks := expandRange(m.LHS)
+		vs := expandRange(m.RHS)
 		switch {
 		case len(ks) == len(vs):
 			// many to many
@@ -81,49 +73,31 @@ func ParseConnections(c string) (conns Connections, err error) {
 			}
 		case len(ks) == 1:
 			// one to nany
-			conns[k] = vs
+			conns[ks[0]] = vs
 		case len(vs) == 1:
 			// many to one
 			for _, k := range ks {
 				conns[k] = vs
 			}
 		default:
-			return nil, errors.New("pin count mismatch in pin mapping: " + k + ":" + v)
+			return nil, errors.New("pin count mismatch in pin mapping: " + m.String())
 		}
 	}
-	return conns, nil
 }
 
-func expandRange(name string) ([]string, error) {
-	i := strings.IndexRune(name, '[')
-	if i < 0 {
-		return []string{name}, nil
+func expandRange(v hdl.PinExpr) []string {
+	switch p := v.(type) {
+	case *hdl.PinRange:
+		var l []string
+		for i := p.Start; i <= p.End; i++ {
+			l = append(l, busPinName(p.Name, i))
+		}
+		return l
+	case *hdl.PinIndex:
+		return []string{busPinName(p.Name, p.Index)}
+	case *hdl.Pin:
+		return []string{p.Name}
+	default:
+		panic("BUG: unexpected PinExpr type")
 	}
-	bus := name[:i]
-	if bus == "" {
-		return nil, errors.New("empty bus name")
-	}
-	n := name[i+1:]
-	i = strings.Index(n, "..")
-	if i < 0 {
-		return []string{name}, nil
-	}
-	start, err := strconv.Atoi(n[:i])
-	if err != nil {
-		return nil, err
-	}
-	n = n[i+2:]
-	i = strings.IndexRune(n, ']')
-	if i < 0 {
-		return nil, errors.New("no terminamting ] in bus range")
-	}
-	end, err := strconv.Atoi(n[:i])
-	if err != nil {
-		return nil, err
-	}
-	r := make([]string, 0, end-start+1)
-	for i := start; i <= end; i++ {
-		r = append(r, busPinName(bus, i))
-	}
-	return r, nil
 }

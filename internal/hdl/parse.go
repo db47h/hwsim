@@ -1,6 +1,7 @@
 package hdl
 
 import (
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -10,7 +11,6 @@ import (
 
 // Tokens
 const (
-	EOF lex.Type = lex.EOF
 	Raw lex.Type = iota
 	Ident
 	BracketOpen
@@ -102,20 +102,20 @@ func lexEOF(l *lex.Lexer) lex.StateFn {
 //
 type Pin struct {
 	Name string
-	Pos  lex.Pos
+	pos  lex.Pos
 }
 
 // PinIndex is an indexed pin p[index]
 //
 type PinIndex struct {
-	Pin
+	*Pin
 	Index int
 }
 
 // PinRange is a pin range p[start..end]
 //
 type PinRange struct {
-	Pin
+	*Pin
 	Start int
 	End   int
 }
@@ -123,9 +123,29 @@ type PinRange struct {
 // PinAssignment is a part pin to chip pin assignment. pp=pc
 //
 type PinAssignment struct {
-	LHS interface{}
-	RHS interface{}
+	LHS PinExpr
+	RHS PinExpr
 }
+
+// PinExpr is a pin declaration expression.
+type PinExpr interface {
+	Pos() int
+	String() string
+}
+
+// Pos implements PinExpr
+func (p *Pin) Pos() int       { return int(p.pos) }
+func (p *Pin) String() string { return p.Name }
+
+func (p *PinIndex) String() string { return p.Name + "[" + strconv.Itoa(p.Index) + "]" }
+
+func (p *PinRange) String() string {
+	return p.Name + "[" + strconv.Itoa(p.Start) + ".." + strconv.Itoa(p.End) + "]"
+}
+
+// Pos implements PinExpr
+func (p *PinAssignment) Pos() int       { return p.LHS.Pos() }
+func (p *PinAssignment) String() string { return p.LHS.String() + "=" + p.RHS.String() }
 
 // Parser is a simplistic parser
 //
@@ -137,16 +157,17 @@ type Parser struct {
 }
 
 const (
-	stateDone = -1
 	stateInit = iota
 	stateStarted
+	stateDone = -1
 )
 
 // Next returns the next item in the input stream
 // It only recognizes pin names followed by an index or range and separated by commas.
-// allowConns specifies if connection config strings are suppoorted
+// conns specifies if reading a connection config strings, in which case the only
+// possible return type is *PinAssignment or nil at EOF.
 //
-func (p *Parser) Next(allowConns bool) (interface{}, error) {
+func (p *Parser) Next(conns, allowRange bool) (PinExpr, error) {
 	if p.state == stateDone {
 		return nil, nil
 	}
@@ -155,53 +176,54 @@ func (p *Parser) Next(allowConns bool) (interface{}, error) {
 	}
 
 	p.i = p.l.Lex()
-	if p.state == stateInit && p.i.Type == EOF {
+	if p.state == stateInit && p.i.Type == lex.EOF {
 		p.state = stateDone
 		return nil, nil
 	}
+	p.state = stateStarted
 
-	pin, err := p.getPin()
+	pin, err := p.getPin(allowRange)
 	if err != nil {
 		p.state = stateDone
 		return nil, err
 	}
-	switch p.i.Type {
-	case EOF:
-		p.state = stateDone
-		fallthrough
-	case Comma:
-		return pin, nil
-	case Equal:
-		if allowConns {
-			break
+	if !conns {
+		switch p.i.Type {
+		case lex.EOF:
+			p.state = stateDone
+			fallthrough
+		case Comma:
+			return pin, nil
+		default:
+			return nil, parseError(p.Input, p.i.Pos, "unexpected "+p.i.String())
 		}
-		fallthrough
-	default:
-		return nil, parseError(p.Input, p.i.Pos, "unexpected "+p.i.String())
 	}
 
+	if p.i.Type != Equal {
+		return nil, parseError(p.Input, p.i.Pos, "missing '=' in connection description")
+	}
 	p.i = p.l.Lex()
-	pin2, err := p.getPin()
+	pin2, err := p.getPin(allowRange)
 	if err != nil {
 		p.state = stateDone
 		return nil, err
 	}
 	switch p.i.Type {
-	case EOF:
+	case lex.EOF:
 		p.state = stateDone
 		fallthrough
 	case Comma:
-		return PinAssignment{pin, pin2}, nil
+		return &PinAssignment{pin, pin2}, nil
 	}
 
 	return nil, parseError(p.Input, p.i.Pos, "unexpected "+p.i.String())
 }
 
-func (p *Parser) getPin() (interface{}, error) {
+func (p *Parser) getPin(allowRange bool) (PinExpr, error) {
 	if p.i.Type != Ident {
 		return nil, parseError(p.Input, p.i.Pos, "expected pin name")
 	}
-	pin := Pin{p.i.Value.(string), p.i.Pos}
+	pin := &Pin{p.i.Value.(string), p.i.Pos}
 	// after ident, expect ',', '[', '=' or EOF
 	p.i = p.l.Lex()
 	if p.i.Type != BracketOpen {
@@ -216,6 +238,9 @@ func (p *Parser) getPin() (interface{}, error) {
 	end := -1
 	p.i = p.l.Lex()
 	if p.i.Type == Range {
+		if !allowRange {
+			return nil, parseError(p.Input, p.i.Pos, "pin ranges forbidden in this context")
+		}
 		p.i = p.l.Lex()
 		if p.i.Type != Int {
 			return nil, parseError(p.Input, p.i.Pos, "integer value expected after '..'")
@@ -228,9 +253,9 @@ func (p *Parser) getPin() (interface{}, error) {
 	}
 	p.i = p.l.Lex()
 	if end >= 0 {
-		return PinRange{pin, start, end}, nil
+		return &PinRange{pin, start, end}, nil
 	}
-	return PinIndex{pin, start}, nil
+	return &PinIndex{pin, start}, nil
 }
 
 func parseError(in string, pos lex.Pos, msg string) error {

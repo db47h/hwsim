@@ -25,9 +25,9 @@ func bus(name string, bits int) string {
 //
 func Input(f func() bool) NewPartFn {
 	p := &PartSpec{
-		Name: "Input",
-		In:   nil,
-		Out:  Out{pOut},
+		Name:    "Input",
+		Inputs:  nil,
+		Outputs: Outputs{pOut},
 		Mount: func(s *Socket) []Component {
 			pin := s.Pin(pOut)
 			return []Component{
@@ -48,9 +48,9 @@ func Input(f func() bool) NewPartFn {
 //
 func Output(f func(bool)) NewPartFn {
 	p := &PartSpec{
-		Name: "Output",
-		In:   In{pIn},
-		Out:  nil,
+		Name:    "Output",
+		Inputs:  Inputs{pIn},
+		Outputs: nil,
 		Mount: func(s *Socket) []Component {
 			in := s.Pin(pIn)
 			return []Component{
@@ -61,7 +61,7 @@ func Output(f func(bool)) NewPartFn {
 	return p.NewPart
 }
 
-var notGate = PartSpec{Name: "NOR", In: In{pIn}, Out: Out{pOut},
+var notGate = PartSpec{Name: "NOR", Inputs: Inputs{pIn}, Outputs: Outputs{pOut},
 	Mount: func(s *Socket) []Component {
 		in, out := s.Pin(pIn), s.Pin(pOut)
 		return []Component{
@@ -90,16 +90,16 @@ func (g gate) mount(s *Socket) []Component {
 
 func newGate(name string, fn func(a, b bool) bool) *PartSpec {
 	return &PartSpec{
-		Name:  name,
-		In:    gateIn,
-		Out:   gateOut,
-		Mount: gate(fn).mount,
+		Name:    name,
+		Inputs:  gateIn,
+		Outputs: gateOut,
+		Mount:   gate(fn).mount,
 	}
 }
 
 var (
-	gateIn  = In{pA, pB}
-	gateOut = Out{pOut}
+	gateIn  = Inputs{pA, pB}
+	gateOut = Outputs{pOut}
 
 	and  = newGate("AND", func(a, b bool) bool { return a && b })
 	nand = newGate("NAND", func(a, b bool) bool { return !(a && b) })
@@ -142,9 +142,9 @@ func Xnor(w string) Part { return xnor.NewPart(w) }
 func Mux(w string) Part { return mux.NewPart(w) }
 
 var mux = PartSpec{
-	Name: "MUX",
-	In:   In{pA, pB, pSel},
-	Out:  Out{pOut},
+	Name:    "MUX",
+	Inputs:  Inputs{pA, pB, pSel},
+	Outputs: Outputs{pOut},
 	Mount: func(s *Socket) []Component {
 		a, b, sel, out := s.Pin(pA), s.Pin(pB), s.Pin(pSel), s.Pin(pOut)
 		return []Component{func(c *Circuit) {
@@ -166,9 +166,9 @@ var mux = PartSpec{
 func DMux(w string) Part { return dmux.NewPart(w) }
 
 var dmux = PartSpec{
-	Name: "DMUX",
-	In:   In{pIn, pSel},
-	Out:  Out{pA, pB},
+	Name:    "DMUX",
+	Inputs:  Inputs{pIn, pSel},
+	Outputs: Outputs{pA, pB},
 	Mount: func(s *Socket) []Component {
 		in, sel, a, b := s.Pin(pIn), s.Pin(pSel), s.Pin(pA), s.Pin(pB)
 		return []Component{func(c *Circuit) {
@@ -186,9 +186,9 @@ var dmux = PartSpec{
 // nbits gates
 func notN(n int) *PartSpec {
 	return &PartSpec{
-		Name: "NOT" + strconv.Itoa(n),
-		In:   ExpandBus(bus(pIn, n)),
-		Out:  ExpandBus(bus(pOut, n)),
+		Name:    "NOT" + strconv.Itoa(n),
+		Inputs:  In(bus(pIn, n)),
+		Outputs: Out(bus(pOut, n)),
 		Mount: func(s *Socket) []Component {
 			ins := s.Bus(pIn, n)
 			outs := s.Bus(pOut, n)
@@ -211,9 +211,9 @@ func Not16(w string) Part { return not16.NewPart(w) }
 
 func inputN(bits int, f func() int64) *PartSpec {
 	return &PartSpec{
-		Name: "INPUT" + strconv.Itoa(bits),
-		In:   nil,
-		Out:  ExpandBus(bus(pOut, bits)),
+		Name:    "INPUT" + strconv.Itoa(bits),
+		Inputs:  nil,
+		Outputs: Out(bus(pOut, bits)),
 		Mount: func(s *Socket) []Component {
 			pins := s.Bus(pOut, bits)
 			return []Component{func(c *Circuit) {
@@ -234,9 +234,9 @@ func Input16(f func() int64) NewPartFn {
 
 func outputN(bits int, f func(int64)) *PartSpec {
 	return &PartSpec{
-		Name: "OUTPUTBUS" + strconv.Itoa(bits),
-		In:   ExpandBus(bus(pIn, bits)),
-		Out:  nil,
+		Name:    "OUTPUTBUS" + strconv.Itoa(bits),
+		Inputs:  In(bus(pIn, bits)),
+		Outputs: nil,
 		Mount: func(s *Socket) []Component {
 			pins := s.Bus(pIn, bits)
 			return []Component{func(c *Circuit) {
@@ -277,10 +277,10 @@ func (g *gateN) mount(s *Socket) []Component {
 func newGateN(name string, bits int, f func(bool, bool) bool) *PartSpec {
 	g := &gateN{bits, f}
 	return &PartSpec{
-		Name:  name + strconv.Itoa(bits),
-		In:    ExpandBus(bus(pA, 16), bus(pB, 16)),
-		Out:   ExpandBus(bus(pOut, bits)),
-		Mount: g.mount,
+		Name:    name + strconv.Itoa(bits),
+		Inputs:  In(bus(pA, 16) + ", " + bus(pB, 16)),
+		Outputs: Out(bus(pOut, bits)),
+		Mount:   g.mount,
 	}
 }
 
@@ -331,9 +331,9 @@ func Nor16(w string) Part { return nor16.NewPart(w) }
 //
 func DFF(w string) Part {
 	return (&PartSpec{
-		Name: "DFF",
-		In:   In{pIn},
-		Out:  Out{pOut},
+		Name:    "DFF",
+		Inputs:  Inputs{pIn},
+		Outputs: Outputs{pOut},
 		Mount: func(s *Socket) []Component {
 			in, out := s.Pin(pIn), s.Pin(pOut)
 			var curOut bool

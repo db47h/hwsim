@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/pkg/errors"
 )
@@ -12,34 +14,6 @@ import (
 // A Component is a component in a circuit that can Get and Set states.
 //
 type Component func(c *Circuit)
-
-// ExpandBus returns a copy of the pin names with buses expanded as individual
-// pin names. e.g. "in[2]" will be expanded to "in[0]", "in[1]"
-//
-func ExpandBus(pins ...string) []string {
-	out := make([]string, 0, len(pins))
-	for _, n := range pins {
-		i := strings.IndexRune(n, '[')
-		if i < 0 {
-			out = append(out, n)
-			continue
-		}
-		t := n[i+1:]
-		n = n[:i]
-		i = strings.IndexRune(t, ']')
-		if i < 0 {
-			panic("no terminamting ] in bus specification")
-		}
-		l, err := strconv.Atoi(t[:i])
-		if err != nil {
-			panic(err)
-		}
-		for i := 0; i < l; i++ {
-			out = append(out, busPinName(n, i))
-		}
-	}
-	return out
-}
 
 // A MountFn mounts a part into socket s. MountFn's should query
 // the socket for assigned pin numbers and return closures around
@@ -91,9 +65,9 @@ type MountFn func(s *Socket) []Component
 //	})
 //
 type PartSpec struct {
-	Name string // Part name
-	In          // Input pins
-	Out         // Output pins
+	Name    string // Part name
+	Inputs         // Input pins
+	Outputs        // Output pins
 
 	// Pinout maps the input and output pin names (public interface) of a part
 	// to internal (private) names. If nil, the In and Out values will be used
@@ -115,23 +89,132 @@ func (p *PartSpec) NewPart(connections string) Part {
 	}
 	if p.Pinout == nil {
 		p.Pinout = make(map[string]string)
-		for _, i := range p.In {
+		for _, i := range p.Inputs {
 			p.Pinout[i] = i
 		}
-		for _, o := range p.Out {
+		for _, o := range p.Outputs {
 			p.Pinout[o] = o
 		}
 	}
 	return Part{p, ex}
 }
 
-// In is a slice of input pin names.
+// Inputs is a slice of input pin names.
 //
-type In []string
+type Inputs []string
 
-// Out is a slice of output pin names.
+// Outputs is a slice of output pin names.
 //
-type Out []string
+type Outputs []string
+
+// In parses an input pin specification string and returns individual input pin names.
+//
+func In(inputs string) Inputs {
+	return parseIOspec(inputs)
+}
+
+// Out parses an output pin specification string and returns individual output pin names.
+//
+func Out(outputs string) Outputs {
+	return parseIOspec(outputs)
+}
+
+// parseIOspec parses the pin specification string and returns individual pin
+// names in a slice, also expanding bus declarations to individual pin names.
+// For example:
+//
+//	parseIOspec("in[2] sel") // returns []string{"in[0]", "in[1]", "sel"}
+//
+func parseIOspec(names string) []string {
+	var (
+		out []string
+		pos int
+		n   string
+		err error
+	)
+
+	for {
+		for pos > 0 && pos < len(names) {
+			r, sz := utf8.DecodeRuneInString(names[pos:])
+			if r == ',' {
+				pos += sz
+				break
+			}
+			if !unicode.IsSpace(r) {
+				break
+			}
+			pos += sz
+		}
+		if pos >= len(names) {
+			break
+		}
+		n, pos, err = parseIdentifier(names, pos)
+		if err != nil {
+			panic(err)
+		}
+		if pos >= len(names) || names[pos] != '[' {
+			out = append(out, n)
+			continue
+		}
+
+		t := names[pos+1:]
+
+		i := strings.IndexRune(t, ']')
+		if i < 0 {
+			panic(errors.Errorf("no terminamting ] for index or range. Opening [ at pos %d in %q", pos+1, names))
+		}
+		l, err := strconv.Atoi(strings.TrimSpace(t[:i]))
+		if err != nil {
+			panic(errors.Errorf("invalid bus size at pos %d in %q", pos+2, names))
+		}
+		pos += i + 2
+		for i := 0; i < l; i++ {
+			out = append(out, busPinName(n, i))
+		}
+	}
+	return out
+}
+
+func parseIdentifier(names string, pos int) (s string, next int, err error) {
+	var (
+		start int
+		end   int
+		r     rune
+		sz    int
+		i     = pos
+	)
+
+	// initial state
+	for {
+		r, sz = utf8.DecodeRuneInString(names[i:])
+		if sz == 0 || r == '[' || r == ',' {
+			return "", -1, errors.Errorf("missing pin name at position %d in %q", pos+1, names)
+		}
+		if !unicode.IsSpace(r) {
+			break
+		}
+		i += sz
+	}
+	start = i
+	// identifier
+	for sz != 0 && r != '[' && r != ',' && !unicode.IsSpace(r) {
+		if !unicode.IsLetter(r) && (i == start || !unicode.IsDigit(r)) {
+			return "", -1, errors.Errorf("invalid character %#U at position %d in input/output declaration %q", r, i+1, names)
+		}
+		i += sz
+		r, sz = utf8.DecodeRuneInString(names[i:])
+	}
+	end = i
+	// trailing space
+	for sz != 0 && r != '[' && r != ',' {
+		if !unicode.IsSpace(r) {
+			return "", -1, errors.Errorf("invalid character %#U at position %d in input/output declaration %q. Expecting ',' or '['", r, i+1, names)
+		}
+		i += sz
+		r, sz = utf8.DecodeRuneInString(names[i:])
+	}
+	return names[start:end], i, nil
+}
 
 // A NewPartFn is a function that takes a connection configuration and returns a
 // new Part. See ParseConnections for the syntax of the connection configuration

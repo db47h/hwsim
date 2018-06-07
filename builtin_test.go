@@ -11,11 +11,11 @@ import (
 func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 	t.Helper()
 	part := gate("").PartSpec // build dummy gate just to get to the partspec
-	inputs := make([]bool, len(part.In))
-	outputs := make([]bool, len(part.Out))
+	inputs := make([]bool, len(part.Inputs))
+	outputs := make([]bool, len(part.Outputs))
 	var w strings.Builder
-	parts := make(hw.Parts, 0, len(part.In)+len(part.Out)+1)
-	for i, n := range part.In {
+	parts := make(hw.Parts, 0, len(part.Inputs)+len(part.Outputs)+1)
+	for i, n := range part.Inputs {
 		w.WriteByte(',')
 		w.WriteString(n)
 		w.WriteByte('=')
@@ -23,7 +23,7 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 		in := &inputs[i]
 		parts = append(parts, hw.Input(func() bool { return *in })("out="+n))
 	}
-	for i, n := range part.Out {
+	for i, n := range part.Outputs {
 		w.WriteByte(',')
 		w.WriteString(n)
 		w.WriteByte('=')
@@ -43,7 +43,7 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 	}
 	defer c.Dispose()
 
-	tot := 1 << uint(len(part.In))
+	tot := 1 << uint(len(part.Inputs))
 	// t.Log(tot)
 	// for _, p := range parts {
 	// 	t.Log(p.Spec().Name, " ", p.Wires())
@@ -63,14 +63,14 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 }
 
 func Test_gate_builtin(t *testing.T) {
-	tr, err := hw.Chip("TRUE", hw.In{"a"}, hw.Out{"out"}, hw.Parts{
+	tr, err := hw.Chip("TRUE", hw.In("a"), hw.Out("out"), hw.Parts{
 		hw.And("a=true, b=true, out=out"),
 	})
 	if err != nil {
 		trace(t, err)
 		t.Fatal(err)
 	}
-	fa, err := hw.Chip("FALSE", hw.In{"a"}, hw.Out{"out"}, hw.Parts{
+	fa, err := hw.Chip("FALSE", hw.In("a"), hw.Out("out"), hw.Parts{
 		hw.Or("a=false, b=false, out=out"),
 	})
 	if err != nil {
@@ -140,7 +140,7 @@ func Test_gateN_builtin(t *testing.T) {
 			var a, b int16
 			var out int16
 
-			chip, err := hw.Chip(d.gate.Name+"wrapper", hw.In{"a[16]", "b[16]"}, hw.Out{"out[16]"}, hw.Parts{
+			chip, err := hw.Chip(d.gate.Name+"wrapper", hw.In("a[16], b[16]"), hw.Out("out[16]"), hw.Parts{
 				d.gate,
 			})
 			if err != nil {

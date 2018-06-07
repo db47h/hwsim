@@ -199,7 +199,7 @@ func (n *node) setType(typ int) error {
 //
 type wiring map[pin]*node
 
-func newWiring(ins In, outs Out) wiring {
+func newWiring(ins Inputs, outs Outputs) wiring {
 	wr := make(wiring, len(ins)+len(outs)+1)
 
 	// add constant pins

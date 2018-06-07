@@ -35,8 +35,8 @@ The same in Go:
 ```go
     xor, err := hw.Chip(
         "XOR",
-        hw.In{"a", "b"}, // inputs of the created xor gate
-        hw.Out{"out"},    // outputs
+        hw.In("a, b"), // inputs of the created xor gate
+        hw.Out("out"),    // outputs
         hw.Parts{
             hw.Nand("a=a,      b=b,      out=nandAB"), // leftmost NAND
             hw.Nand("a=a,      b=nandAB, out=outA"),   // top NAND
@@ -81,8 +81,8 @@ Custom parts can be created by simply creating a `PartSpec` struct:
     // update function (as a closure over the part instance).
     var xorSpec = hw.PartSpec{
         Name: "XOR",
-        In:   hw.In{"a", "b"},
-        Out:  hw.Out{"out"},
+        In:   hw.In("a, b"),
+        Out:  hw.Out("out"),
         Mount: func(s *Socket) []hw.Component {
             // collect pin numbers
             g := xorInstance{s.Pin("a"), s.Pin("b"), s.Pin("out")}
@@ -99,8 +99,8 @@ Well, it doesn't look that simple, but this example deliberately details every s
 ```go
     var xor = hw.MakePart(&PartSpec{
         Name: "XOR",
-        In:   hw.In{"a", "b"},
-        Out:  hw.Out{"out"},
+        In:   hw.In("a, b"),
+        Out:  hw.Out("out"),
         Mount: func(s *Socket) []hw.Component {
             a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
             return []hw.Component{
@@ -116,8 +116,8 @@ If defining custom components as functions is preferable, for example in a Go pa
 ```go
     var xorSpec = hw.PartSpec{
         Name: "XOR",
-        In:   hw.In{"a", "b"},
-        Out:  hw.Out{"out"},
+        In:   hw.In("a, b"),
+        Out:  hw.Out("out"),
         Mount: func(s *Socket) []hw.Component {
             a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
             return []hw.Component{
@@ -134,8 +134,8 @@ Now we can go ahead and build a half-adder:
 ```go
     hAdder, _ := hw.Chip(
         "H-ADDER",
-        hw.In{"a", "b"},
-        hw.Out{"s", "c"}, //output sum and carry
+        hw.In("a, b"),
+        hw.Out("s, c"), //output sum and carry
         hw.Parts{
             xor("a=a, b=b, out=s"), // our custom xor gate!
             hw.And("a=a, b=b, out=c"),

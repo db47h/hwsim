@@ -66,10 +66,7 @@ func (c *chip) mount(s *Socket) []Component {
 //			Not("in=xorAB, out=out"}),
 //		})
 //
-func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
-	inputs = ExpandBus(inputs...)
-	outputs = ExpandBus(outputs...)
-
+func Chip(name string, inputs Inputs, outputs Outputs, parts Parts) (NewPartFn, error) {
 	// build wiring
 	wr := newWiring(inputs, outputs)
 	spcs := make([]*PartSpec, len(parts))
@@ -86,7 +83,7 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 			}
 		}
 		// add inputs
-		for _, k := range p.In {
+		for _, k := range p.Inputs {
 			if vs, ok := conns[k]; ok {
 				if len(vs) > 1 {
 					return nil, errors.New(p.Name + " input pin " + k + "connected to more than one output")
@@ -98,7 +95,7 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 			}
 		}
 		// add outputs
-		for _, k := range p.Out {
+		for _, k := range p.Outputs {
 			if vs, ok := conns[k]; ok {
 				for _, v := range vs {
 					i, o := pin{pnum, k}, pin{-1, v}
@@ -129,10 +126,10 @@ func Chip(name string, inputs In, outputs Out, parts Parts) (NewPartFn, error) {
 
 	c := &chip{
 		PartSpec{
-			Name:   name,
-			In:     inputs,
-			Out:    outputs,
-			Pinout: pinout,
+			Name:    name,
+			Inputs:  inputs,
+			Outputs: outputs,
+			Pinout:  pinout,
 		},
 		spcs,
 		wr,

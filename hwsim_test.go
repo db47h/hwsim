@@ -21,7 +21,7 @@ func trace(t *testing.T, err error) {
 }
 
 func Test_gate_custom(t *testing.T) {
-	and, err := hw.Chip("AND", hw.In{"a", "b"}, hw.Out{"out"},
+	and, err := hw.Chip("AND", hw.In("a, b"), hw.Out("out"),
 		hw.Parts{
 			hw.Nand("a=a, b=b, out=nand"),
 			hw.Nand("a=nand, b=nand, out=out"),
@@ -29,7 +29,7 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	or, err := hw.Chip("OR", hw.In{"a", "b"}, hw.Out{"out"},
+	or, err := hw.Chip("OR", hw.In("a, b"), hw.Out("out"),
 		hw.Parts{
 			hw.Nand("a=a, b=a, out=notA"),
 			hw.Nand("a=b, b=b, out=notB"),
@@ -38,7 +38,7 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	nor, err := hw.Chip("NOR", hw.In{"a", "b"}, hw.Out{"out"},
+	nor, err := hw.Chip("NOR", hw.In("a, b"), hw.Out("out"),
 		hw.Parts{
 			or("a=a, b=b, out=orAB"),
 			hw.Nand("a=orAB, b=orAB, out=out"),
@@ -46,7 +46,7 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	xor, err := hw.Chip("XOR", hw.In{"a", "b"}, hw.Out{"out"},
+	xor, err := hw.Chip("XOR", hw.In("a, b"), hw.Out("out"),
 		hw.Parts{
 			hw.Nand("a=a, b=b, out=nandAB"),
 			hw.Nand("a=a, b=nandAB, out=w0"),
@@ -56,7 +56,7 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	xnor, err := hw.Chip("XNOR", hw.In{"a", "b"}, hw.Out{"out"},
+	xnor, err := hw.Chip("XNOR", hw.In("a, b"), hw.Out("out"),
 		hw.Parts{
 			or("a=a, b=b, out=or"),
 			hw.Nand("a=a, b=b, out=nand"),
@@ -65,14 +65,14 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	not, err := hw.Chip("NOT", hw.In{"a"}, hw.Out{"out"},
+	not, err := hw.Chip("NOT", hw.In("a"), hw.Out("out"),
 		hw.Parts{
 			hw.Nand("a=a, b=a, out=out"),
 		})
 	if err != nil {
 		t.Fatal(err)
 	}
-	mux, err := hw.Chip("NUX", hw.In{"a", "b", "sel"}, hw.Out{"out"}, hw.Parts{
+	mux, err := hw.Chip("NUX", hw.In("a, b, sel"), hw.Out("out"), hw.Parts{
 		hw.Not("in=sel, out=notSel"),
 		hw.And("a=a, b=notSel, out=w0"),
 		hw.And("a=b, b=sel, out=w1"),
@@ -81,7 +81,7 @@ func Test_gate_custom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dmux, err := hw.Chip("DMUX", hw.In{"in", "sel"}, hw.Out{"a", "b"}, hw.Parts{
+	dmux, err := hw.Chip("DMUX", hw.In("in, sel"), hw.Out("a, b"), hw.Parts{
 		hw.Not("in=sel, out=notSel"),
 		hw.And("a=in, b=notSel, out=a"),
 		hw.And("a=in, b=sel, out=b"),
@@ -129,7 +129,7 @@ func Test_clock(t *testing.T) {
 	// we could implement the clock directly as a Nor in the cisrcuit (with no less gate delays)
 	// but we wrap it into a stand-alone chip in order to add a layer complexity
 	// for testing purposes.
-	clk, err := hw.Chip("CLK", hw.In{"disable"}, hw.Out{"tick"}, hw.Parts{
+	clk, err := hw.Chip("CLK", hw.In("disable"), hw.Out("tick"), hw.Parts{
 		hw.Nor("a=disable, b=tick, out=tick"),
 	})
 	if err != nil {

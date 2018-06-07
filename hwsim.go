@@ -133,32 +133,20 @@ func parseIOspec(names string) []string {
 		err error
 	)
 
-	for {
-		for pos > 0 && pos < len(names) {
-			r, sz := utf8.DecodeRuneInString(names[pos:])
-			if r == ',' {
-				pos += sz
-				break
-			}
-			if !unicode.IsSpace(r) {
-				break
-			}
-			pos += sz
-		}
-		if pos >= len(names) {
-			break
-		}
+	for pos < len(names) {
 		n, pos, err = parseIdentifier(names, pos)
-		if err != nil {
+		switch {
+		case err != nil:
 			panic(err)
-		}
-		if pos >= len(names) || names[pos] != '[' {
+		case pos >= len(names) || names[pos] == ',':
+			pos++
 			out = append(out, n)
 			continue
+		case names[pos] != '[':
+			panic(errors.Errorf("invalid character %#U at position %d in input/output declaration %q. Expecting ',' or '['", names[pos], pos+1, names))
 		}
 
 		t := names[pos+1:]
-
 		i := strings.IndexRune(t, ']')
 		if i < 0 {
 			panic(errors.Errorf("no terminamting ] for index or range. Opening [ at pos %d in %q", pos+1, names))
@@ -171,49 +159,50 @@ func parseIOspec(names string) []string {
 		for i := 0; i < l; i++ {
 			out = append(out, busPinName(n, i))
 		}
+		// skip next , and space
+		for pos < len(names) {
+			r, sz := utf8.DecodeRuneInString(names[pos:])
+			if r == ',' {
+				pos += sz
+				break
+			}
+			if !unicode.IsSpace(r) {
+				break
+			}
+			pos += sz
+		}
 	}
 	return out
 }
 
 func parseIdentifier(names string, pos int) (s string, next int, err error) {
-	var (
-		start int
-		end   int
-		r     rune
-		sz    int
-		i     = pos
-	)
-
+	var r rune
+	var sz int
+	start := pos
 	// initial state
 	for {
-		r, sz = utf8.DecodeRuneInString(names[i:])
+		r, sz = utf8.DecodeRuneInString(names[start:])
 		if sz == 0 || r == '[' || r == ',' {
 			return "", -1, errors.Errorf("missing pin name at position %d in %q", pos+1, names)
 		}
 		if !unicode.IsSpace(r) {
 			break
 		}
-		i += sz
+		start += sz
 	}
-	start = i
+	end := start
 	// identifier
-	for sz != 0 && r != '[' && r != ',' && !unicode.IsSpace(r) {
-		if !unicode.IsLetter(r) && (i == start || !unicode.IsDigit(r)) {
-			return "", -1, errors.Errorf("invalid character %#U at position %d in input/output declaration %q", r, i+1, names)
-		}
-		i += sz
-		r, sz = utf8.DecodeRuneInString(names[i:])
+	for sz != 0 && (unicode.IsLetter(r) || (end > start && unicode.IsDigit(r)) || r == '.' || r == '_') {
+		end += sz
+		r, sz = utf8.DecodeRuneInString(names[end:])
 	}
-	end = i
+	next = end
 	// trailing space
-	for sz != 0 && r != '[' && r != ',' {
-		if !unicode.IsSpace(r) {
-			return "", -1, errors.Errorf("invalid character %#U at position %d in input/output declaration %q. Expecting ',' or '['", r, i+1, names)
-		}
-		i += sz
-		r, sz = utf8.DecodeRuneInString(names[i:])
+	for sz != 0 && unicode.IsSpace(r) {
+		next += sz
+		r, sz = utf8.DecodeRuneInString(names[next:])
 	}
-	return names[start:end], i, nil
+	return names[start:end], next, nil
 }
 
 // A NewPartFn is a function that takes a connection configuration and returns a

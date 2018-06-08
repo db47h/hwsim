@@ -6,7 +6,7 @@ import (
 	hw "github.com/db47h/hwsim"
 )
 
-func Test_Chip(t *testing.T) {
+func TestChip_errors(t *testing.T) {
 	unkChip, err := hw.Chip("TESTCHIP", hw.In("a, b"), hw.Out("out"), hw.Parts{
 		// chip input a is unused
 		hw.Nand("a=b, b=b, out=out"),
@@ -68,7 +68,7 @@ func Test_Chip(t *testing.T) {
 
 }
 
-func Test_Chip_omitted_pins(t *testing.T) {
+func TestChip_omitted_pins(t *testing.T) {
 	var a, b, c, tr, f, o0, o1 int
 	dummy := (&hw.PartSpec{
 		Name:    "dummy",
@@ -104,5 +104,35 @@ func Test_Chip_omitted_pins(t *testing.T) {
 	}
 	if o0 < 3 || o1 < 3 { // 3 = cstCount
 		t.Errorf("o0 = %v, o1 = %v, both must be > 3", o0, o1)
+	}
+}
+
+func TestChip_fanout_to_outputs(t *testing.T) {
+	gate, err := hw.Chip("FANOUT", hw.In("in"), hw.Out("a, b, bus[2]"), hw.Parts{
+		hw.Or("a=in, b=in, out=a, out=b, out=bus[0..1]"),
+	})
+	if err != nil {
+		trace(t, err)
+		t.Fatal(err)
+	}
+	wrapper1, err := hw.Chip("FANOUT_Wrapper", hw.In("in"), hw.Out("o[8]"), hw.Parts{
+		gate("in=in, a=o[0..1], b=o[2..3], bus[0]=o[4..5], bus[1]=o[6..7]"),
+	})
+	if err != nil {
+		trace(t, err)
+		t.Fatal(err)
+	}
+	var out int64
+	c, err := hw.NewCircuit(0, testTPC, hw.Parts{
+		wrapper1("in=true, o[0..7]=wrapOut[0..7]"),
+		hw.Output16(func(v int64) { out = v })("in[0..7]=wrapOut[0..7]"),
+	})
+	if err != nil {
+		trace(t, err)
+		t.Fatal(err)
+	}
+	c.TickTock()
+	if out != 255 {
+		t.Fatalf("out = %d != 255", out)
 	}
 }

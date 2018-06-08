@@ -230,26 +230,26 @@ func (p *Parser) getPin(allowRange bool) (PinExpr, error) {
 		return pin, nil
 	}
 	// expect bus size
-	p.i = p.l.Lex()
-	if p.i.Type != Int {
-		return nil, parseError(p.Input, p.i.Pos, "integer value expected after '['")
+	i := p.l.Lex()
+	if i.Type != Int {
+		return nil, parseError(p.Input, i.Pos, "integer value expected after '['")
 	}
-	start := p.i.Value.(int)
+	start := i.Value.(int)
 	end := -1
-	p.i = p.l.Lex()
-	if p.i.Type == Range {
+	i = p.l.Lex()
+	if i.Type == Range {
 		if !allowRange {
-			return nil, parseError(p.Input, p.i.Pos, "pin ranges forbidden in this context")
+			return nil, parseError(p.Input, i.Pos, "pin ranges forbidden in this context")
 		}
-		p.i = p.l.Lex()
-		if p.i.Type != Int {
-			return nil, parseError(p.Input, p.i.Pos, "integer value expected after '..'")
+		i = p.l.Lex()
+		if i.Type != Int {
+			return nil, parseError(p.Input, i.Pos, "integer value expected after '..'")
 		}
-		end = p.i.Value.(int)
-		p.i = p.l.Lex()
+		end = i.Value.(int)
+		i = p.l.Lex()
 	}
-	if p.i.Type != BracketClose {
-		return nil, parseError(p.Input, p.i.Pos, "closing ']' expected after index or range")
+	if i.Type != BracketClose {
+		return nil, parseError(p.Input, i.Pos, "closing ']' expected after index or range")
 	}
 	p.i = p.l.Lex()
 	if end >= 0 {

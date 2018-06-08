@@ -28,10 +28,15 @@ const (
 // Connections represents the connections between the pins of a part (the map
 // keys) to other pins in its host chip (the map values).
 //
-// The map value is a slice because any output pin of a part can
-// be connected to more than one other pin within the chip.
+type Connections []Connection
+
+// A Connection represents a connection between the pin PP of a part and
+// the pins CP in its host chip.
 //
-type Connections map[string][]string
+type Connection struct {
+	PP string
+	CP []string
+}
 
 // a pin is identified by the part it belongs to and its name in that part's interface
 type pin struct {
@@ -62,6 +67,15 @@ func (n *node) isPartInput() bool {
 }
 func (n *node) isOutput() bool {
 	return n.typ == typeOutput
+}
+
+func (n *node) root() *node {
+	if n == nil {
+		return n
+	}
+	for src := n.src; src != nil; n, src = src, n.src {
+	}
+	return n
 }
 
 func (n *node) setName(name string) {
@@ -235,13 +249,11 @@ func (wr wiring) pruneEphemeral() error {
 
 		// assign a wire name to the pin tree
 		if n.name == "" {
-			t := n
-			for prev := t.src; prev != nil; t, prev = prev, t.src {
-			}
-			if t.isChipInput() {
-				t.setName(t.pin.name)
+			r := n.root()
+			if r.isChipInput() {
+				r.setName(r.pin.name)
 			} else {
-				t.setName("__" + strconv.Itoa(wireNum))
+				r.setName("__" + strconv.Itoa(wireNum))
 			}
 			wireNum++
 		}

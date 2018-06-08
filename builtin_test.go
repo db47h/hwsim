@@ -154,6 +154,7 @@ func Test_gateN_builtin(t *testing.T) {
 				hw.Output16(func(v int64) { out = int16(v) })("in[0..15]=out[0..15]"),
 			})
 			if err != nil {
+				trace(t, err)
 				t.Fatal(err)
 			}
 			defer c.Dispose()

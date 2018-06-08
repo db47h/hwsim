@@ -38,7 +38,7 @@ func parseIOspec(names string) ([]string, error) {
 }
 
 // ParseConnections parses a connection configuration like "partPinX=chipPinY, ..."
-// into a Connections{"partPinX": []string{"chipPinX"}}.
+// into a []Connections{{PP: "partPinX", CP: []string{"chipPinX"}}, ...}.
 //
 //	Wire       = Assignment { [ space ] "," [ space ] Assignment } .
 //	Assignment = Pin "=" Pin .
@@ -51,7 +51,6 @@ func parseIOspec(names string) ([]string, error) {
 //	digit      = "0" ... "9" .
 //
 func ParseConnections(c string) (conns Connections, err error) {
-	conns = make(Connections)
 	p := &hdl.Parser{Input: c}
 
 	for {
@@ -70,15 +69,15 @@ func ParseConnections(c string) (conns Connections, err error) {
 		case len(ks) == len(vs):
 			// many to many
 			for i := range ks {
-				conns[ks[i]] = []string{vs[i]}
+				conns = append(conns, Connection{ks[i], []string{vs[i]}})
 			}
 		case len(ks) == 1:
 			// one to nany
-			conns[ks[0]] = vs
+			conns = append(conns, Connection{ks[0], vs})
 		case len(vs) == 1:
 			// many to one
 			for _, k := range ks {
-				conns[k] = vs
+				conns = append(conns, Connection{k, vs})
 			}
 		default:
 			return nil, errors.New("pin count mismatch in pin mapping: " + m.String())

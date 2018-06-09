@@ -8,6 +8,10 @@ The API is designed to mimmic a real [Hardware description language][hdl]. As a 
 
 > **DISCLAIMER:** This is a self-educational project. I am a software engineer with no electrical engineering background, so please bear with me if some of the terms used are inaccurate or just plain wrong. If you spot any errors, please do not hesitate to file an issue or a PR.
 
+## Project Status
+
+Not all the feature I have in mind are implemented yet but I don't really have plans for any form of GUI, so please don't ask, yet. TODO's with high priority are listed in the issue tracker. Contributions welcome!
+
 ## Implementation details
 
 The simulator is built as an array of individual wires (think [stripboard]). It works like a double-buffer with a "current state" array and a "next state" array. At every tick of the simulation:

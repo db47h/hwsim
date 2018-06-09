@@ -114,6 +114,8 @@ func Chip(name string, inputs Inputs, outputs Outputs, parts Parts) (NewPartFn, 
 		}
 
 		// add omitted part outputs: pins not used within this chip but that must be assigned pin #s
+		// and rename wires that connect to merged outputs in a part (for fan-out to work with chip nesting).
+		// m maps a part's internal output pin names to this chip's wire names.
 		m := make(map[string]string)
 		for _, k := range p.Outputs {
 			o := pin{pnum, k}
@@ -122,13 +124,16 @@ func Chip(name string, inputs Inputs, outputs Outputs, parts Parts) (NewPartFn, 
 				wr[o] = &node{name: tmpName(pnum, k), pin: o, typ: typeOutput}
 				continue
 			}
-			// rename wires that connect to merged outputs in a part.
+			// rename
 			ik := p.Pinout[k]
-			if wn := m[ik]; wn != "" {
-				// output ik connected to wire wn, rename n
-				n.root().setName(wn)
-			} else {
+			if ik == "" {
+				continue
+			}
+			if wn := m[ik]; wn == "" {
 				m[ik] = n.name
+			} else {
+				// output ik connected to wire wn, rename n
+				n.setName(wn)
 			}
 		}
 	}

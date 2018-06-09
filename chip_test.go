@@ -41,6 +41,9 @@ func TestChip_errors(t *testing.T) {
 		{"no_output", hw.In("a, b"), hw.Out("out"), hw.Parts{
 			hw.Nand("a=a, b=wx, out=out"),
 		}, "pin wx not connected to any output"},
+		{"no_output", nil, hw.Out("out"), hw.Parts{
+			hw.Not("in=out"),
+		}, "pin out not connected to any output"},
 		{"no_input", hw.In("a, b"), hw.Out("out"), hw.Parts{
 			hw.Nand("a=a, b=b, out=foo"),
 			hw.Nand("a=a, b=b, out=out"),
@@ -108,7 +111,7 @@ func TestChip_omitted_pins(t *testing.T) {
 }
 
 func TestChip_fanout_to_outputs(t *testing.T) {
-	gate, err := hw.Chip("FANOUT", hw.In("in"), hw.Out("a, b, bus[2]"), hw.Parts{
+	gate, err := hw.Chip("FANOUT", hw.In("in"), hw.Out("a, b, bus[2], c"), hw.Parts{
 		hw.Or("a=in, b=in, out=a, out=b, out=bus[0..1]"),
 	})
 	if err != nil {

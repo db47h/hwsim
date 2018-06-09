@@ -109,7 +109,8 @@ func TestInput16(t *testing.T) {
 		hw.Output16(func(n int64) { out = n })("in[0..15] = t[0..15]"),
 	})
 	if err != nil {
-		panic(err)
+		trace(t, err)
+		t.Fatal(err)
 	}
 	defer c.Dispose()
 

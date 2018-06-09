@@ -324,11 +324,11 @@ func (c *Circuit) Step() {
 	// update clock signal
 	tick := c.tick + 1
 	if tick&(c.tpc-1) == 0 {
-		c.Set(cstClk, true)
+		c.s1[cstClk] = true
 	} else if tick&(c.tpc/2-1) == 0 {
-		c.Set(cstClk, false)
+		c.s1[cstClk] = false
 	} else {
-		c.Set(cstClk, c.Get(cstClk))
+		c.s1[cstClk] = c.s0[cstClk]
 	}
 
 	c.wg.Wait()

@@ -1,8 +1,6 @@
 package hwsim
 
 import (
-	"strconv"
-
 	"github.com/pkg/errors"
 )
 
@@ -68,11 +66,11 @@ func (n *node) isPartInput() bool {
 func (n *node) isOutput() bool {
 	return n.typ == typeOutput
 }
+func (n *node) isChipOutput() bool {
+	return n.typ == typeOutput && n.pin.p < 0
+}
 
 func (n *node) root() *node {
-	if n == nil {
-		return n
-	}
 	for src := n.src; src != nil; n, src = src, n.src {
 	}
 	return n
@@ -85,19 +83,14 @@ func (n *node) setName(name string) {
 	}
 }
 
-// setType possibly changes the type of a node.
-// it may result in turning n into an input or output type,
-// in which case the node must be checked for correctnes.
-// add() already does these checks.
-func (n *node) setType(typ int) error {
+// checkType asserts that the requested type change is a no-op.
+// input -> unknown = input
+// output -> unknown = output
+// unk -> unk == unk
+// anything else is illegal.
+func (n *node) checkType(typ int) error {
 	if typ != typeUnknown && n.typ != typ {
-		if n.typ == typeUnknown {
-			n.typ = typ
-		} else if n.typ == typeInput {
-			return errors.New("cannot turn input pin into an output pin")
-		} else {
-			return errors.New("cannot turn output pin into an input pin")
-		}
+		return errors.New("cannot change pin type")
 	}
 	return nil
 }
@@ -128,25 +121,26 @@ func newWiring(ins Inputs, outs Outputs) wiring {
 	// add constant pins
 	for _, pn := range cstPinNames {
 		p := pin{-1, pn}
-		wr[p] = &node{pin: p, typ: typeInput}
+		wr[p] = &node{name: pn, pin: p, typ: typeInput}
 	}
 
 	for _, in := range ins {
 		p := pin{-1, in}
-		n := &node{pin: p, typ: typeInput}
+		n := &node{name: in, pin: p, typ: typeInput}
 		wr[p] = n
 	}
 
 	for _, out := range outs {
 		p := pin{-1, out}
-		n := &node{pin: p, typ: typeOutput}
+		n := &node{name: False, pin: p, typ: typeOutput}
 		wr[p] = n
 	}
 	return wr
 }
 
 // connect wires pins src and dst (src being the pin powering the wire).
-func (wr wiring) connect(src pin, sType int, dst pin, dType int) error {
+// sIName is the part's internal pin name for the source pin
+func (wr wiring) connect(src pin, sType int, sIName string, dst pin, dType int) error {
 	if dst.p < 0 {
 		switch dst.name {
 		case Clk:
@@ -160,10 +154,11 @@ func (wr wiring) connect(src pin, sType int, dst pin, dType int) error {
 
 	ws := wr[src]
 	if ws == nil {
-		ws = &node{pin: src, typ: sType}
+		ws = &node{name: sIName, pin: src, typ: sType}
 		wr[src] = ws
-	} else if err := ws.setType(sType); err != nil {
+	} else if err := ws.checkType(sType); err != nil {
 		return err
+
 	}
 	if ws.isPartInput() {
 		return errors.New("part input pin used as output pin")
@@ -173,7 +168,7 @@ func (wr wiring) connect(src pin, sType int, dst pin, dType int) error {
 	if wd == nil {
 		wd = &node{pin: dst, typ: dType}
 		wr[dst] = wd
-	} else if err := wd.setType(dType); err != nil {
+	} else if err := wd.checkType(dType); err != nil {
 		return err
 	}
 	switch {
@@ -186,7 +181,7 @@ func (wr wiring) connect(src pin, sType int, dst pin, dType int) error {
 	default:
 		return errors.New("output pin already used as output")
 	}
-
+	wd.setName(ws.name)
 	ws.outs = append(ws.outs, wd)
 	return nil
 }
@@ -198,26 +193,30 @@ func (wr wiring) wireName(p pin) string {
 	return ""
 }
 
-// pruneEphemeral should be called after adding all connections.
-// It removes ephemeral pins by establishing direct connections
-// between parts and I/O pins and assigns names to individual wires.
+// prune should be called after adding all connections.
+// It removes unconnected chip pins and ephemeral pins by establishing direct
+// connections between parts and I/O pins and assigns names to individual wires.
 //
-func (wr wiring) pruneEphemeral() error {
-	wireNum := 0
+func (wr wiring) prune() error {
 	for k, n := range wr {
-		// Error on ephemeral pins with no source or dest.
-		if n.typ == typeUnknown {
-			if n.src == nil {
-				return errors.New("pin " + n.pin.name + " not connected to any output")
-			}
-			if len(n.outs) == 0 {
-				return errors.New("pin " + n.pin.name + " not connected to any input")
-			}
-		}
 		// remove input pins with no outs
 		if n.isChipInput() && len(n.outs) == 0 {
 			delete(wr, k)
 			continue
+		}
+		// remove unconnected output pins
+		if n.isChipOutput() && n.src == nil && len(n.outs) == 0 {
+			delete(wr, k)
+			continue
+		}
+
+		// Error on ephemeral pins with no source or dest.
+		// error on output pins with dests within the chip but no src.
+		if (n.typ == typeUnknown || n.isChipOutput()) && n.src == nil {
+			return errors.New("pin " + n.pin.name + " not connected to any output")
+		}
+		if n.typ == typeUnknown && len(n.outs) == 0 {
+			return errors.New("pin " + n.pin.name + " not connected to any input")
 		}
 
 		// remove temporary pins.
@@ -233,6 +232,7 @@ func (wr wiring) pruneEphemeral() error {
 			// merge it into n.outs = n.outs + next.outs
 			for _, o := range next.outs {
 				o.src = n
+				o.setName(n.name)
 			}
 			n.outs = append(n.outs, next.outs...)
 			next.outs = nil
@@ -242,22 +242,10 @@ func (wr wiring) pruneEphemeral() error {
 				n.outs[i] = n.outs[len(n.outs)-1]
 				n.outs = n.outs[:len(n.outs)-1]
 				delete(wr, next.pin)
-			} else {
-				i++
+				continue
 			}
-		}
-
-		// assign a wire name to the pin tree
-		if n.name == "" {
-			r := n.root()
-			if r.isChipInput() {
-				r.setName(r.pin.name)
-			} else {
-				r.setName("__" + strconv.Itoa(wireNum))
-			}
-			wireNum++
+			i++
 		}
 	}
-
 	return nil
 }

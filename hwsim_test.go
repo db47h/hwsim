@@ -1,6 +1,7 @@
 package hwsim_test
 
 import (
+	"runtime"
 	"testing"
 
 	hw "github.com/db47h/hwsim"
@@ -92,4 +93,20 @@ func Test_clock(t *testing.T) {
 	check(false)
 	c.Step()
 	check(false)
+}
+
+// This bench is here to becnhmark the workers sync mechanism overhead.
+func BenchmarkCircuit_Step(b *testing.B) {
+	workers := runtime.NumCPU()
+	parts := make(hw.Parts, 0, workers)
+	for i := 0; i < workers; i++ {
+		parts = append(parts, hw.Not(""))
+	}
+	c, err := hw.NewCircuit(workers, testTPC, parts)
+	if err != nil {
+		b.Fatal(err)
+	}
+	for i := 0; i < b.N; i++ {
+		c.Step()
+	}
 }

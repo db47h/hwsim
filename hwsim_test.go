@@ -97,7 +97,7 @@ func Test_clock(t *testing.T) {
 
 // This bench is here to becnhmark the workers sync mechanism overhead.
 func BenchmarkCircuit_Step(b *testing.B) {
-	workers := runtime.NumCPU()
+	workers := runtime.GOMAXPROCS(-1)
 	parts := make(hw.Parts, 0, workers)
 	for i := 0; i < workers; i++ {
 		parts = append(parts, hw.Not(""))

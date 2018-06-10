@@ -215,6 +215,7 @@ func NewCircuit(workers int, stepsPerCycle uint, ps Parts) (*Circuit, error) {
 		return nil, errors.Wrap(err, "failed to create chip wrapper")
 	}
 	ups := wrap("").Mount(newSocket(cc))
+	ups = append(ups, updClock)
 	cc.cs = ups
 	cc.s0 = make([]bool, cc.count)
 	cc.s1 = make([]bool, cc.count)
@@ -227,19 +228,16 @@ func NewCircuit(workers int, stepsPerCycle uint, ps Parts) (*Circuit, error) {
 
 	// workers
 	if workers == 0 {
-		workers = runtime.NumCPU()
+		workers = runtime.GOMAXPROCS(-1)
 	}
 	if workers == 0 {
 		workers = 1
 	}
-
-	// # of updaters per worker
-	size := len(ups) / workers
-	if size*workers < len(ups) {
-		size++
-	}
 	for len(ups) > 0 {
-		size = min(size, len(ups))
+		size := len(ups) / workers
+		if size*workers < len(ups) {
+			size++
+		}
 		wc := make(chan struct{}, 1)
 		cc.wc = append(cc.wc, wc)
 		go worker(cc, ups[:size], wc)
@@ -247,6 +245,22 @@ func NewCircuit(workers int, stepsPerCycle uint, ps Parts) (*Circuit, error) {
 	}
 
 	return cc, nil
+}
+
+func updClock(c *Circuit) {
+	if c.s0[cstFalse] || !c.s0[cstTrue] {
+		panic("true or false constants have been overwritten")
+	}
+
+	// update clock signal
+	tick := c.tick + 1
+	if tick&(c.tpc-1) == 0 {
+		c.s1[cstClk] = true
+	} else if tick&(c.tpc/2-1) == 0 {
+		c.s1[cstClk] = false
+	} else {
+		c.s1[cstClk] = c.s0[cstClk]
+	}
 }
 
 // Dispose releases all resources for a circuit.
@@ -317,22 +331,8 @@ func (c *Circuit) Step() {
 		wc <- struct{}{}
 	}
 
-	if c.s0[cstFalse] || !c.s0[cstTrue] {
-		panic("true or false constants have been overwritten")
-	}
-
-	// update clock signal
-	tick := c.tick + 1
-	if tick&(c.tpc-1) == 0 {
-		c.s1[cstClk] = true
-	} else if tick&(c.tpc/2-1) == 0 {
-		c.s1[cstClk] = false
-	} else {
-		c.s1[cstClk] = c.s0[cstClk]
-	}
-
 	c.wg.Wait()
-	c.tick = tick
+	c.tick++
 	c.s0, c.s1 = c.s1, c.s0
 }
 

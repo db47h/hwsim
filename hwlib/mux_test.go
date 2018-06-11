@@ -36,3 +36,15 @@ func TestMuxMWayN(t *testing.T) {
 	}
 	hwtest.ComparePart(t, 4, hl.MuxMWayN(4, 4), mux44)
 }
+
+func TestDMuxNWay(t *testing.T) {
+	dmux4, err := hw.Chip("myDMux4Way", hw.In("in, sel[2]"), hw.Out("a, b, c, d"), hw.Parts{
+		hl.DMux("in=in, sel=sel[1], a=o0, b=o1"),
+		hl.DMux("in=o0, sel=sel[0], a=a, b=b"),
+		hl.DMux("in=o1, sel=sel[0], a=c, b=d"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hwtest.ComparePart(t, 4, hl.DMuxNWay(4), dmux4)
+}

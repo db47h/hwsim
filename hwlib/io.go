@@ -6,23 +6,43 @@ package hwlib
 import (
 	"strconv"
 
-	hw "github.com/db47h/hwsim"
+	"github.com/db47h/hwsim"
 )
+
+func getInt64(c *hwsim.Circuit, pins []int) int64 {
+	var out int64
+	for i := 0; i < len(pins); i++ {
+		if c.Get(pins[i]) {
+			out |= 1 << uint(i)
+		}
+	}
+	return out
+}
+
+func getInt(c *hwsim.Circuit, pins []int) int {
+	var out int
+	for i := 0; i < len(pins); i++ {
+		if c.Get(pins[i]) {
+			out |= 1 << uint(i)
+		}
+	}
+	return out
+}
 
 // Input creates a function based input.
 //
 //	Outputs: out
 //	Function: out = f()
 //
-func Input(f func() bool) hw.NewPartFn {
-	p := &hw.PartSpec{
+func Input(f func() bool) hwsim.NewPartFn {
+	p := &hwsim.PartSpec{
 		Name:    "Input",
 		Inputs:  nil,
-		Outputs: hw.Outputs{pOut},
-		Mount: func(s *hw.Socket) []hw.Component {
+		Outputs: hwsim.Outputs{pOut},
+		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			pin := s.Pin(pOut)
-			return []hw.Component{
-				func(c *hw.Circuit) {
+			return []hwsim.Component{
+				func(c *hwsim.Circuit) {
 					c.Set(pin, f())
 				},
 			}
@@ -37,15 +57,15 @@ func Input(f func() bool) hw.NewPartFn {
 //	Inputs: in
 //	Function: f(in)
 //
-func Output(f func(bool)) hw.NewPartFn {
-	p := &hw.PartSpec{
+func Output(f func(bool)) hwsim.NewPartFn {
+	p := &hwsim.PartSpec{
 		Name:    "Output",
-		Inputs:  hw.Inputs{pIn},
+		Inputs:  hwsim.Inputs{pIn},
 		Outputs: nil,
-		Mount: func(s *hw.Socket) []hw.Component {
+		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			in := s.Pin(pIn)
-			return []hw.Component{
-				func(c *hw.Circuit) { f(c.Get(in)) },
+			return []hwsim.Component{
+				func(c *hwsim.Circuit) { f(c.Get(in)) },
 			}
 		},
 	}
@@ -54,14 +74,14 @@ func Output(f func(bool)) hw.NewPartFn {
 
 // InputN creates an input bus of the given bits size.
 //
-func InputN(bits int, f func() int64) hw.NewPartFn {
-	return (&hw.PartSpec{
+func InputN(bits int, f func() int64) hwsim.NewPartFn {
+	return (&hwsim.PartSpec{
 		Name:    "INPUT" + strconv.Itoa(bits),
 		Inputs:  nil,
 		Outputs: bus(bits, pOut),
-		Mount: func(s *hw.Socket) []hw.Component {
+		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			pins := s.Bus(pOut, bits)
-			return []hw.Component{func(c *hw.Circuit) {
+			return []hwsim.Component{func(c *hwsim.Circuit) {
 				in := f()
 				for bit := 0; bit < len(pins); bit++ {
 					c.Set(pins[bit], in&(1<<uint(bit)) != 0)
@@ -72,21 +92,15 @@ func InputN(bits int, f func() int64) hw.NewPartFn {
 
 // OutputN creates an output bus of the given bits size.
 //
-func OutputN(bits int, f func(int64)) hw.NewPartFn {
-	return (&hw.PartSpec{
+func OutputN(bits int, f func(int64)) hwsim.NewPartFn {
+	return (&hwsim.PartSpec{
 		Name:    "OUTPUTBUS" + strconv.Itoa(bits),
 		Inputs:  bus(bits, pIn),
 		Outputs: nil,
-		Mount: func(s *hw.Socket) []hw.Component {
+		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			pins := s.Bus(pIn, bits)
-			return []hw.Component{func(c *hw.Circuit) {
-				var out int64
-				for i := 0; i < len(pins); i++ {
-					if c.Get(pins[i]) {
-						out |= 1 << uint(i)
-					}
-				}
-				f(out)
+			return []hwsim.Component{func(c *hwsim.Circuit) {
+				f(getInt64(c, pins))
 			}}
 		}}).NewPart
 }

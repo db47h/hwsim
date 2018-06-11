@@ -44,7 +44,7 @@ func randBool() bool {
 // ComparePart takes two parts and compares their outputs given the same inputs.
 // Both parts must have the same Input/Output interface.
 //
-func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewPartFn) *hwsim.Circuit {
+func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewPartFn) {
 	t.Helper()
 
 	rand.Seed(time.Now().UnixNano())
@@ -108,6 +108,7 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer c.Dispose()
 
 	errString := func(oname string, ex, got bool) string {
 		var b strings.Builder
@@ -167,5 +168,4 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 			}
 		}
 	}
-	return c
 }

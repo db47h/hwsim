@@ -91,10 +91,11 @@ func TestChip_omitted_pins(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = hw.NewCircuit(0, 0, hw.Parts{wrapper("")})
+	cc, err := hw.NewCircuit(0, 0, hw.Parts{wrapper("")})
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer cc.Dispose()
 
 	if a != 0 || b != 0 || f != 0 { // 0 = cstFalse
 		t.Errorf("a = %v, b = %v, f = %v, all must be 0", a, b, f)
@@ -131,6 +132,8 @@ func TestChip_fanout_to_outputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer c.Dispose()
+
 	c.TickTock()
 	if out != 255 {
 		t.Fatalf("out = %d != 255", out)

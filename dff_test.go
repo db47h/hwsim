@@ -71,10 +71,10 @@ func Test_bit_register(t *testing.T) {
 		reg("in=dffI, load=dffLD, out=dffO"),
 		hl.Output(func(b bool) { out = b })("in=dffO"),
 	})
-
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer c.Dispose()
 
 	p := in
 	for i := 0; i < 1000; i++ {

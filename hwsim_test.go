@@ -96,10 +96,13 @@ func BenchmarkCircuit_Step(b *testing.B) {
 	for i := 0; i < workers; i++ {
 		parts = append(parts, hl.Not(""))
 	}
+
 	c, err := hw.NewCircuit(workers, testTPC, parts)
 	if err != nil {
 		b.Fatal(err)
 	}
+	defer c.Dispose()
+
 	for i := 0; i < b.N; i++ {
 		c.Step()
 	}

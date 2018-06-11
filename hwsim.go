@@ -196,6 +196,9 @@ type Circuit struct {
 // output). While this value could be computed, this feature is not implemented
 // yet.
 //
+// Callers must make sure to call Dispose() once the circuit is no longer needed
+// in order to release allocated resources.
+//
 func NewCircuit(workers int, stepsPerCycle uint, ps Parts) (*Circuit, error) {
 	if len(ps) == 0 {
 		return nil, errors.New("empty part list")

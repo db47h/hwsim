@@ -1,3 +1,6 @@
+// Copyright 2018 Denis Bernard <db047h@gmail.com>
+// Licensed under the MIT license. See license text in the LICENSE file.
+
 package hwlib
 
 import "github.com/db47h/hwsim"

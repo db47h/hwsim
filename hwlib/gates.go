@@ -1,4 +1,11 @@
-// Package hwlib provides a library of parts for hwsim
+// Copyright 2018 Denis Bernard <db047h@gmail.com>
+// Licensed under the MIT license. See license text in the LICENSE file.
+
+// Package hwlib provides a library of reusable parts for hwsim.
+//
+// Copyright 2018 Denis Bernard <db047h@gmail.com>
+//
+// This package is licensed under the MIT license. See license text in the LICENSE file.
 //
 package hwlib
 

@@ -11,5 +11,9 @@ implemented in Go and can feel a bit awkward in a few places.
 
 The sub-package hwlib provides a library of built-in logic gates as well as some
 more advanced components.
+
+Copyright 2018 Denis Bernard <db047h@gmail.com>
+
+This package is licensed under the MIT license. See license text in the LICENSE file.
 */
 package hwsim

@@ -44,10 +44,6 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 	defer c.Dispose()
 
 	tot := 1 << uint(len(part.Inputs))
-	// t.Log(tot)
-	// for _, p := range parts {
-	// 	t.Log(p.Spec().Name, " ", p.Wires())
-	// }
 	for i := 0; i < tot; i++ {
 		for bit := range inputs {
 			inputs[len(inputs)-bit-1] = (i & (1 << uint(bit))) != 0

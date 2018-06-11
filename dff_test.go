@@ -1,9 +1,7 @@
 package hwsim_test
 
 import (
-	"math/rand"
 	"testing"
-	"time"
 
 	hw "github.com/db47h/hwsim"
 )
@@ -81,12 +79,10 @@ func Test_bit_register(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rand.Seed(time.Now().UnixNano())
-
 	p := in
 	for i := 0; i < 1000; i++ {
-		in = rand.Int63()&(1<<62) != 0
-		load = rand.Int63()&(1<<62) != 0
+		in = randBool()
+		load = randBool()
 		c.TickTock()
 		if p != out {
 			t.Fatal("p != out")

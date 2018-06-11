@@ -182,8 +182,8 @@ type Circuit struct {
 // NewCircuit builds a new circuit based on the given parts.
 //
 // workers is the number of goroutines used to update the state of the Circuit
-// each steap of the simulation. If less or equal to 0, the return value of
-// runtime.NumCPU() will be used.
+// each steap of the simulation. If less or equal to 0, the value of GOMAXPROCS
+// will be used.
 //
 // stepsPerCycle indicates how many simulation steps to run per clock cycle
 // (the Clk signal, not wall clock). The exact value to use depends on the

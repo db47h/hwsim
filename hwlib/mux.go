@@ -106,6 +106,38 @@ func Mux16(c string) hwsim.Part {
 	return mux16.NewPart(c)
 }
 
+// DMuxN returns a N-bits demultiplexer.
+//
+//	Inputs: in[bits], sel
+//	Outputs: a[bits], b[bits]
+//	Function: if sel == 0 { a = in; b = 0 } else { a = 0; b = in }
+//
+func DMuxN(bits int) hwsim.NewPartFn {
+	return (&hwsim.PartSpec{
+		Name:    "DMux" + strconv.Itoa(bits),
+		Inputs:  append(bus(bits, pIn), pSel),
+		Outputs: bus(bits, pA, pB),
+		Mount: func(s *hwsim.Socket) []hwsim.Component {
+			in, sel, a, b := s.Bus(pIn, bits), s.Pin(pSel), s.Bus(pA, bits), s.Bus(pB, bits)
+			return []hwsim.Component{func(c *hwsim.Circuit) {
+				var i, f []int
+				if c.Get(sel) {
+					f = a
+					i = b
+				} else {
+					i = a
+					f = b
+				}
+				for n, iv := range in {
+					c.Set(i[n], c.Get(iv))
+				}
+				for _, o := range f {
+					c.Set(o, false)
+				}
+			}}
+		}}).NewPart
+}
+
 func log2(v int) int {
 	u := uint(v)
 	// log2 of ways
@@ -197,6 +229,55 @@ func DMuxNWay(ways int) hwsim.NewPartFn {
 						c.Set(o, false)
 					}
 					c.Set(outs[getInt(c, sel)], c.Get(in))
+				}}
+		}}
+	return p.NewPart
+}
+
+// DMuxMWayN returns a N-Way demuxer.
+//
+//	Inputs: in[bits], sel[selBits]
+//	Outputs: a, b, ... , z, A, ...
+//	Function: if sel[0..selBits] == 0 { a == in; b,c,d... = 0 } else if sel == 1 { a = 0; b == in; c,d = 0... } ...
+//
+func DMuxMWayN(ways int, bits int) hwsim.NewPartFn {
+	if ways > 32 {
+		panic("DMuxMWayN supports up to 32 ways demultiplexers")
+	}
+	selBits := log2(ways)
+
+	outputs := make([]string, ways*bits)
+	for w := 0; w < ways; w++ {
+		for b := 0; b < bits; b++ {
+			outputs[w*bits+b] = inputNames[w] + "[" + strconv.Itoa(b) + "]"
+		}
+	}
+
+	p := &hwsim.PartSpec{
+		Name:    "DMux" + strconv.Itoa(ways) + "Way",
+		Inputs:  append(bus(bits, pIn), bus(selBits, pSel)...),
+		Outputs: outputs,
+		Mount: func(s *hwsim.Socket) []hwsim.Component {
+			in := s.Bus(pIn, bits)
+			sel := s.Bus(pSel, selBits)
+			outs := make([][]int, 1<<uint(selBits))
+			for i := range outs {
+				outs[i] = s.Bus(inputNames[i], bits)
+			}
+			return []hwsim.Component{
+				func(c *hwsim.Circuit) {
+					selV := getInt(c, sel)
+					for i, out := range outs {
+						if i == selV {
+							for bit, o := range out {
+								c.Set(o, c.Get(in[bit]))
+							}
+						} else {
+							for _, o := range out {
+								c.Set(o, false)
+							}
+						}
+					}
 				}}
 		}}
 	return p.NewPart

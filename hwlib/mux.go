@@ -59,13 +59,7 @@ var dmux = hwsim.PartSpec{
 	},
 }
 
-// SpecMuxN returns a PartSpec for an n-bits Mux
-//
-//	Inputs: a[bits], b[bits], sel
-//	Outputs: out[bits]
-//	Function: for i := range out { if sel == 0 { out[i] = a[i] } else { out[i] = b[i] } }
-//
-func SpecMuxN(bits int) *hwsim.PartSpec {
+func muxN(bits int) *hwsim.PartSpec {
 	return &hwsim.PartSpec{
 		Name:    "Mux" + strconv.Itoa(bits),
 		Inputs:  append(bus(bits, pA, pB), pSel),
@@ -76,21 +70,30 @@ func SpecMuxN(bits int) *hwsim.PartSpec {
 			return []hwsim.Component{
 				func(c *hwsim.Circuit) {
 					if c.Get(sel) {
-						for i := range o {
-							c.Set(o[i], c.Get(b[i]))
+						for i, out := range o {
+							c.Set(out, c.Get(b[i]))
 						}
 					} else {
-						for i := range o {
-							c.Set(o[i], c.Get(a[i]))
+						for i, out := range o {
+							c.Set(out, c.Get(a[i]))
 						}
 					}
 				}}
 		}}
+}
 
+// MuxN returns a N-bits Mux
+//
+//	Inputs: a[bits], b[bits], sel
+//	Outputs: out[bits]
+//	Function: for i := range out { if sel == 0 { out[i] = a[i] } else { out[i] = b[i] } }
+//
+func MuxN(bits int) hwsim.NewPartFn {
+	return muxN(bits).NewPart
 }
 
 var (
-	mux16 = SpecMuxN(16)
+	mux16 = muxN(16)
 )
 
 // Mux16 returns a 16-bits Mux

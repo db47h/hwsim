@@ -133,13 +133,7 @@ func Xor(w string) hwsim.Part { return xor.NewPart(w) }
 //
 func Xnor(w string) hwsim.Part { return xnor.NewPart(w) }
 
-// SpecNotN returns a PartSpec for a N-bits NOT gate.
-//
-//	Inputs: in[bits]
-//	Outputs: out[bits]
-//	Function: for i := range out { out[i] = !in[i] }
-//
-func SpecNotN(bits int) *hwsim.PartSpec {
+func notN(bits int) *hwsim.PartSpec {
 	return &hwsim.PartSpec{
 		Name:    "NOT" + strconv.Itoa(bits),
 		Inputs:  bus(bits, pIn),
@@ -152,12 +146,21 @@ func SpecNotN(bits int) *hwsim.PartSpec {
 					c.Set(outs[i], !c.Get(pin))
 				}
 			}}
-		},
-	}
+		}}
+}
+
+// NotN returns a N-bits NOT gate.
+//
+//	Inputs: in[bits]
+//	Outputs: out[bits]
+//	Function: for i := range out { out[i] = !in[i] }
+//
+func NotN(bits int) hwsim.NewPartFn {
+	return notN(16).NewPart
 }
 
 var (
-	not16 = SpecNotN(16)
+	not16 = notN(16)
 )
 
 // Not16 returns a 16 bits NOT gate.
@@ -184,13 +187,7 @@ func (g *gateN) mount(s *hwsim.Socket) []hwsim.Component {
 	}
 }
 
-// SpecGateN returns a PartSpec for an N-bits logic gate.
-//
-//	Inputs: a[bits], b[bits]
-//	Outouts: out[bits]
-//	Function: for i := range out { out[i] = f(a[i], b[i]) }
-//
-func SpecGateN(name string, bits int, f func(bool, bool) bool) *hwsim.PartSpec {
+func newGateN(name string, bits int, f func(bool, bool) bool) *hwsim.PartSpec {
 	return &hwsim.PartSpec{
 		Name:    name + strconv.Itoa(bits),
 		Inputs:  bus(bits, pA, pB),
@@ -199,11 +196,21 @@ func SpecGateN(name string, bits int, f func(bool, bool) bool) *hwsim.PartSpec {
 	}
 }
 
+// GateN returns a N-bits logic gate.
+//
+//	Inputs: a[bits], b[bits]
+//	Outouts: out[bits]
+//	Function: for i := range out { out[i] = f(a[i], b[i]) }
+//
+func GateN(name string, bits int, f func(bool, bool) bool) hwsim.NewPartFn {
+	return newGateN(name, bits, f).NewPart
+}
+
 var (
-	and16  = SpecGateN("AND", 16, func(a, b bool) bool { return a && b })
-	nand16 = SpecGateN("NAND", 16, func(a, b bool) bool { return !(a && b) })
-	or16   = SpecGateN("OR", 16, func(a, b bool) bool { return a || b })
-	nor16  = SpecGateN("NOR", 16, func(a, b bool) bool { return !(a || b) })
+	and16  = newGateN("AND", 16, func(a, b bool) bool { return a && b })
+	nand16 = newGateN("NAND", 16, func(a, b bool) bool { return !(a && b) })
+	or16   = newGateN("OR", 16, func(a, b bool) bool { return a || b })
+	nor16  = newGateN("NOR", 16, func(a, b bool) bool { return !(a || b) })
 )
 
 // And16 returns a 16 bits AND gate.
@@ -261,4 +268,31 @@ func DFF(w string) hwsim.Part {
 					c.Set(out, curOut)
 				}}
 		}}).NewPart(w)
+}
+
+// OrNWays returns a N-Ways OR gate.
+//
+//	Inputs: in[n]
+//	Outputs: out
+//	Function: out = in[0] || in[1] || in[2] || ... || in[n-1]
+//
+func OrNWays(ways int) hwsim.NewPartFn {
+	return (&hwsim.PartSpec{
+		Name:    "OR" + strconv.Itoa(ways) + "Ways",
+		Inputs:  bus(ways, pIn),
+		Outputs: hwsim.Out(pOut),
+		Mount: func(s *hwsim.Socket) []hwsim.Component {
+			in := s.Bus(pIn, ways)
+			out := s.Pin(pOut)
+			return []hwsim.Component{
+				func(c *hwsim.Circuit) {
+					for _, i := range in {
+						if c.Get(i) {
+							c.Set(out, true)
+							return
+						}
+					}
+					c.Set(out, false)
+				}}
+		}}).NewPart
 }

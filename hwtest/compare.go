@@ -6,6 +6,7 @@
 package hwtest
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 	"testing"
@@ -108,13 +109,52 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 		t.Fatal(err)
 	}
 
+	errString := func(oname string, ex, got bool) string {
+		var b strings.Builder
+		for i, n := range ps1.Inputs {
+			if b.Len() > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(n)
+			b.WriteRune('=')
+			if inputs[i] {
+				b.WriteString("true")
+			} else {
+				b.WriteString("false")
+			}
+		}
+		return fmt.Sprintf("\nExpected %s => %s=%v\nGot %v", b.String(), oname, ex, got)
+	}
+
 	// random testing. Plan to add a callback to set inputs
 	iter := len(ps1.Inputs)
-	if iter > 10 {
-		iter = 10
+	if iter > 12 {
+		iter = 12
 	}
 	c.Tick()
 	iter = 1 << uint(iter)
+
+	// try all 0
+	c.Tock()
+	c.Tick()
+	for o, out := range outputs {
+		if out[0] != out[1] {
+			t.Fatal(errString(ps1.Outputs[o], out[0], out[1]))
+		}
+	}
+
+	// try all 1
+	for in := range inputs {
+		inputs[in] = true
+	}
+	c.Tock()
+	c.Tick()
+	for o, out := range outputs {
+		if out[0] != out[1] {
+			t.Fatal(errString(ps1.Outputs[o], out[0], out[1]))
+		}
+	}
+
 	for i := 0; i < iter; i++ {
 		for in := range inputs {
 			inputs[in] = randBool()
@@ -123,20 +163,7 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 		c.Tick()
 		for o, out := range outputs {
 			if out[0] != out[1] {
-				var b strings.Builder
-				for i, n := range ps1.Inputs {
-					if b.Len() > 0 {
-						b.WriteString(", ")
-					}
-					b.WriteString(n)
-					b.WriteRune('=')
-					if inputs[i] {
-						b.WriteString("true")
-					} else {
-						b.WriteString("false")
-					}
-				}
-				t.Fatalf("\nExpected %s => %s=%v\nGot %v", b.String(), ps1.Outputs[o], out[0], out[1])
+				t.Fatal(errString(ps1.Outputs[o], out[0], out[1]))
 			}
 		}
 	}

@@ -9,7 +9,7 @@ import "github.com/db47h/hwsim"
 //
 //	Inputs: a, b, sel
 //	Outputs: out
-//	Function: If sel=0 then out=a else out=b.
+//	Function: if sel == 0 { out = a } else { out = b }
 //
 func Mux(w string) hwsim.Part { return mux.NewPart(w) }
 
@@ -33,7 +33,7 @@ var mux = hwsim.PartSpec{
 //
 //	Inputs: in, sel
 //	Outputs: a, b
-//	Function: If sel=0 then {a=in, b=0} else {a=0, b=in}
+//	Function: if sel == 0 { a = in; b = 0 } else { a = 0; b = in }
 //
 func DMux(w string) hwsim.Part { return dmux.NewPart(w) }
 

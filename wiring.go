@@ -7,9 +7,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Constant input pin names. These pins can only be connected to the input pins of a chip.
+// Constant input pin names. These pins can only be connected to the input pins of a part.
 //
-// They are reserved names and should not be used as input or output names in
+// Those are reserved names and should not be used as input or output names in
 // custom chips.
 //
 var (
@@ -26,8 +26,8 @@ const (
 	cstCount
 )
 
-// Connections represents the connections between the pins of a part (the map
-// keys) to other pins in its host chip (the map values).
+// Connections represents the connections between the pins of a part and other
+// pins in its host chip.
 //
 type Connections []Connection
 

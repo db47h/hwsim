@@ -37,13 +37,13 @@ type MountFn func(s *Socket) []Component
 //
 // Custom parts are implemented by creating a PartSpec:
 //
-//	notSpec := &PartSpec{
+//	notSpec := &hwsim.PartSpec{
 //		Name: "Not",
-//		In: In("in"),
-//		Out: Out("out"),
-//		Mount: func (s *Socket) []Component {
+//		In: hwsim.In("in"),
+//		Out: hwsim.Out("out"),
+//		Mount: func (s *hwsim.Socket) []hwsim.Component {
 //			in, out := s.Pin("in"), s.Pin("out")
-//			return []Component{
+//			return []hwsim.Component{
 //				func (c *Circuit) { c.Set(out, !c.Get(in)) }
 //			}
 //		}}
@@ -77,8 +77,10 @@ type PartSpec struct {
 	// Pinout maps the input and output pin names (public interface) of a part
 	// to internal (private) names. If nil, the In and Out values will be used
 	// and mapped one to one.
-	// In a MountFn, only private pin names must be used when calling Socket
+	// In a MountFn, only private pin names must be used when calling the Socket
 	// methods.
+	// Most custom part implementations should ignore this field and set it to
+	// nil.
 	Pinout map[string]string
 
 	// Mount function (see MountFn).
@@ -140,7 +142,7 @@ func In(inputs string) Inputs {
 }
 
 // Out parses an output pin description string and returns a slice of individual output pin names.
-// The output format is identical to In().
+// The format of the outputs string is identical to In().
 //
 func Out(outputs string) Outputs {
 	r, err := parseIOspec(outputs)
@@ -168,7 +170,7 @@ type Part struct {
 	Connections
 }
 
-// Circuit is a runable circuit simulation.
+// Circuit is a runnable circuit simulation.
 //
 type Circuit struct {
 	s0    []bool // wire states frame #0
@@ -185,7 +187,7 @@ type Circuit struct {
 // NewCircuit builds a new circuit based on the given parts.
 //
 // workers is the number of goroutines used to update the state of the Circuit
-// each steap of the simulation. If less or equal to 0, the value of GOMAXPROCS
+// each step of the simulation. If less or equal to 0, the value of GOMAXPROCS
 // will be used.
 //
 // stepsPerCycle indicates how many simulation steps to run per clock cycle
@@ -266,7 +268,8 @@ func updClock(c *Circuit) {
 	}
 }
 
-// Dispose releases all resources for a circuit.
+// Dispose releases all resources allocated for a circuit and stops
+// worker goroutines.
 //
 func (c *Circuit) Dispose() {
 	c.wg.Add(len(c.wc))
@@ -343,13 +346,6 @@ func (c *Circuit) Set(n int, s bool) {
 //
 func (c *Circuit) Toggle(n int) {
 	c.s1[n] = !c.s0[n]
-}
-
-func min(a, b int) int {
-	if a <= b {
-		return a
-	}
-	return b
 }
 
 // Step advances the simulation by one step.

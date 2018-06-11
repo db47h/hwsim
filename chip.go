@@ -48,15 +48,15 @@ func (c *chip) mount(s *Socket) []Component {
 //
 // A XOR gate could be created like this:
 //
-//	xor, err := Chip(
+//	xor, err := hwsim.Chip(
 //		"XOR",
-//		In("a, b"),
-//		Out("out"),
-//		Parts{
-//			Nand("a=a, b=b, out=nandAB")),
-//			Nand("a=a, b=nandAB, out=w0")),
-//			Nand("a=b, b=nandAB, out=w1")),
-//			Nand("a=w0, b=w1, out=out")),
+//		hwsim.In("a, b"),
+//		hwsim.Out("out"),
+//		hwsim.Parts{
+//			hwlib.Nand("a=a, b=b, out=nandAB")),
+//			hwlib.Nand("a=a, b=nandAB, out=w0")),
+//			hwlib.Nand("a=b, b=nandAB, out=w1")),
+//			hwlib.Nand("a=w0, b=w1, out=out")),
 //		})
 //
 // The created chip can be composed with other parts to create other chips
@@ -64,12 +64,12 @@ func (c *chip) mount(s *Socket) []Component {
 //
 //	xnor, err := Chip(
 //		"XNOR",
-//		In("a, b"),
-//		Out("out"),
-//		Parts{
+//		hwsim.In("a, b"),
+//		hwsim.Out("out"),
+//		hwsim.Parts{
 //			// reuse the xor chip created above
 //			xor("a=a, b=b, out=xorAB"}),
-//			Not("in=xorAB, out=out"}),
+//			hwlib.Not("in=xorAB, out=out"}),
 //		})
 //
 func Chip(name string, inputs Inputs, outputs Outputs, parts Parts) (NewPartFn, error) {

@@ -27,8 +27,6 @@ func newSocket(c *Circuit) *Socket {
 }
 
 // Pin returns the pin number assigned to the given pin name.
-// This function returns the constant False pin if the requested name was not
-// found.
 //
 func (s *Socket) Pin(name string) int {
 	return s.m[name]

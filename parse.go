@@ -41,7 +41,7 @@ func parseIOspec(names string) ([]string, error) {
 }
 
 // ParseConnections parses a connection configuration like "partPinX=chipPinY, ..."
-// into a []Connections{{PP: "partPinX", CP: []string{"chipPinX"}}, ...}.
+// into a []Connection{{PP: "partPinX", CP: []string{"chipPinX"}}, ...}.
 //
 //	Wire       = Assignment { [ space ] "," [ space ] Assignment } .
 //	Assignment = Pin "=" Pin .

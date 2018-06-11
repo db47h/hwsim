@@ -188,7 +188,7 @@ And run it:
 
     // run for 100 ticks
     for i := 0; i < 100; i++ {
-        c.Update(0)
+        c.Step()
     }
 
     // check outputs

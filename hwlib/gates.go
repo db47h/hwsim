@@ -25,8 +25,14 @@ const (
 )
 
 // make a bus name
-func bus(name string, bits int) string {
-	return name + "[" + strconv.Itoa(bits) + "]"
+func bus(bits int, names ...string) []string {
+	b := make([]string, len(names)*bits)
+	for i, n := range names {
+		for j := 0; j < bits; j++ {
+			b[i*bits+j] = n + "[" + strconv.Itoa(j) + "]"
+		}
+	}
+	return b
 }
 
 var notGate = hwsim.PartSpec{Name: "NOR", Inputs: hwsim.Inputs{pIn}, Outputs: hwsim.Outputs{pOut},
@@ -136,8 +142,8 @@ func Xnor(w string) hwsim.Part { return xnor.NewPart(w) }
 func SpecNotN(bits int) *hwsim.PartSpec {
 	return &hwsim.PartSpec{
 		Name:    "NOT" + strconv.Itoa(bits),
-		Inputs:  hwsim.In(bus(pIn, bits)),
-		Outputs: hwsim.Out(bus(pOut, bits)),
+		Inputs:  bus(bits, pIn),
+		Outputs: bus(bits, pOut),
 		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			ins := s.Bus(pIn, bits)
 			outs := s.Bus(pOut, bits)
@@ -187,8 +193,8 @@ func (g *gateN) mount(s *hwsim.Socket) []hwsim.Component {
 func SpecGateN(name string, bits int, f func(bool, bool) bool) *hwsim.PartSpec {
 	return &hwsim.PartSpec{
 		Name:    name + strconv.Itoa(bits),
-		Inputs:  hwsim.In(bus(pA, 16) + ", " + bus(pB, 16)),
-		Outputs: hwsim.Out(bus(pOut, bits)),
+		Inputs:  bus(bits, pA, pB),
+		Outputs: bus(bits, pOut),
 		Mount:   (&gateN{bits, f}).mount,
 	}
 }

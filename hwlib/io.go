@@ -58,7 +58,7 @@ func InputN(bits int, f func() int64) hw.NewPartFn {
 	return (&hw.PartSpec{
 		Name:    "INPUT" + strconv.Itoa(bits),
 		Inputs:  nil,
-		Outputs: hw.Out(bus(pOut, bits)),
+		Outputs: bus(bits, pOut),
 		Mount: func(s *hw.Socket) []hw.Component {
 			pins := s.Bus(pOut, bits)
 			return []hw.Component{func(c *hw.Circuit) {
@@ -75,7 +75,7 @@ func InputN(bits int, f func() int64) hw.NewPartFn {
 func OutputN(bits int, f func(int64)) hw.NewPartFn {
 	return (&hw.PartSpec{
 		Name:    "OUTPUTBUS" + strconv.Itoa(bits),
-		Inputs:  hw.In(bus(pIn, bits)),
+		Inputs:  bus(bits, pIn),
 		Outputs: nil,
 		Mount: func(s *hw.Socket) []hw.Component {
 			pins := s.Bus(pIn, bits)

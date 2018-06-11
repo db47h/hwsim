@@ -3,7 +3,11 @@
 
 package hwlib
 
-import "github.com/db47h/hwsim"
+import (
+	"strconv"
+
+	"github.com/db47h/hwsim"
+)
 
 // Mux returns a multiplexer.
 //
@@ -53,4 +57,48 @@ var dmux = hwsim.PartSpec{
 			}
 		}}
 	},
+}
+
+// SpecMuxN returns a PartSpec for an n-bits Mux
+//
+//	Inputs: a[bits], b[bits], sel
+//	Outputs: out[bits]
+//	Function: for i := range out { if sel == 0 { out[i] = a[i] } else { out[i] = b[i] } }
+//
+func SpecMuxN(bits int) *hwsim.PartSpec {
+	return &hwsim.PartSpec{
+		Name:    "Mux" + strconv.Itoa(bits),
+		Inputs:  append(bus(bits, pA, pB), pSel),
+		Outputs: bus(bits, pOut),
+		Mount: func(s *hwsim.Socket) []hwsim.Component {
+			a, b, sel := s.Bus(pA, bits), s.Bus(pB, bits), s.Pin(pSel)
+			o := s.Bus(pOut, bits)
+			return []hwsim.Component{
+				func(c *hwsim.Circuit) {
+					if c.Get(sel) {
+						for i := range o {
+							c.Set(o[i], c.Get(b[i]))
+						}
+					} else {
+						for i := range o {
+							c.Set(o[i], c.Get(a[i]))
+						}
+					}
+				}}
+		}}
+
+}
+
+var (
+	mux16 = SpecMuxN(16)
+)
+
+// Mux16 returns a 16-bits Mux
+//
+//	Inputs: a[16], b[16], sel
+//	Outputs: out[16]
+//	Function: for i := range out { if sel == 0 { out[i] = a[i] } else { out[i] = b[i] } }
+//
+func Mux16(c string) hwsim.Part {
+	return mux16.NewPart(c)
 }

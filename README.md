@@ -10,7 +10,9 @@ The API is designed to mimmic a basic [Hardware description language][hdl] and r
 
 ## Project Status
 
-Not all the feature I have in mind are implemented yet but I don't really have plans for any form of GUI, so please don't ask, yet. TODO's with high priority are listed in the issue tracker. Contributions welcome!
+Not all the features I have in mind are implemented yet. TODO's with high priority are listed in the issue tracker. Contributions welcome!
+
+I don't really have plans for any form of GUI yet, so please don't ask.
 
 ## Implementation details
 

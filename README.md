@@ -4,7 +4,7 @@ This package provides the necessary tools to build a virtual CPU using Go as a h
 
 This includes a naive hardware simulator and an API to compose basic components (logic gates, muxers, etc.) into more complex ones.
 
-The API is designed to mimmic a real [Hardware description language][hdl]. As a result, it relies heavily on closures and can feel a bit awkward when implementing custom components (see the help wanted section below).
+The API is designed to mimmic a basic [Hardware description language][hdl] and reduce typing overhead. As a result it relies heavily on closures for components implemented in Go and can feel a bit awkward in a few places (see Help Wanted below).
 
 > **DISCLAIMER:** This is a self-educational project. I am a software engineer with no electrical engineering background, so please bear with me if some of the terms used are inaccurate or just plain wrong. If you spot any errors, please do not hesitate to file an issue or a PR.
 
@@ -37,15 +37,21 @@ For example, building an XOR gate from a set of NANDs is done like this:
 The same in Go:
 
 ```go
+    import (
+        // use shorter names for the package imports. It will help your CTS...
+        hw "github.com/db47h/hwsim"
+        hl "github.com/db47h/hwsim/hwlib"
+    )
+
     xor, err := hw.Chip(
         "XOR",
         hw.In("a, b"), // inputs of the created xor gate
         hw.Out("out"),    // outputs
         hw.Parts{
-            hw.Nand("a=a,      b=b,      out=nandAB"), // leftmost NAND
-            hw.Nand("a=a,      b=nandAB, out=outA"),   // top NAND
-            hw.Nand("a=nandAB, b=b,      out=outB"),   // bottom NAND
-            hw.Nand("a=outA,   b=outB,   out=out"),    // rightmost NAND
+            hl.Nand("a=a,      b=b,      out=nandAB"), // leftmost NAND
+            hl.Nand("a=a,      b=nandAB, out=outA"),   // top NAND
+            hl.Nand("a=nandAB, b=b,      out=outB"),   // bottom NAND
+            hl.Nand("a=outA,   b=outB,   out=out"),    // rightmost NAND
         }
     )
 ```
@@ -101,7 +107,7 @@ Custom parts can be created by simply creating a `PartSpec` struct:
 Well, it doesn't look that simple, but this example deliberately details every step involved. Basically, it all boils down to:
 
 ```go
-    var xor = hw.MakePart(&PartSpec{
+    var xor = (&PartSpec{
         Name: "XOR",
         In:   hw.In("a, b"),
         Out:  hw.Out("out"),
@@ -112,7 +118,7 @@ Well, it doesn't look that simple, but this example deliberately details every s
                     a, b := c.Get(g.a), c.Get(g.b)
                     c.Set(g.out, a && !b || !a && b)
                 }}
-        }})
+        }}).NewPart
 ```
 
 If defining custom components as functions is preferable, for example in a Go package providing a library of components (where we do not want to export variables):
@@ -153,18 +159,18 @@ A circuit is made of a set of parts connected together. Time to test our adder:
 ```go
     var a, b, ci bool
     var s, co bool
-    c, err := hw.NewCirtuit(0, 0, w.Parts{
+    c, err := hw.NewCirtuit(0, 0, hw.Parts{
         // feed variables a, b and ci as inputs in the circuit
-        hw.Input(func() bool { return a })("out=a"),
-        hw.Input(func() bool { return b })("out=b"),
-        hw.Input(func() bool { return c })("out=ci"),
+        hl.Input(func() bool { return a })("out=a"),
+        hl.Input(func() bool { return b })("out=b"),
+        hl.Input(func() bool { return c })("out=ci"),
         // full adder
         hAdder("a=a,  b=b,  s=s0,  c=c0"),
         hAdder("a=s0, b=ci, s=sum, c=c1"),
-        hw.Or(" a=c0, b=c1, out=co"),
+        hl.Or(" a=c0, b=c1, out=co"),
         // outputs
-        hw.Output(func (bit bool) { s = bit })("in=sum"),
-        hw.Output(func (bit bool) { co = bit })("in=co"),
+        hl.Output(func (bit bool) { s = bit })("in=sum"),
+        hl.Output(func (bit bool) { co = bit })("in=co"),
     })
     if err != nil {
         // panic!

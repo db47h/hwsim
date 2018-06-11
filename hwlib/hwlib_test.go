@@ -1,4 +1,4 @@
-package hwsim_test
+package hwlib_test
 
 import (
 	"strings"
@@ -6,7 +6,10 @@ import (
 	"testing/quick"
 
 	hw "github.com/db47h/hwsim"
+	hl "github.com/db47h/hwsim/hwlib"
 )
+
+const testTPC = 8
 
 func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 	t.Helper()
@@ -21,7 +24,7 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 		w.WriteByte('=')
 		w.WriteString(n)
 		in := &inputs[i]
-		parts = append(parts, hw.Input(func() bool { return *in })("out="+n))
+		parts = append(parts, hl.Input(func() bool { return *in })("out="+n))
 	}
 	for i, n := range part.Outputs {
 		w.WriteByte(',')
@@ -29,7 +32,7 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 		w.WriteByte('=')
 		w.WriteString(n)
 		out := &outputs[i]
-		parts = append(parts, hw.Output(func(v bool) { *out = v })("in="+n))
+		parts = append(parts, hl.Output(func(v bool) { *out = v })("in="+n))
 	}
 	wr := w.String()
 	// trim first ','
@@ -60,17 +63,15 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 
 func Test_gate_builtin(t *testing.T) {
 	tr, err := hw.Chip("TRUE", hw.In("a"), hw.Out("out"), hw.Parts{
-		hw.And("a=true, b=true, out=out"),
+		hl.And("a=true, b=true, out=out"),
 	})
 	if err != nil {
-		trace(t, err)
 		t.Fatal(err)
 	}
 	fa, err := hw.Chip("FALSE", hw.In("a"), hw.Out("out"), hw.Parts{
-		hw.Or("a=false, b=false, out=out"),
+		hl.Or("a=false, b=false, out=out"),
 	})
 	if err != nil {
-		trace(t, err)
 		t.Fatal(err)
 	}
 	td := []struct {
@@ -78,17 +79,17 @@ func Test_gate_builtin(t *testing.T) {
 		gate   hw.NewPartFn
 		result [][]bool // a=0 && b=0, a=0 && b=1, a=1 && b=0, a=1 && b=1
 	}{
-		{"NOT", hw.Not, [][]bool{{true, false}}},
-		{"AND", hw.And, [][]bool{{false, false, false, true}}},
-		{"NAND", hw.Nand, [][]bool{{true, true, true, false}}},
-		{"OR", hw.Or, [][]bool{{false, true, true, true}}},
-		{"NOR", hw.Nor, [][]bool{{true, false, false, false}}},
-		{"XOR", hw.Xor, [][]bool{{false, true, true, false}}},
-		{"XNOR", hw.Xnor, [][]bool{{true, false, false, true}}},
+		{"NOT", hl.Not, [][]bool{{true, false}}},
+		{"AND", hl.And, [][]bool{{false, false, false, true}}},
+		{"NAND", hl.Nand, [][]bool{{true, true, true, false}}},
+		{"OR", hl.Or, [][]bool{{false, true, true, true}}},
+		{"NOR", hl.Nor, [][]bool{{true, false, false, false}}},
+		{"XOR", hl.Xor, [][]bool{{false, true, true, false}}},
+		{"XNOR", hl.Xnor, [][]bool{{true, false, false, true}}},
 		{"TRUE", tr, [][]bool{{true, true}}},
 		{"FALSE", fa, [][]bool{{false, false}}},
-		{"MUX", hw.Mux, [][]bool{{false, false, false, true, true, false, true, true}}},
-		{"DMUX", hw.DMux, [][]bool{{false, false, true, false}, {false, false, false, true}}},
+		{"MUX", hl.Mux, [][]bool{{false, false, false, true, true, false, true, true}}},
+		{"DMUX", hl.DMux, [][]bool{{false, false, true, false}, {false, false, false, true}}},
 	}
 	for _, d := range td {
 		t.Run(d.name, func(t *testing.T) {
@@ -101,11 +102,10 @@ func TestInput16(t *testing.T) {
 	in := int64(0)
 	out := int64(0)
 	c, err := hw.NewCircuit(0, testTPC, hw.Parts{
-		hw.Input16(func() int64 { return in })("out[0..15]= t[0..15]"),
-		hw.Output16(func(n int64) { out = n })("in[0..15] = t[0..15]"),
+		hl.InputN(16, func() int64 { return in })("out[0..15]= t[0..15]"),
+		hl.OutputN(16, func(n int64) { out = n })("in[0..15] = t[0..15]"),
 	})
 	if err != nil {
-		trace(t, err)
 		t.Fatal(err)
 	}
 	defer c.Dispose()
@@ -123,11 +123,11 @@ func Test_gateN_builtin(t *testing.T) {
 		gate hw.Part
 		ctrl func(a, b int16) int16
 	}{
-		{hw.And16(twoIn), func(a, b int16) int16 { return a & b }},
-		{hw.Nand16(twoIn), func(a, b int16) int16 { return ^(a & b) }},
-		{hw.Or16(twoIn), func(a, b int16) int16 { return a | b }},
-		{hw.Nor16(twoIn), func(a, b int16) int16 { return ^(a | b) }},
-		{hw.Not16("in[0..15]=a[0..15], out[0..15]=out[0..15]"), func(a, b int16) int16 { return ^a }},
+		{hl.And16(twoIn), func(a, b int16) int16 { return a & b }},
+		{hl.Nand16(twoIn), func(a, b int16) int16 { return ^(a & b) }},
+		{hl.Or16(twoIn), func(a, b int16) int16 { return a | b }},
+		{hl.Nor16(twoIn), func(a, b int16) int16 { return ^(a | b) }},
+		{hl.Not16("in[0..15]=a[0..15], out[0..15]=out[0..15]"), func(a, b int16) int16 { return ^a }},
 	}
 
 	_ = td
@@ -145,13 +145,12 @@ func Test_gateN_builtin(t *testing.T) {
 			}
 
 			c, err := hw.NewCircuit(0, testTPC, hw.Parts{
-				hw.Input16(func() int64 { return int64(a) })("out[0..15]=a[0..15]"),
-				hw.Input16(func() int64 { return int64(b) })("out[0..15]=b[0..15]"),
+				hl.InputN(16, func() int64 { return int64(a) })("out[0..15]=a[0..15]"),
+				hl.InputN(16, func() int64 { return int64(b) })("out[0..15]=b[0..15]"),
 				chip(twoIn),
-				hw.Output16(func(v int64) { out = int16(v) })("in[0..15]=out[0..15]"),
+				hl.OutputN(16, func(v int64) { out = int16(v) })("in[0..15]=out[0..15]"),
 			})
 			if err != nil {
-				trace(t, err)
 				t.Fatal(err)
 			}
 			defer c.Dispose()

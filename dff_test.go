@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	hw "github.com/db47h/hwsim"
+	hl "github.com/db47h/hwsim/hwlib"
 )
 
 func TestDFF(t *testing.T) {
@@ -12,23 +13,21 @@ func TestDFF(t *testing.T) {
 	)
 
 	dff4, err := hw.Chip("DFF4", hw.In("in[4],b[2]"), hw.Out("out4[5]"), hw.Parts{
-		hw.DFF("in=in[0], out=out4[0]"),
-		hw.DFF("in=in[1], out=out4[1]"),
-		hw.DFF("in=in[2], out=out4[2]"),
-		hw.DFF("in=in[3], out=out4[3]"),
+		hl.DFF("in=in[0], out=out4[0]"),
+		hl.DFF("in=in[1], out=out4[1]"),
+		hl.DFF("in=in[2], out=out4[2]"),
+		hl.DFF("in=in[3], out=out4[3]"),
 	})
 	if err != nil {
-		trace(t, err)
 		t.Fatal(err)
 	}
 
 	c, err := hw.NewCircuit(0, 4, hw.Parts{
-		hw.Input16(func() int64 { return in })("out[0..3]=in[0..3]"),
+		hl.InputN(16, func() int64 { return in })("out[0..3]=in[0..3]"),
 		dff4("in[0..3]=in[0..3], out4[0..3]=out[0..3]"),
-		hw.Output16(func(o int64) { out = o })("in[0..3]=out[0..3]"),
+		hl.OutputN(16, func(o int64) { out = o })("in[0..3]=out[0..3]"),
 	})
 	if err != nil {
-		trace(t, err)
 		t.Fatal(err)
 	}
 	defer c.Dispose()
@@ -56,26 +55,24 @@ func TestDFF(t *testing.T) {
 
 func Test_bit_register(t *testing.T) {
 	reg, err := hw.Chip("BitReg", hw.In("in, load"), hw.Out("out"), hw.Parts{
-		hw.Mux("a=out, b=in, sel=load, out=muxOut"),
-		hw.DFF("in=muxOut, out=out"),
+		hl.Mux("a=out, b=in, sel=load, out=muxOut"),
+		hl.DFF("in=muxOut, out=out"),
 	})
 
 	if err != nil {
-		trace(t, err)
 		t.Fatal(err)
 	}
 
 	var in, load, out bool
 
 	c, err := hw.NewCircuit(0, 4, hw.Parts{
-		hw.Input(func() bool { return in })("out=dffI"),
-		hw.Input(func() bool { return load })("out=dffLD"),
+		hl.Input(func() bool { return in })("out=dffI"),
+		hl.Input(func() bool { return load })("out=dffLD"),
 		reg("in=dffI, load=dffLD, out=dffO"),
-		hw.Output(func(b bool) { out = b })("in=dffO"),
+		hl.Output(func(b bool) { out = b })("in=dffO"),
 	})
 
 	if err != nil {
-		trace(t, err)
 		t.Fatal(err)
 	}
 

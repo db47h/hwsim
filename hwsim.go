@@ -295,6 +295,32 @@ func (c *Circuit) allocPin() int {
 	return cnt
 }
 
+// Steps returns the value of the step counter.
+//
+func (c *Circuit) Steps() uint {
+	return c.tick
+}
+
+// SPC returns the stepsPerCycle value.
+//
+func (c *Circuit) SPC() uint {
+	return c.tpc
+}
+
+// AtTick returns true if the current step is at the beginning of a clock cycle
+// (raising edge of Clk).
+//
+func (c *Circuit) AtTick() bool {
+	return c.Steps()&(c.SPC()-1) == 0
+}
+
+// AtTock returns true if the current step is at the beginning of the second
+// half of a clock cycle (falling edge of Clk).
+//
+func (c *Circuit) AtTock() bool {
+	return (c.Steps()+c.SPC()/2)&(c.SPC()-1) == 0
+}
+
 // Get returns the state of pin n. The value of n should be obtained in a
 // MountFn by a call to one of the Socket methods.
 //

@@ -340,8 +340,7 @@ func DFF(w string) Part {
 			return []Component{
 				func(c *Circuit) {
 					// raising edge?
-					// here we cheat by using private fields to speed up clock state tracking
-					if c.tick&(c.tpc-1) == 0 {
+					if c.AtTick() {
 						curOut = c.Get(in)
 					}
 					c.Set(out, curOut)

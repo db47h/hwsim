@@ -23,3 +23,16 @@ func TestMuxN(t *testing.T) {
 
 	hwtest.ComparePart(t, 4, hl.MuxN(4), m)
 }
+
+func TestMuxMWayN(t *testing.T) {
+	mux4 := hl.MuxN(4)
+	mux44, err := hw.Chip("myMux4Way4", hw.In("a[4], b[4], c[4], d[4], sel[2]"), hw.Out("out[4]"), hw.Parts{
+		mux4("a[0..3]=a[0..3], b[0..3]=b[0..3], sel=sel[0], out[0..3]=m0[0..3]"),
+		mux4("a[0..3]=c[0..3], b[0..3]=d[0..3], sel=sel[0], out[0..3]=m1[0..3]"),
+		mux4("a[0..3]=m0[0..3], b[0..3]=m1[0..3], sel=sel[1], out[0..3]=out[0..3]"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hwtest.ComparePart(t, 4, hl.MuxMWayN(4, 4), mux44)
+}

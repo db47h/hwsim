@@ -170,7 +170,7 @@ func Test_gateN_builtin(t *testing.T) {
 }
 
 func TestOrNWays(t *testing.T) {
-	or4, err := hw.Chip("myOr4Ways", hw.In("in[4]"), hw.Out("out"), hw.Parts{
+	or4, err := hw.Chip("myOr4Way", hw.In("in[4]"), hw.Out("out"), hw.Parts{
 		hl.Or("a=in[0], b=in[1], out=o1"),
 		hl.Or("a=in[2], b=in[3], out=o2"),
 		hl.Or("a=o1, b=o2, out=out"),
@@ -178,5 +178,5 @@ func TestOrNWays(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hwtest.ComparePart(t, 4, hl.OrNWays(4), or4)
+	hwtest.ComparePart(t, 4, hl.OrNWay(4), or4)
 }

@@ -270,15 +270,15 @@ func DFF(w string) hwsim.Part {
 		}}).NewPart(w)
 }
 
-// OrNWays returns a N-Ways OR gate.
+// OrNWay returns a N-Way OR gate.
 //
 //	Inputs: in[n]
 //	Outputs: out
 //	Function: out = in[0] || in[1] || in[2] || ... || in[n-1]
 //
-func OrNWays(ways int) hwsim.NewPartFn {
+func OrNWay(ways int) hwsim.NewPartFn {
 	return (&hwsim.PartSpec{
-		Name:    "OR" + strconv.Itoa(ways) + "Ways",
+		Name:    "OR" + strconv.Itoa(ways) + "Way",
 		Inputs:  bus(ways, pIn),
 		Outputs: hwsim.Out(pOut),
 		Mount: func(s *hwsim.Socket) []hwsim.Component {

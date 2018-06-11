@@ -105,3 +105,66 @@ var (
 func Mux16(c string) hwsim.Part {
 	return mux16.NewPart(c)
 }
+
+var inputNames = [32]string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "A", "B", "C", "D", "E", "F"}
+
+// MuxMWayN returns a M-Way N-bits Mux
+//
+//	Inputs: a[bits], b[bits], ... , z[bits], A[bits], ..., sel[...]
+//	Outputs: out[bits]
+//	Function: for i := range out { if sel == 0 { out[i] = a[i] } else { out[i] = b[i] } }
+//
+func MuxMWayN(ways int, bits int) hwsim.NewPartFn {
+	if ways > 32 {
+		panic("MuxWWayN supports up to 32 ways multiplexers")
+	}
+	// log2 of ways
+	var log2B = [...]uint{0x2, 0xC, 0xF0}
+	var log2S = [...]uint{1, 2, 4}
+	v := uint(ways)
+	var log2 uint
+	for i := len(log2B) - 1; i >= 0; i-- {
+		if v&log2B[i] != 0 {
+			v >>= log2S[i]
+			log2 |= log2S[i]
+		}
+	}
+
+	// build inputs array
+	inputs := make([]string, ways*bits+int(log2))
+	for w := 0; w < ways; w++ {
+		for b := 0; b < bits; b++ {
+			inputs[w*bits+b] = inputNames[w] + "[" + strconv.Itoa(b) + "]"
+		}
+	}
+	for w := 0; w < int(log2); w++ {
+		inputs[ways*bits+w] = "sel[" + strconv.Itoa(w) + "]"
+	}
+
+	p := &hwsim.PartSpec{
+		Name:    "Mux" + strconv.Itoa(ways) + "Way" + strconv.Itoa(bits),
+		Inputs:  inputs,
+		Outputs: bus(bits, pOut),
+		Mount: func(s *hwsim.Socket) []hwsim.Component {
+			in := make([][]int, ways)
+			for i := range in {
+				in[i] = s.Bus(inputNames[i], bits)
+			}
+			sel := s.Bus(pSel, int(log2))
+			out := s.Bus(pOut, bits)
+			return []hwsim.Component{
+				func(c *hwsim.Circuit) {
+					selV := 0
+					for i := 0; i < len(sel); i++ {
+						if c.Get(sel[i]) {
+							selV |= 1 << uint(i)
+						}
+					}
+					selIn := in[selV]
+					for i, o := range out {
+						c.Set(o, c.Get(selIn[i]))
+					}
+				}}
+		}}
+	return p.NewPart
+}

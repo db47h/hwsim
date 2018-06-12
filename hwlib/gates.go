@@ -296,3 +296,30 @@ func OrNWay(ways int) hwsim.NewPartFn {
 				}}
 		}}).NewPart
 }
+
+// AndNWay returns a N-Way OR gate.
+//
+//	Inputs: in[n]
+//	Outputs: out
+//	Function: out = in[0] && in[1] && in[2] || ... && in[n-1]
+//
+func AndNWay(ways int) hwsim.NewPartFn {
+	return (&hwsim.PartSpec{
+		Name:    "AND" + strconv.Itoa(ways) + "Way",
+		Inputs:  bus(ways, pIn),
+		Outputs: hwsim.Out(pOut),
+		Mount: func(s *hwsim.Socket) []hwsim.Component {
+			in := s.Bus(pIn, ways)
+			out := s.Pin(pOut)
+			return []hwsim.Component{
+				func(c *hwsim.Circuit) {
+					for _, i := range in {
+						if c.Get(i) == false {
+							c.Set(out, false)
+							return
+						}
+					}
+					c.Set(out, true)
+				}}
+		}}).NewPart
+}

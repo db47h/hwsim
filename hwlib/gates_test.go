@@ -180,3 +180,15 @@ func TestOrNWays(t *testing.T) {
 	}
 	hwtest.ComparePart(t, 4, hl.OrNWay(4), or4)
 }
+
+func TestAndNWays(t *testing.T) {
+	and4, err := hw.Chip("myAnd4Way", hw.In("in[4]"), hw.Out("out"), hw.Parts{
+		hl.And("a=in[0], b=in[1], out=o1"),
+		hl.And("a=in[2], b=in[3], out=o2"),
+		hl.And("a=o1, b=o2, out=out"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hwtest.ComparePart(t, 4, hl.AndNWay(4), and4)
+}

@@ -101,13 +101,23 @@ func Test_adders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrap, err := hw.Chip("myAdder4", hw.In("a[4], b[4]"), hw.Out("out[4], c"), hw.Parts{
-		add4("a[0..3]=a[0..3], b[0..3]=b[0..3], out[0..3]=out[0..3], g=c"),
+	add16, err := hw.Chip("Adder4", hw.In("a[16], b[16], c0"), hw.Out("out[16], p, g"), hw.Parts{
+		lcu("p[0..3]=p[0..3], g[0..3]=g[0..3], c0=c0, p=p, g=g, c1=c1, c2=c2, c3=c3"),
+		add4("a[0..3]=a[0..3],   b[0..3]=b[0..3],   c0=c0, out[0..3]=out[0..3],   p=p[0], g=g[0]"),
+		add4("a[0..3]=a[4..7],   b[0..3]=b[4..7],   c0=c1, out[0..3]=out[4..7],   p=p[1], g=g[1]"),
+		add4("a[0..3]=a[8..11],  b[0..3]=b[8..11],  c0=c2, out[0..3]=out[8..11],  p=p[2], g=g[2]"),
+		add4("a[0..3]=a[12..15], b[0..3]=b[12..15], c0=c3, out[0..3]=out[12..15], p=p[3], g=g[3]"),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hwtest.ComparePart(t, 8, hl.AdderN(4), wrap)
+	wrap, err := hw.Chip("myAdder16", hw.In("a[16], b[16]"), hw.Out("out[16], c"), hw.Parts{
+		add16("a[0..15]=a[0..15], b[0..15]=b[0..15], out[0..15]=out[0..15], g=c"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hwtest.ComparePart(t, 16, hl.AdderN(16), wrap)
 
 	// var a, b, out int64
 	// var cc bool

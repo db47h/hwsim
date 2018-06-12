@@ -387,3 +387,7 @@ func (c *Circuit) TickTock() {
 	c.Tick()
 	c.Tock()
 }
+
+// Size returns the component count in the circuit.
+//
+func (c *Circuit) Size() int { return len(c.cs) }

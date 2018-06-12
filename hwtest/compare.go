@@ -132,6 +132,9 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 	if iter > 12 {
 		iter = 12
 	}
+
+	start := time.Now()
+
 	c.Tick()
 	iter = 1 << uint(iter)
 
@@ -168,4 +171,8 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 			}
 		}
 	}
+
+	elapsed := time.Since(start)
+	ticks := c.Steps() / tpc
+	t.Logf("%d components. %d steps in %v. %d clock ticks => %.2f Hz", c.Size(), c.Steps(), elapsed, ticks, float64(ticks)/(float64(elapsed)/float64(time.Second)))
 }

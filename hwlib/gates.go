@@ -35,7 +35,7 @@ func bus(bits int, names ...string) []string {
 	return b
 }
 
-var notGate = hwsim.PartSpec{Name: "NOR", Inputs: hwsim.Inputs{pIn}, Outputs: hwsim.Outputs{pOut},
+var notGate = hwsim.PartSpec{Name: "NOR", Inputs: hwsim.IOs{pIn}, Outputs: hwsim.IOs{pOut},
 	Mount: func(s *hwsim.Socket) []hwsim.Component {
 		in, out := s.Pin(pIn), s.Pin(pOut)
 		return []hwsim.Component{
@@ -74,8 +74,8 @@ func newGate(name string, fn func(a, b bool) bool) *hwsim.PartSpec {
 }
 
 var (
-	gateIn  = hwsim.Inputs{pA, pB}
-	gateOut = hwsim.Outputs{pOut}
+	gateIn  = hwsim.IOs{pA, pB}
+	gateOut = hwsim.IOs{pOut}
 
 	and  = newGate("AND", func(a, b bool) bool { return a && b })
 	nand = newGate("NAND", func(a, b bool) bool { return !(a && b) })
@@ -254,8 +254,8 @@ func Nor16(w string) hwsim.Part { return nor16.NewPart(w) }
 func DFF(w string) hwsim.Part {
 	return (&hwsim.PartSpec{
 		Name:    "DFF",
-		Inputs:  hwsim.Inputs{pIn},
-		Outputs: hwsim.Outputs{pOut},
+		Inputs:  hwsim.IOs{pIn},
+		Outputs: hwsim.IOs{pOut},
 		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			in, out := s.Pin(pIn), s.Pin(pOut)
 			var curOut bool
@@ -280,7 +280,7 @@ func OrNWay(ways int) hwsim.NewPartFn {
 	return (&hwsim.PartSpec{
 		Name:    "OR" + strconv.Itoa(ways) + "Way",
 		Inputs:  bus(ways, pIn),
-		Outputs: hwsim.Out(pOut),
+		Outputs: hwsim.IO(pOut),
 		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			in := s.Bus(pIn, ways)
 			out := s.Pin(pOut)
@@ -307,7 +307,7 @@ func AndNWay(ways int) hwsim.NewPartFn {
 	return (&hwsim.PartSpec{
 		Name:    "AND" + strconv.Itoa(ways) + "Way",
 		Inputs:  bus(ways, pIn),
-		Outputs: hwsim.Out(pOut),
+		Outputs: hwsim.IO(pOut),
 		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			in := s.Bus(pIn, ways)
 			out := s.Pin(pOut)

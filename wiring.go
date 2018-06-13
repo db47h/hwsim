@@ -118,7 +118,7 @@ func (n *node) checkType(typ int) error {
 //
 type wiring map[pin]*node
 
-func newWiring(ins Inputs, outs Outputs) wiring {
+func newWiring(ins, outs IOs) wiring {
 	wr := make(wiring, len(ins)+len(outs)+1)
 
 	// add constant pins

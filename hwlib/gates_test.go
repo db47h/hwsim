@@ -64,13 +64,13 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 }
 
 func Test_gate_builtin(t *testing.T) {
-	tr, err := hw.Chip("TRUE", hw.In("a"), hw.Out("out"), hw.Parts{
+	tr, err := hw.Chip("TRUE", hw.IO("a"), hw.IO("out"), hw.Parts{
 		hl.And("a=true, b=true, out=out"),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	fa, err := hw.Chip("FALSE", hw.In("a"), hw.Out("out"), hw.Parts{
+	fa, err := hw.Chip("FALSE", hw.IO("a"), hw.IO("out"), hw.Parts{
 		hl.Or("a=false, b=false, out=out"),
 	})
 	if err != nil {
@@ -139,7 +139,7 @@ func Test_gateN_builtin(t *testing.T) {
 			var a, b int16
 			var out int16
 
-			chip, err := hw.Chip(d.gate.Name+"wrapper", hw.In("a[16], b[16]"), hw.Out("out[16]"), hw.Parts{
+			chip, err := hw.Chip(d.gate.Name+"wrapper", hw.IO("a[16], b[16]"), hw.IO("out[16]"), hw.Parts{
 				d.gate,
 			})
 			if err != nil {
@@ -170,7 +170,7 @@ func Test_gateN_builtin(t *testing.T) {
 }
 
 func TestOrNWays(t *testing.T) {
-	or4, err := hw.Chip("myOr4Way", hw.In("in[4]"), hw.Out("out"), hw.Parts{
+	or4, err := hw.Chip("myOr4Way", hw.IO("in[4]"), hw.IO("out"), hw.Parts{
 		hl.Or("a=in[0], b=in[1], out=o1"),
 		hl.Or("a=in[2], b=in[3], out=o2"),
 		hl.Or("a=o1, b=o2, out=out"),
@@ -182,7 +182,7 @@ func TestOrNWays(t *testing.T) {
 }
 
 func TestAndNWays(t *testing.T) {
-	and4, err := hw.Chip("myAnd4Way", hw.In("in[4]"), hw.Out("out"), hw.Parts{
+	and4, err := hw.Chip("myAnd4Way", hw.IO("in[4]"), hw.IO("out"), hw.Parts{
 		hl.And("a=in[0], b=in[1], out=o1"),
 		hl.And("a=in[2], b=in[3], out=o2"),
 		hl.And("a=o1, b=o2, out=out"),

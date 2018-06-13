@@ -8,7 +8,7 @@ import (
 )
 
 func TestChip_errors(t *testing.T) {
-	unkChip, err := hw.Chip("TESTCHIP", hw.In("a, b"), hw.Out("out"), hw.Parts{
+	unkChip, err := hw.Chip("TESTCHIP", hw.IO("a, b"), hw.IO("out"), hw.Parts{
 		// chip input a is unused
 		hl.Nand("a=b, b=b, out=out"),
 	})
@@ -17,46 +17,46 @@ func TestChip_errors(t *testing.T) {
 	}
 	data := []struct {
 		name  string
-		in    hw.Inputs
-		out   hw.Outputs
+		in    hw.IOs
+		out   hw.IOs
 		parts hw.Parts
 		err   string
 	}{
-		{"true_out", hw.In("a, b"), hw.Out("out"), hw.Parts{
+		{"true_out", hw.IO("a, b"), hw.IO("out"), hw.Parts{
 			hl.Nand("a=a, b=b, out=true"),
 			hl.Nand("a=a, b=b, out=out"),
 		}, "NAND.out:true: output pin connected to constant true input"},
-		{"false_out", hw.In("a, b"), hw.Out("out"), hw.Parts{
+		{"false_out", hw.IO("a, b"), hw.IO("out"), hw.Parts{
 			hl.Nand("a=a, b=b, out=false"),
 			hl.Nand("a=a, b=b, out=out"),
 		}, "NAND.out:false: output pin connected to constant false input"},
-		{"multi_out", hw.In("a, b"), hw.Out("out"), hw.Parts{
+		{"multi_out", hw.IO("a, b"), hw.IO("out"), hw.Parts{
 			hl.Nand("a=a, b=b, out=a"),
 			hl.Nand("a=a, b=b, out=out"),
 		}, "NAND.out:a: chip input pin used as output"},
-		{"multi_out2", hw.In("a, b"), hw.Out("out"), hw.Parts{
+		{"multi_out2", hw.IO("a, b"), hw.IO("out"), hw.Parts{
 			hl.Nand("a=a, b=b, out=x"),
 			hl.Nand("a=a, b=b, out=x"),
 			hl.Not("in=x, out=out"),
 		}, "NAND.out:x: output pin already used as output"},
-		{"no_output", hw.In("a, b"), hw.Out("out"), hw.Parts{
+		{"no_output", hw.IO("a, b"), hw.IO("out"), hw.Parts{
 			hl.Nand("a=a, b=wx, out=out"),
 		}, "pin wx not connected to any output"},
-		{"no_output", nil, hw.Out("out"), hw.Parts{
+		{"no_output", nil, hw.IO("out"), hw.Parts{
 			hl.Not("in=out"),
 		}, "pin out not connected to any output"},
-		{"no_input", hw.In("a, b"), hw.Out("out"), hw.Parts{
+		{"no_input", hw.IO("a, b"), hw.IO("out"), hw.Parts{
 			hl.Nand("a=a, b=b, out=foo"),
 			hl.Nand("a=a, b=b, out=out"),
 		}, "pin foo not connected to any input"},
-		{"unconnected_in", hw.In("a, b"), hw.Out("out"), hw.Parts{}, ""},
-		{"unknown_pin", hw.In("a, b"), hw.Out("out"), hw.Parts{
+		{"unconnected_in", hw.IO("a, b"), hw.IO("out"), hw.Parts{}, ""},
+		{"unknown_pin", hw.IO("a, b"), hw.IO("out"), hw.Parts{
 			hl.Nand("a=a, typo=b, out=out"),
 		}, "invalid pin name typo for part NAND"},
-		{"unknown_pin", hw.In("a, b"), hw.Out("out"), hw.Parts{
+		{"unknown_pin", hw.IO("a, b"), hw.IO("out"), hw.Parts{
 			unkChip("a=a, typo=b, out=out"),
 		}, "invalid pin name typo for part TESTCHIP"},
-		{"unknown_pin", hw.In("a, b"), hw.Out("out"), hw.Parts{
+		{"unknown_pin", hw.IO("a, b"), hw.IO("out"), hw.Parts{
 			unkChip("a=a, b=b, out=out"),
 		}, ""},
 	}
@@ -76,15 +76,15 @@ func TestChip_omitted_pins(t *testing.T) {
 	var a, b, c, tr, f, o0, o1 int
 	dummy := (&hw.PartSpec{
 		Name:    "dummy",
-		Inputs:  hw.In("a, b, c, t, f"),
-		Outputs: hw.Out("o0, o1"),
+		Inputs:  hw.IO("a, b, c, t, f"),
+		Outputs: hw.IO("o0, o1"),
 		Mount: func(s *hw.Socket) []hw.Component {
 			a, b, c, tr, f, o0, o1 = s.Pin("a"), s.Pin("b"), s.Pin("c"), s.Pin("t"), s.Pin("f"), s.Pin("o0"), s.Pin("o1")
 			return nil
 		}}).NewPart
 	// this is just to add another layer of testing.
 	// inspecting o0 and o1 shows that another dummy wire was allocated for dummy.o0:wo0
-	wrapper, err := hw.Chip("wrapper", hw.In("wa, wb"), hw.Out("wo0, wo1"), hw.Parts{
+	wrapper, err := hw.Chip("wrapper", hw.IO("wa, wb"), hw.IO("wo0, wo1"), hw.Parts{
 		dummy("a=wa, c=clk, t=true, f=false, o0=wo0"),
 	})
 	if err != nil {
@@ -112,13 +112,13 @@ func TestChip_omitted_pins(t *testing.T) {
 }
 
 func TestChip_fanout_to_outputs(t *testing.T) {
-	gate, err := hw.Chip("FANOUT", hw.In("in"), hw.Out("a, b, bus[2], c"), hw.Parts{
+	gate, err := hw.Chip("FANOUT", hw.IO("in"), hw.IO("a, b, bus[2], c"), hw.Parts{
 		hl.Or("a=in, b=in, out=a, out=b, out=bus[0..1]"),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrapper1, err := hw.Chip("FANOUT_Wrapper", hw.In("in"), hw.Out("o[8]"), hw.Parts{
+	wrapper1, err := hw.Chip("FANOUT_Wrapper", hw.IO("in"), hw.IO("o[8]"), hw.Parts{
 		gate("in=in, a=o[0..1], b=o[2..3], bus[0]=o[4..5], bus[1]=o[6..7]"),
 	})
 	if err != nil {

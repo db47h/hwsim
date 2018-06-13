@@ -72,7 +72,7 @@ func (c *chip) mount(s *Socket) []Component {
 //			hwlib.Not("in=xorAB, out=out"}),
 //		})
 //
-func Chip(name string, inputs Inputs, outputs Outputs, parts Parts) (NewPartFn, error) {
+func Chip(name string, inputs IOs, outputs IOs, parts Parts) (NewPartFn, error) {
 	// build wiring
 	wr := newWiring(inputs, outputs)
 	spcs := make([]*PartSpec, len(parts))

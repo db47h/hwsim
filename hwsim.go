@@ -69,11 +69,11 @@ type PartSpec struct {
 	// Input pins. Must be distinct pin names.
 	// Use the In() function to expand an input description like
 	// "a, b, bus[2]" to []string{"a", "b", "bus[0]", "bus[1]"}
-	// See In() for more details.
-	Inputs
+	// See IO() for more details.
+	Inputs IOs
 	// Output pins. Must be distinct pin names.
-	// Use the Out() function to expand an output description string.
-	Outputs
+	// Use the IO() function to expand an output description string.
+	Outputs IOs
 	// Pinout maps the input and output pin names (public interface) of a part
 	// to internal (private) names. If nil, the In and Out values will be used
 	// and mapped one to one.
@@ -106,16 +106,12 @@ func (p *PartSpec) NewPart(connections string) Part {
 	return Part{p, ex}
 }
 
-// Inputs is a slice of distinct input pin names.
+// IOs is a slice of distinct pin names.
 //
-type Inputs []string
+type IOs []string
 
-// Outputs is a slice of distinct output pin names.
-//
-type Outputs []string
-
-// In parses an input pin description string and returns a slice of individual input pin names
-// suitable for use as the Input field of a PartSpec.
+// IO parses an input or output pin description string and returns a slice of individual pin names
+// suitable for use as the Input or Output field of a PartSpec.
 //
 // The input format is:
 //
@@ -133,21 +129,10 @@ type Outputs []string
 //
 //	Input{"a", "b", "bus[0]", "bus[1]", "bus[2]", "bus[3]"}
 //
-func In(inputs string) Inputs {
+func IO(inputs string) IOs {
 	r, err := parseIOspec(inputs)
 	if err != nil {
 		panic(errors.Wrap(err, "failed to parse inputs"))
-	}
-	return r
-}
-
-// Out parses an output pin description string and returns a slice of individual output pin names.
-// The format of the outputs string is identical to In().
-//
-func Out(outputs string) Outputs {
-	r, err := parseIOspec(outputs)
-	if err != nil {
-		panic(errors.Wrap(err, "failed to parse outputs"))
 	}
 	return r
 }

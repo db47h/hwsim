@@ -8,6 +8,7 @@ package hwtest
 import (
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -37,6 +38,44 @@ func connString(in, out []string) string {
 	return b.String()
 }
 
+func pinList(in []string) string {
+	bus := make(map[string]int)
+	var pins []string
+
+	for _, n := range in {
+		if b := strings.IndexRune(n, '['); b >= 0 {
+			bn := n[:b]
+			idx, err := strconv.Atoi(n[b+1 : strings.IndexRune(n, ']')])
+			if err != nil {
+				panic(err)
+			}
+			if bidx, ok := bus[bn]; !ok || bidx < idx {
+				bus[bn] = idx
+			}
+		} else {
+			pins = append(pins, n)
+		}
+	}
+
+	var b strings.Builder
+	for k, n := range bus {
+		if b.Len() > 0 {
+			b.WriteRune(',')
+		}
+		b.WriteString(k)
+		b.WriteRune('[')
+		b.WriteString(strconv.Itoa(n + 1))
+		b.WriteRune(']')
+	}
+	for _, n := range pins {
+		if b.Len() > 0 {
+			b.WriteRune(',')
+		}
+		b.WriteString(n)
+	}
+	return b.String()
+}
+
 func randBool() bool {
 	return rand.Int63()&(1<<62) != 0
 }
@@ -45,7 +84,7 @@ func randBool() bool {
 // Both parts must have the same Input/Output interface.
 //
 func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewPartFn) {
-	t.Helper()
+	// t.Helper()
 
 	rand.Seed(time.Now().UnixNano())
 
@@ -62,18 +101,16 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 		n := i
 		parts1 = append(parts1, hwlib.Output(func(b bool) { outputs[n][0] = b })("in="+o))
 	}
-
 	parts2 := hwsim.Parts{ps2}
 	for i, o := range ps2.Outputs {
 		n := i
 		parts2 = append(parts2, hwlib.Output(func(b bool) { outputs[n][1] = b })("in="+o))
 	}
-
-	w1, err := hwsim.Chip("wrapper1", ps1.Inputs, nil, parts1)
+	w1, err := hwsim.Chip("wrapper1", pinList(ps1.Inputs), "", parts1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	w2, err := hwsim.Chip("wrapper2", ps2.Inputs, nil, parts2)
+	w2, err := hwsim.Chip("wrapper2", pinList(ps2.Inputs), "", parts2)
 	if err != nil {
 		t.Fatal(err)
 	}

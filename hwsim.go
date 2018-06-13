@@ -203,7 +203,7 @@ func NewCircuit(workers int, stepsPerCycle uint, ps Parts) (*Circuit, error) {
 
 	// new circuit with room for constant value pins.
 	cc := &Circuit{count: cstCount, tpc: stepsPerCycle}
-	wrap, err := Chip("CIRCUIT", nil, nil, ps)
+	wrap, err := Chip("CIRCUIT", "", "", ps)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create chip wrapper")
 	}

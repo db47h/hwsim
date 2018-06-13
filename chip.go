@@ -72,9 +72,12 @@ func (c *chip) mount(s *Socket) []Component {
 //			hwlib.Not("in=xorAB, out=out"}),
 //		})
 //
-func Chip(name string, inputs IOs, outputs IOs, parts Parts) (NewPartFn, error) {
+func Chip(name string, inputs string, outputs string, parts Parts) (NewPartFn, error) {
 	// build wiring
-	wr := newWiring(inputs, outputs)
+	ins := IO(inputs)
+	outs := IO(outputs)
+
+	wr := newWiring(ins, outs)
 	spcs := make([]*PartSpec, len(parts))
 
 	isOut := func(p *PartSpec, name string) bool {
@@ -147,18 +150,18 @@ func Chip(name string, inputs IOs, outputs IOs, parts Parts) (NewPartFn, error) 
 
 	pinout := make(map[string]string)
 	// map all input and output pins, even if not used.
-	for _, i := range inputs {
+	for _, i := range ins {
 		pinout[i] = wr.wireName(pin{-1, i})
 	}
-	for _, o := range outputs {
+	for _, o := range outs {
 		pinout[o] = wr.wireName(pin{-1, o})
 	}
 
 	c := &chip{
 		PartSpec{
 			Name:    name,
-			Inputs:  inputs,
-			Outputs: outputs,
+			Inputs:  ins,
+			Outputs: outs,
 			Pinout:  pinout,
 		},
 		spcs,

@@ -35,7 +35,7 @@ func Test_clock(t *testing.T) {
 	// we could implement the clock directly as a Nor in the cisrcuit (with no less gate delays)
 	// but we wrap it into a stand-alone chip in order to add a layer complexity
 	// for testing purposes.
-	clk, err := hw.Chip("CLK", hw.IO("disable"), hw.IO("tick"), hw.Parts{
+	clk, err := hw.Chip("CLK", "disable", "tick", hw.Parts{
 		hl.Nor("a=disable, b=tick, out=tick"),
 	})
 	if err != nil {

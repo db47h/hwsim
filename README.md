@@ -18,7 +18,7 @@ I don't really have plans for any form of GUI yet, so please don't ask.
 
 The simulator is built as an array of individual wires (think [stripboard]). It works like a double-buffer with a "current state" array and a "next state" array. At every tick of the simulation:
 
-- all components are updated
+- all components are updated:
   - input states are read from the "current state" array
   - output states are written to the "next state" array
 - the "current state" and "next state" arrays are swapped.

@@ -9,11 +9,11 @@ import (
 )
 
 func TestComparePart(t *testing.T) {
-	or, err := hw.Chip("custom_or", "a,b", "out", hw.Parts{
+	or, err := hw.Chip("custom_or", "a,b", "out",
 		hl.Nand("a=a, b=a, out=notA"),
 		hl.Nand("a=b, b=b, out=notB"),
 		hl.Nand("a=notA, b=notB, out=out"),
-	})
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

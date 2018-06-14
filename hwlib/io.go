@@ -38,7 +38,7 @@ func Input(f func() bool) hwsim.NewPartFn {
 	p := &hwsim.PartSpec{
 		Name:    "Input",
 		Inputs:  nil,
-		Outputs: hwsim.IOs{pOut},
+		Outputs: []string{pOut},
 		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			pin := s.Pin(pOut)
 			return []hwsim.Component{
@@ -60,7 +60,7 @@ func Input(f func() bool) hwsim.NewPartFn {
 func Output(f func(bool)) hwsim.NewPartFn {
 	p := &hwsim.PartSpec{
 		Name:    "Output",
-		Inputs:  hwsim.IOs{pIn},
+		Inputs:  []string{pIn},
 		Outputs: nil,
 		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			in := s.Pin(pIn)

@@ -38,13 +38,13 @@ func ExampleMakePart() {
 
 	var a, b, out int64
 	var sel bool
-	c, err := hw.NewCircuit(0, 4, hw.Parts{
+	c, err := hw.NewCircuit(0, 4,
 		hl.InputN(4, func() int64 { return a })("out[0..3]=in_a[0..3]"),
 		hl.InputN(4, func() int64 { return b })("out[0..3]=in_b[0..3]"),
 		hl.Input(func() bool { return sel })("out=in_sel"),
 		m4("a[0..3]=in_a[0..3], b[0..3]=in_b[0..3], sel=in_sel, out[0..3]=mux_out[0..3]"),
 		hl.OutputN(4, func(v int64) { out = v })("in[0..3]=mux_out[0..3]"),
-	})
+	)
 
 	if err != nil {
 		panic(err)

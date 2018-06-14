@@ -53,7 +53,7 @@ func parseIOspec(names string) ([]string, error) {
 //	letter     = "A" ... "Z" | "a" ... "z" | "_" .
 //	digit      = "0" ... "9" .
 //
-func ParseConnections(c string) (conns Connections, err error) {
+func ParseConnections(c string) (conns []Connection, err error) {
 	p := &hdl.Parser{Input: c}
 
 	for {

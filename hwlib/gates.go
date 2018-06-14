@@ -35,7 +35,7 @@ func bus(bits int, names ...string) []string {
 	return b
 }
 
-var notGate = hwsim.PartSpec{Name: "NOR", Inputs: hwsim.IOs{pIn}, Outputs: hwsim.IOs{pOut},
+var notGate = hwsim.PartSpec{Name: "NOR", Inputs: []string{pIn}, Outputs: []string{pOut},
 	Mount: func(s *hwsim.Socket) []hwsim.Component {
 		in, out := s.Pin(pIn), s.Pin(pOut)
 		return []hwsim.Component{
@@ -74,8 +74,8 @@ func newGate(name string, fn func(a, b bool) bool) *hwsim.PartSpec {
 }
 
 var (
-	gateIn  = hwsim.IOs{pA, pB}
-	gateOut = hwsim.IOs{pOut}
+	gateIn  = []string{pA, pB}
+	gateOut = []string{pOut}
 
 	and  = newGate("AND", func(a, b bool) bool { return a && b })
 	nand = newGate("NAND", func(a, b bool) bool { return !(a && b) })
@@ -254,8 +254,8 @@ func Nor16(w string) hwsim.Part { return nor16.NewPart(w) }
 func DFF(w string) hwsim.Part {
 	return (&hwsim.PartSpec{
 		Name:    "DFF",
-		Inputs:  hwsim.IOs{pIn},
-		Outputs: hwsim.IOs{pOut},
+		Inputs:  []string{pIn},
+		Outputs: []string{pOut},
 		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			in, out := s.Pin(pIn), s.Pin(pOut)
 			var curOut bool

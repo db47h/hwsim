@@ -19,8 +19,8 @@ func Mux(w string) hwsim.Part { return mux.NewPart(w) }
 
 var mux = hwsim.PartSpec{
 	Name:    "MUX",
-	Inputs:  hwsim.IOs{pA, pB, pSel},
-	Outputs: hwsim.IOs{pOut},
+	Inputs:  []string{pA, pB, pSel},
+	Outputs: []string{pOut},
 	Mount: func(s *hwsim.Socket) []hwsim.Component {
 		a, b, sel, out := s.Pin(pA), s.Pin(pB), s.Pin(pSel), s.Pin(pOut)
 		return []hwsim.Component{func(c *hwsim.Circuit) {
@@ -43,8 +43,8 @@ func DMux(w string) hwsim.Part { return dmux.NewPart(w) }
 
 var dmux = hwsim.PartSpec{
 	Name:    "DMUX",
-	Inputs:  hwsim.IOs{pIn, pSel},
-	Outputs: hwsim.IOs{pA, pB},
+	Inputs:  []string{pIn, pSel},
+	Outputs: []string{pA, pB},
 	Mount: func(s *hwsim.Socket) []hwsim.Component {
 		in, sel, a, b := s.Pin(pIn), s.Pin(pSel), s.Pin(pA), s.Pin(pB)
 		return []hwsim.Component{func(c *hwsim.Circuit) {
@@ -214,7 +214,7 @@ func DMuxNWay(ways int) hwsim.NewPartFn {
 
 	p := &hwsim.PartSpec{
 		Name:    "DMux" + strconv.Itoa(ways) + "Way",
-		Inputs:  append(hwsim.IOs{pIn}, bus(selBits, pSel)...),
+		Inputs:  append([]string{pIn}, bus(selBits, pSel)...),
 		Outputs: inputNames[:ways],
 		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			in := s.Pin(pIn)

@@ -35,17 +35,17 @@ func Test_clock(t *testing.T) {
 	// we could implement the clock directly as a Nor in the cisrcuit (with no less gate delays)
 	// but we wrap it into a stand-alone chip in order to add a layer complexity
 	// for testing purposes.
-	clk, err := hw.Chip("CLK", "disable", "tick", hw.Parts{
+	clk, err := hw.Chip("CLK", "disable", "tick",
 		hl.Nor("a=disable, b=tick, out=tick"),
-	})
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := hw.NewCircuit(0, testTPC, hw.Parts{
+	c, err := hw.NewCircuit(0, testTPC,
 		hl.Input(func() bool { return disable })("out=disable"),
 		clk("disable=disable, tick=out"),
 		hl.Output(func(out bool) { tick = out })("in=out"),
-	})
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,12 +92,12 @@ func Test_clock(t *testing.T) {
 // This bench is here to becnhmark the workers sync mechanism overhead.
 func BenchmarkCircuit_Step(b *testing.B) {
 	workers := runtime.GOMAXPROCS(-1)
-	parts := make(hw.Parts, 0, workers)
+	parts := make([]hw.Part, 0, workers)
 	for i := 0; i < workers; i++ {
 		parts = append(parts, hl.Not(""))
 	}
 
-	c, err := hw.NewCircuit(workers, testTPC, parts)
+	c, err := hw.NewCircuit(workers, testTPC, parts...)
 	if err != nil {
 		b.Fatal(err)
 	}

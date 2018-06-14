@@ -96,21 +96,21 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 	outputs := make([][2]bool, len(ps1.Outputs))
 
 	// build two wrappers with their own set of outputs
-	parts1 := hwsim.Parts{ps1}
+	parts1 := []hwsim.Part{ps1}
 	for i, o := range ps1.Outputs {
 		n := i
 		parts1 = append(parts1, hwlib.Output(func(b bool) { outputs[n][0] = b })("in="+o))
 	}
-	parts2 := hwsim.Parts{ps2}
+	parts2 := []hwsim.Part{ps2}
 	for i, o := range ps2.Outputs {
 		n := i
 		parts2 = append(parts2, hwlib.Output(func(b bool) { outputs[n][1] = b })("in="+o))
 	}
-	w1, err := hwsim.Chip("wrapper1", pinList(ps1.Inputs), "", parts1)
+	w1, err := hwsim.Chip("wrapper1", pinList(ps1.Inputs), "", parts1...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	w2, err := hwsim.Chip("wrapper2", pinList(ps2.Inputs), "", parts2)
+	w2, err := hwsim.Chip("wrapper2", pinList(ps2.Inputs), "", parts2...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 		}
 	}
 
-	var parts hwsim.Parts
+	var parts []hwsim.Part
 	for i, n := range ps1.Inputs {
 		k := i
 		parts = append(parts, hwlib.Input(func() bool { return inputs[k] })("out="+n))
@@ -141,7 +141,7 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 	cstr := connString(ps1.Inputs, nil)
 	parts = append(parts, w1(cstr), w2(cstr))
 
-	c, err := hwsim.NewCircuit(0, tpc, parts)
+	c, err := hwsim.NewCircuit(0, tpc, parts...)
 	if err != nil {
 		t.Fatal(err)
 	}

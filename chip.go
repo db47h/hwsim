@@ -76,7 +76,7 @@ func (c *chip) mount(s *Socket) []Component {
 //			hwlib.Not("in=xorAB, out=out"}),
 //		})
 //
-func Chip(name string, inputs string, outputs string, parts Parts) (NewPartFn, error) {
+func Chip(name string, inputs string, outputs string, parts ...Part) (NewPartFn, error) {
 	// build wiring
 	ins := IO(inputs)
 	outs := IO(outputs)
@@ -92,7 +92,7 @@ func Chip(name string, inputs string, outputs string, parts Parts) (NewPartFn, e
 	for pnum := range parts {
 		p := &parts[pnum]
 		spcs[pnum] = p.PartSpec
-		conns := p.Connections
+		conns := p.Conns
 		sort.Strings(p.Outputs)
 
 		// Add the part's pins tho the wiring

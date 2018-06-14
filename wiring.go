@@ -26,11 +26,6 @@ const (
 	cstCount
 )
 
-// Connections represents the connections between the pins of a part and other
-// pins in its host chip.
-//
-type Connections []Connection
-
 // A Connection represents a connection between the pin PP of a part and
 // the pins CP in its host chip.
 //
@@ -118,7 +113,7 @@ func (n *node) checkType(typ int) error {
 //
 type wiring map[pin]*node
 
-func newWiring(ins, outs IOs) wiring {
+func newWiring(ins, outs []string) wiring {
 	wr := make(wiring, len(ins)+len(outs)+1)
 
 	// add constant pins

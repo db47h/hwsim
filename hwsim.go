@@ -66,14 +66,14 @@ type MountFn func(s *Socket) []Component
 type PartSpec struct {
 	// Part name.
 	Name string
-	// Input pins. Must be distinct pin names.
-	// Use the In() function to expand an input description like
+	// Input pin names. Must be distinct pin names.
+	// Use the IO() function to expand an input description like
 	// "a, b, bus[2]" to []string{"a", "b", "bus[0]", "bus[1]"}
 	// See IO() for more details.
-	Inputs IOs
-	// Output pins. Must be distinct pin names.
+	Inputs []string
+	// Output pin name. Must be distinct pin names.
 	// Use the IO() function to expand an output description string.
-	Outputs IOs
+	Outputs []string
 	// Pinout maps the input and output pin names (public interface) of a part
 	// to internal (private) names. If nil, the In and Out values will be used
 	// and mapped one to one.
@@ -106,10 +106,6 @@ func (p *PartSpec) NewPart(connections string) Part {
 	return Part{p, ex}
 }
 
-// IOs is a slice of distinct pin names.
-//
-type IOs []string
-
 // IO parses an input or output pin description string and returns a slice of individual pin names
 // suitable for use as the Input or Output field of a PartSpec.
 //
@@ -129,7 +125,7 @@ type IOs []string
 //
 //	Input{"a", "b", "bus[0]", "bus[1]", "bus[2]", "bus[3]"}
 //
-func IO(inputs string) IOs {
+func IO(inputs string) []string {
 	r, err := parseIOspec(inputs)
 	if err != nil {
 		panic(errors.Wrap(err, "failed to parse inputs"))
@@ -143,16 +139,12 @@ func IO(inputs string) IOs {
 //
 type NewPartFn func(c string) Part
 
-// Parts is a convenience wrapper for []Part.
-//
-type Parts []Part
-
 // A Part wraps a part specification together with its connections within a host
 // chip.
 //
 type Part struct {
 	*PartSpec
-	Connections
+	Conns []Connection
 }
 
 // Circuit is a runnable circuit simulation.
@@ -184,8 +176,8 @@ type Circuit struct {
 // Callers must make sure to call Dispose() once the circuit is no longer needed
 // in order to release allocated resources.
 //
-func NewCircuit(workers int, stepsPerCycle uint, ps Parts) (*Circuit, error) {
-	if len(ps) == 0 {
+func NewCircuit(workers int, stepsPerCycle uint, parts ...Part) (*Circuit, error) {
+	if len(parts) == 0 {
 		return nil, errors.New("empty part list")
 	}
 
@@ -203,7 +195,7 @@ func NewCircuit(workers int, stepsPerCycle uint, ps Parts) (*Circuit, error) {
 
 	// new circuit with room for constant value pins.
 	cc := &Circuit{count: cstCount, tpc: stepsPerCycle}
-	wrap, err := Chip("CIRCUIT", "", "", ps)
+	wrap, err := Chip("CIRCUIT", "", "", parts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create chip wrapper")
 	}

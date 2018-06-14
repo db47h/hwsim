@@ -32,7 +32,11 @@ func (c *chip) mount(s *Socket) []Component {
 				// log.Printf("%s:%s pin %s (%s) on wire %s =  %d", c.Name, p.Name, k, subK, n, sub.m[subK])
 			} else {
 				// Chip() makes sure that unknown pins can only be inputs.
-				sub.m[subK] = cstFalse
+				if subK == Clk {
+					sub.m[subK] = cstClk
+				} else {
+					sub.m[subK] = cstFalse
+				}
 				// log.Printf("%s:%s pin %s (%s) on wire ??? = FALSE", c.Name, p.Name, k, subK)
 			}
 		}

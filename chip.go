@@ -78,8 +78,14 @@ func (c *chip) mount(s *Socket) []Component {
 //
 func Chip(name string, inputs string, outputs string, parts ...Part) (NewPartFn, error) {
 	// build wiring
-	ins := IO(inputs)
-	outs := IO(outputs)
+	ins, err := ParseIOSpec(inputs)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse input spec")
+	}
+	outs, err := ParseIOSpec(outputs)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse output spec")
+	}
 
 	wr := newWiring(ins, outs)
 	spcs := make([]*PartSpec, len(parts))

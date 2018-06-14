@@ -106,33 +106,6 @@ func (p *PartSpec) NewPart(connections string) Part {
 	return Part{p, ex}
 }
 
-// IO parses an input or output pin description string and returns a slice of individual pin names
-// suitable for use as the Input or Output field of a PartSpec.
-//
-// The input format is:
-//
-//	InputDecl  = PinDecl { "," PinDecl } .
-//	PinDecl    = PinIdentifier | BusIdentifier .
-//	BusId      = identifier "[" size "]" .
-//	PinId      = identifier .
-//	identifier = letter { letter | digit } .
-//	size       = { digit } .
-//	letter     = "A" ... "Z" | "a" ... "z" | "_" .
-//	digit      = "0" ... "9" .
-//
-// Buses are declared by simply specifying their size. For example,
-// the input description string "a, b, bus[4]" will be expanded to:
-//
-//	Input{"a", "b", "bus[0]", "bus[1]", "bus[2]", "bus[3]"}
-//
-func IO(inputs string) []string {
-	r, err := parseIOspec(inputs)
-	if err != nil {
-		panic(errors.Wrap(err, "failed to parse inputs"))
-	}
-	return r
-}
-
 // A NewPartFn is a function that takes a connection configuration and returns a
 // new Part. See ParseConnections for the syntax of the connection configuration
 // string.

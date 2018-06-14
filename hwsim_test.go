@@ -1,12 +1,13 @@
 package hwsim_test
 
 import (
+	"fmt"
 	"math/rand"
 	"runtime"
 	"testing"
 
-	hw "github.com/db47h/hwsim"
-	hl "github.com/db47h/hwsim/hwlib"
+	"github.com/db47h/hwsim"
+	"github.com/db47h/hwsim/hwlib"
 )
 
 const testTPC = 16
@@ -35,16 +36,16 @@ func Test_clock(t *testing.T) {
 	// we could implement the clock directly as a Nor in the cisrcuit (with no less gate delays)
 	// but we wrap it into a stand-alone chip in order to add a layer complexity
 	// for testing purposes.
-	clk, err := hw.Chip("CLK", "disable", "tick",
-		hl.Nor("a=disable, b=tick, out=tick"),
+	clk, err := hwsim.Chip("CLK", "disable", "tick",
+		hwlib.Nor("a=disable, b=tick, out=tick"),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := hw.NewCircuit(0, testTPC,
-		hl.Input(func() bool { return disable })("out=disable"),
+	c, err := hwsim.NewCircuit(0, testTPC,
+		hwlib.Input(func() bool { return disable })("out=disable"),
 		clk("disable=disable, tick=out"),
-		hl.Output(func(out bool) { tick = out })("in=out"),
+		hwlib.Output(func(out bool) { tick = out })("in=out"),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -92,12 +93,12 @@ func Test_clock(t *testing.T) {
 // This bench is here to becnhmark the workers sync mechanism overhead.
 func BenchmarkCircuit_Step(b *testing.B) {
 	workers := runtime.GOMAXPROCS(-1)
-	parts := make([]hw.Part, 0, workers)
+	parts := make([]hwsim.Part, 0, workers)
 	for i := 0; i < workers; i++ {
-		parts = append(parts, hl.Not(""))
+		parts = append(parts, hwlib.Not(""))
 	}
 
-	c, err := hw.NewCircuit(workers, testTPC, parts...)
+	c, err := hwsim.NewCircuit(workers, testTPC, parts...)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -106,4 +107,15 @@ func BenchmarkCircuit_Step(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		c.Step()
 	}
+}
+
+func ExampleIO() {
+	fmt.Println(hwsim.IO("a,b"))
+	fmt.Println(hwsim.IO("a[2],b"))
+	fmt.Println(hwsim.IO("a[0..0],b[1..2]"))
+
+	// Output:
+	// [a b]
+	// [a[0] a[1] b]
+	// [a[0] b[1] b[2]]
 }

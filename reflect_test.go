@@ -28,6 +28,6 @@ func (t *testPart) Update(c *hwsim.Circuit) {
 }
 
 func Test_MakePart(t *testing.T) {
-	p := hwsim.MakePart((*testPart)(nil))
+	p := hwsim.MakePart((*testPart)(nil)).NewPart
 	hwtest.ComparePart(t, 8, hwlib.MuxN(8), p)
 }

@@ -29,7 +29,7 @@ var updaterType = reflect.TypeOf((*Updater)(nil)).Elem()
 //
 // Buses must be arrays of int.
 //
-func MakePart(t Updater) NewPartFn {
+func MakePart(t Updater) *PartSpec {
 	typ := reflect.TypeOf(t)
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
@@ -92,7 +92,7 @@ func MakePart(t Updater) NewPartFn {
 		}
 	}
 	sp.Mount = mountPart(typ)
-	return sp.NewPart
+	return sp
 }
 
 func mountPart(typ reflect.Type) func(s *Socket) []Component {

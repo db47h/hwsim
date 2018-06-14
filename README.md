@@ -8,12 +8,6 @@ The API is designed to mimmic a basic [Hardware description language][hdl] and r
 
 > **DISCLAIMER:** This is a self-educational project. I am a software engineer with no electrical engineering background, so please bear with me if some of the terms used are inaccurate or just plain wrong. If you spot any errors, please do not hesitate to file an issue or a PR.
 
-## Project Status
-
-Not all the features I have in mind are implemented yet. TODO's with high priority are listed in the issue tracker. Contributions welcome!
-
-I don't really have plans for any form of GUI yet, so please don't ask.
-
 ## Implementation details
 
 The simulator is built as an array of individual wires (think [stripboard]). It works like a double-buffer with a "current state" array and a "next state" array. At every tick of the simulation:
@@ -23,20 +17,29 @@ The simulator is built as an array of individual wires (think [stripboard]). It 
   - output states are written to the "next state" array
 - the "current state" and "next state" arrays are swapped.
 
+## Project Status
+
+This is a naive simulation: in a complex system, a lot of gates do not change state at every tick of the simulation because their inputs do not change. For example, a 32 bits ripple-carry is built from 32*5=160 gates and needs about 65 ticks to output the correct result. As the simulation advances, only the last few gates in the input->output chain change state and need to be updated.
+
+While this could be improved, performance is not a major goal right now since it can always be somewhat improved by using cutstom components (with logic written in Go).
+
+The main focus is on the API: bring it in a usable and stable state. Tinkering with the simulation must be fun, not a type typing or useless scaffolding chore. Not all the features I have in mind are implemented yet. TODO's with high priority are listed in the issue tracker. Contributions welcome!
+
+I don't really have plans for any form of GUI yet, so please don't ask.
+
 ## Quick tour
 
 ### Building a chip
 
-By *chip* I mean these tiny black boxes with silver pins protuding from them
-that can do all kind of marvelous things in a digital circuit.
+By *chip* I mean these tiny black boxes with silver pins protuding from them that can do all kind of marvelous things in a digital circuit.
 
-A chip is defined by its name, it's input and output pin names (pinout?), and what circuitry is inside, performing its actual function.
+A chip is defined by its name, it's input and output pin names, and what circuitry is inside, performing its actual function.
 
 For example, building an XOR gate from a set of NANDs is done like this:
 
 [![XOR gate][imgxor]][xor]
 
-The same in Go:
+The same in Go with hwsim and the built-in components provided by the hwlib package:
 
 ```go
     import (
@@ -49,12 +52,10 @@ The same in Go:
         "XOR",
         "a, b",   // inputs of the created xor gate
         "out",    // outputs
-        hw.Parts{
-            hl.Nand("a=a,      b=b,      out=nandAB"), // leftmost NAND
-            hl.Nand("a=a,      b=nandAB, out=outA"),   // top NAND
-            hl.Nand("a=nandAB, b=b,      out=outB"),   // bottom NAND
-            hl.Nand("a=outA,   b=outB,   out=out"),    // rightmost NAND
-        }
+        hl.Nand("a=a,      b=b,      out=nandAB"), // leftmost NAND
+        hl.Nand("a=a,      b=nandAB, out=outA"),   // top NAND
+        hl.Nand("a=nandAB, b=b,      out=outB"),   // bottom NAND
+        hl.Nand("a=outA,   b=outB,   out=out"),    // rightmost NAND
     )
 ```
 
@@ -63,7 +64,10 @@ Intermediate (chip internal) wires like `nandAB` in the above example can be dec
 
 ### Custom parts
 
-Custom parts can be created by simply creating a `PartSpec` struct:
+Custom parts are components whose logic is written in Go. Such components can be used to interface with Go code, or simply to improve performance
+by rewriting a complex chip in Go (adders, ALUs, RAM).
+
+A custom component is just a struct with custom field tags that implements the Updater interface:
 
 ```go
     // sample custom XOR gate
@@ -71,45 +75,31 @@ Custom parts can be created by simply creating a `PartSpec` struct:
     // xorInstance represents an instance of an xor gate.
     // one such instance is created for every xor gate in a circuit.
     type xorInstance struct {
-        a, b, out int // assigned pin numbers
+        A   int `hw:"in"`  // the tag hw:"in" indicates an input pin
+        B   int `hw:"in"`
+        Out int `hw:"out"` // output pin
     }
 
-    // update is a Component function that reads the state of the input pins
+    // Update is a Component function that reads the state of the input pins
     // and writes a result to the output pins. It will be called at every
     // tick of the simulation.
-    func (g *xorInstance) update(c *hw.Circuit) {
-        a, b := c.Get(g.a), c.Get(g.b)   // get pin states
-        c.Set(g.out, a && !b || !a && b) // set state of output pin
+    func (g *xorInstance) Update(c *hw.Circuit) {
+        a, b := c.Get(g.A), c.Get(g.B)   // get pin states
+        c.Set(g.Out, a && !b || !a && b) // set state of output pin
     }
 
-    // xorSpec is the part specification (the actual blueprint) for all XOR
-    // gates. We need only one, ever. This is like declaring a type in Go.
-    //
-    // The Mount field is the more obscure part. For lack of better words,
-    // it is a factory function for a part instance. It is called when a part
-    // needs to be mounted on a socket (wired into another chip, soldered on
-    // a printed circuit board...). It must create an instance of the part,
-    // get its assigned pin/wire numbers and then return the part's actual
-    // update function (as a closure over the part instance).
-    var xorSpec = hw.PartSpec{
-        Name:    "XOR",
-        Inputs:  hw.IO("a, b"),
-        Outputs: hw.IO("out"),
-        Mount:   func(s *Socket) []hw.Component {
-            // collect pin numbers
-            g := xorInstance{s.Pin("a"), s.Pin("b"), s.Pin("out")}
-            // return a single component that just does the XOR
-            return []hw.Component{g.tick}
-        }}
-
-    // Finally, we turn this spec into a part usable in a chip definition.
-    var xor hw.NewPartFn = xorSpec.NewPart
+    // Now we turn xorInstance into a part usable in a chip definition.
+    // Just pass a nil pointer to an xorInstance to MakePart which will return
+    // a *PartSpec
+    var xorSpec = hw.MakePart((*xorInstance)(nil))
+    // And grab its NewPart method
+    var xor = hw.MakePart((*xorInstance)(nil)).NewPart
 ```
 
-Well, it doesn't look that simple, but this example deliberately details every step involved. Basically, it all boils down to:
+Another way to do it is to create a `PartSpec` struct with some closure magic:
 
 ```go
-    var xor = (&PartSpec{
+    var xorSpec = &hw.PartSpec{
         Name:    "XOR",
         Inputs:  hw.IO("a, b"),
         Outputs: hw.IO("out"),
@@ -120,25 +110,16 @@ Well, it doesn't look that simple, but this example deliberately details every s
                     a, b := c.Get(g.a), c.Get(g.b)
                     c.Set(g.out, a && !b || !a && b)
                 }}
-        }}).NewPart
+            }}
+    var xor = xorSpec.NewPart
 ```
+
+The reflection approach is more readable but consumes more memory.
 
 If defining custom components as functions is preferable, for example in a Go package providing a library of components (where we do not want to export variables):
 
 ```go
-    var xorSpec = hw.PartSpec{
-        Name:    "XOR",
-        Inputs:  hw.IO("a, b"),
-        Outputs: hw.IO("out"),
-        Mount: func(s *Socket) []hw.Component {
-            a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
-            return []hw.Component{
-                func (c *hw.Circuit) {
-                    a, b := c.Get(g.a), c.Get(g.b)
-                    c.Set(g.out, a && !b || !a && b)
-                }}
-        }}
-    func xor(c string) hw.Part { return xorSpec.NewPart(w) }
+    func xor(c string) hw.Part { return xorSpec.NewPart(c) }
 ```
 
 Now we can go ahead and build a half-adder:
@@ -148,10 +129,9 @@ Now we can go ahead and build a half-adder:
         "H-ADDER",
         "a, b", // inputs
         "s, c", // output sum and carry
-        hw.Parts{
-            xor("a=a, b=b, out=s"), // our custom xor gate!
-            hw.And("a=a, b=b, out=c"),
-        })
+        xor("a=a, b=b, out=s"), // our custom xor gate!
+        hw.And("a=a, b=b, out=c"),
+    )
 ```
 
 ### Running a simulation
@@ -161,7 +141,7 @@ A circuit is made of a set of parts connected together. Time to test our adder:
 ```go
     var a, b, ci bool
     var s, co bool
-    c, err := hw.NewCirtuit(0, 0, hw.Parts{
+    c, err := hw.NewCirtuit(0, 0,
         // feed variables a, b and ci as inputs in the circuit
         hl.Input(func() bool { return a })("out=a"),
         hl.Input(func() bool { return b })("out=b"),
@@ -173,7 +153,7 @@ A circuit is made of a set of parts connected together. Time to test our adder:
         // outputs
         hl.Output(func (bit bool) { s = bit })("in=sum"),
         hl.Output(func (bit bool) { co = bit })("in=co"),
-    })
+    )
     if err != nil {
         // panic!
     }

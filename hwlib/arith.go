@@ -11,8 +11,8 @@ import (
 
 var hAdder = &hwsim.PartSpec{
 	Name:    "HalfAdder",
-	Inputs:  hwsim.Inputs{pA, pB},
-	Outputs: hwsim.Outputs{"s", "c"},
+	Inputs:  []string{pA, pB},
+	Outputs: []string{"s", "c"},
 	Mount: func(s *hwsim.Socket) []hwsim.Component {
 		a, b := s.Pin(pA), s.Pin(pB)
 		sum, cout := s.Pin("s"), s.Pin("c")
@@ -37,8 +37,8 @@ func HalfAdder(c string) hwsim.Part {
 
 var adder = &hwsim.PartSpec{
 	Name:    "FullAdder",
-	Inputs:  hwsim.Inputs{pA, pB, "cin"},
-	Outputs: hwsim.Outputs{"s", "cout"},
+	Inputs:  []string{pA, pB, "cin"},
+	Outputs: []string{"s", "cout"},
 	Mount: func(s *hwsim.Socket) []hwsim.Component {
 		a, b, cin := s.Pin(pA), s.Pin(pB), s.Pin("cin")
 		sum, cout := s.Pin("s"), s.Pin("cout")

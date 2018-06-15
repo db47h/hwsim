@@ -16,8 +16,8 @@ type chip struct {
 	w        wiring
 }
 
-func (c *chip) mount(s *Socket) []Component {
-	var updaters []Component
+func (c *chip) mount(s *Socket) []Updater {
+	var updaters []Updater
 	for i, p := range c.parts {
 		// make a sub-socket
 		sub := newSocket(s.c)

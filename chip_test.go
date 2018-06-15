@@ -78,7 +78,7 @@ func TestChip_omitted_pins(t *testing.T) {
 		Name:    "dummy",
 		Inputs:  hw.IO("a, b, c, t, f"),
 		Outputs: hw.IO("o0, o1"),
-		Mount: func(s *hw.Socket) []hw.Component {
+		Mount: func(s *hw.Socket) []hw.Updater {
 			a, b, c, tr, f, o0, o1 = s.Pin("a"), s.Pin("b"), s.Pin("c"), s.Pin("t"), s.Pin("f"), s.Pin("o0"), s.Pin("o1")
 			return nil
 		}}).NewPart

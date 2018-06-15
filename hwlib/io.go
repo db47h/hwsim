@@ -19,15 +19,10 @@ func Input(f func() bool) hwsim.NewPartFn {
 		Name:    "Input",
 		Inputs:  nil,
 		Outputs: []string{pOut},
-		Mount: func(s *hwsim.Socket) []hwsim.Component {
+		Mount: func(s *hwsim.Socket) []hwsim.Updater {
 			pin := s.Pin(pOut)
-			return []hwsim.Component{
-				func(c *hwsim.Circuit) {
-					c.Set(pin, f())
-				},
-			}
-		},
-	}
+			return hwsim.UpdaterFn(func(c *hwsim.Circuit) { c.Set(pin, f()) })
+		}}
 	return p.NewPart
 }
 
@@ -42,13 +37,10 @@ func Output(f func(bool)) hwsim.NewPartFn {
 		Name:    "Output",
 		Inputs:  []string{pIn},
 		Outputs: nil,
-		Mount: func(s *hwsim.Socket) []hwsim.Component {
+		Mount: func(s *hwsim.Socket) []hwsim.Updater {
 			in := s.Pin(pIn)
-			return []hwsim.Component{
-				func(c *hwsim.Circuit) { f(c.Get(in)) },
-			}
-		},
-	}
+			return hwsim.UpdaterFn(func(c *hwsim.Circuit) { f(c.Get(in)) })
+		}}
 	return p.NewPart
 }
 
@@ -59,11 +51,11 @@ func InputN(bits int, f func() int64) hwsim.NewPartFn {
 		Name:    "INPUT" + strconv.Itoa(bits),
 		Inputs:  nil,
 		Outputs: bus(bits, pOut),
-		Mount: func(s *hwsim.Socket) []hwsim.Component {
+		Mount: func(s *hwsim.Socket) []hwsim.Updater {
 			pins := s.Bus(pOut, bits)
-			return []hwsim.Component{func(c *hwsim.Circuit) {
+			return hwsim.UpdaterFn(func(c *hwsim.Circuit) {
 				c.SetInt64(pins, f())
-			}}
+			})
 		}}).NewPart
 }
 
@@ -74,10 +66,10 @@ func OutputN(bits int, f func(int64)) hwsim.NewPartFn {
 		Name:    "OUTPUTBUS" + strconv.Itoa(bits),
 		Inputs:  bus(bits, pIn),
 		Outputs: nil,
-		Mount: func(s *hwsim.Socket) []hwsim.Component {
+		Mount: func(s *hwsim.Socket) []hwsim.Updater {
 			pins := s.Bus(pIn, bits)
-			return []hwsim.Component{func(c *hwsim.Circuit) {
+			return hwsim.UpdaterFn(func(c *hwsim.Circuit) {
 				f(c.GetInt64(pins))
-			}}
+			})
 		}}).NewPart
 }

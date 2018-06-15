@@ -8,6 +8,7 @@ package hwtest
 import (
 	"fmt"
 	"math/rand"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -92,6 +93,11 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 	conns := connString(ps1.Inputs, ps1.Outputs)
 	ps1, ps2 = part1(conns), part2(conns)
 
+	sort.Strings(ps1.Inputs)
+	sort.Strings(ps1.Outputs)
+	sort.Strings(ps2.Inputs)
+	sort.Strings(ps2.Outputs)
+
 	inputs := make([]bool, len(ps1.Inputs))
 	outputs := make([][2]bool, len(ps1.Outputs))
 
@@ -161,20 +167,22 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 				b.WriteString("false")
 			}
 		}
+		for i, n := range ps1.Outputs {
+			if b.Len() > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(n)
+			b.WriteRune('=')
+			if outputs[i][0] {
+				b.WriteString("true")
+			} else {
+				b.WriteString("false")
+			}
+		}
 		return fmt.Sprintf("\nExpected %s => %s=%v\nGot %v", b.String(), oname, ex, got)
 	}
 
-	// random testing. Plan to add a callback to set inputs
-	iter := len(ps1.Inputs)
-	if iter > 12 {
-		iter = 12
-	}
-
-	start := time.Now()
-
 	c.Tick()
-	iter = 1 << uint(iter)
-
 	// try all 0
 	c.Tock()
 	c.Tick()
@@ -196,15 +204,37 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 		}
 	}
 
-	for i := 0; i < iter; i++ {
-		for in := range inputs {
-			inputs[in] = randBool()
+	start := time.Now()
+	iter := len(ps1.Inputs)
+	const maxBits = 12
+	if iter > maxBits {
+		iter = 1 << maxBits
+		// random testing
+		for i := 0; i < iter; i++ {
+			for in := range inputs {
+				inputs[in] = randBool()
+			}
+			c.Tock()
+			c.Tick()
+			for o, out := range outputs {
+				if out[0] != out[1] {
+					t.Fatal(errString(ps1.Outputs[o], out[0], out[1]))
+				}
+			}
 		}
-		c.Tock()
-		c.Tick()
-		for o, out := range outputs {
-			if out[0] != out[1] {
-				t.Fatal(errString(ps1.Outputs[o], out[0], out[1]))
+	} else {
+		// try all inputs
+		iter = 1 << uint(iter)
+		for i := 0; i < iter; i++ {
+			for in := range inputs {
+				inputs[in] = i&(1<<uint(in)) != 0
+			}
+			c.Tock()
+			c.Tick()
+			for o, out := range outputs {
+				if out[0] != out[1] {
+					t.Fatal(errString(ps1.Outputs[o], out[0], out[1]))
+				}
 			}
 		}
 	}

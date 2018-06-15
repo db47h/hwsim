@@ -191,7 +191,7 @@ func MuxMWayN(ways int, bits int) hwsim.NewPartFn {
 			out := s.Bus(pOut, bits)
 			return []hwsim.Component{
 				func(c *hwsim.Circuit) {
-					selIn := in[getInt(c, sel)]
+					selIn := in[Int64(c, sel)]
 					for i, o := range out {
 						c.Set(o, c.Get(selIn[i]))
 					}
@@ -228,7 +228,7 @@ func DMuxNWay(ways int) hwsim.NewPartFn {
 					for _, o := range outs {
 						c.Set(o, false)
 					}
-					c.Set(outs[getInt(c, sel)], c.Get(in))
+					c.Set(outs[Int64(c, sel)], c.Get(in))
 				}}
 		}}
 	return p.NewPart
@@ -266,7 +266,7 @@ func DMuxMWayN(ways int, bits int) hwsim.NewPartFn {
 			}
 			return []hwsim.Component{
 				func(c *hwsim.Circuit) {
-					selV := getInt(c, sel)
+					selV := int(Int64(c, sel))
 					for i, out := range outs {
 						if i == selV {
 							for bit, o := range out {

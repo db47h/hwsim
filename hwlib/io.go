@@ -9,26 +9,6 @@ import (
 	"github.com/db47h/hwsim"
 )
 
-// Int64 returns the pins as an int64. Pin 0 is lsb.
-//
-func Int64(c *hwsim.Circuit, pins []int) int64 {
-	var out int64
-	for bit := range pins {
-		if c.Get(pins[bit]) {
-			out |= 1 << uint(bit)
-		}
-	}
-	return out
-}
-
-// SetInt64 sets the pins to the given int64 value.
-//
-func SetInt64(c *hwsim.Circuit, pins []int, v int64) {
-	for bit := range pins {
-		c.Set(pins[bit], v&(1<<uint(bit)) != 0)
-	}
-}
-
 // Input creates a function based input.
 //
 //	Outputs: out
@@ -82,10 +62,7 @@ func InputN(bits int, f func() int64) hwsim.NewPartFn {
 		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			pins := s.Bus(pOut, bits)
 			return []hwsim.Component{func(c *hwsim.Circuit) {
-				in := f()
-				for bit := 0; bit < len(pins); bit++ {
-					c.Set(pins[bit], in&(1<<uint(bit)) != 0)
-				}
+				c.SetInt64(pins, f())
 			}}
 		}}).NewPart
 }
@@ -100,7 +77,7 @@ func OutputN(bits int, f func(int64)) hwsim.NewPartFn {
 		Mount: func(s *hwsim.Socket) []hwsim.Component {
 			pins := s.Bus(pIn, bits)
 			return []hwsim.Component{func(c *hwsim.Circuit) {
-				f(Int64(c, pins))
+				f(c.GetInt64(pins))
 			}}
 		}}).NewPart
 }

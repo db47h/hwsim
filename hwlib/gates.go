@@ -245,31 +245,6 @@ func Or16(w string) hwsim.Part { return or16.NewPart(w) }
 //
 func Nor16(w string) hwsim.Part { return nor16.NewPart(w) }
 
-// DFF returns a clocked data flip flop.
-//
-//	Inputs: in
-//	Outputs: out
-//	Function: out(t) = in(t-1) // where t is the current clock cycle.
-//
-func DFF(w string) hwsim.Part {
-	return (&hwsim.PartSpec{
-		Name:    "DFF",
-		Inputs:  []string{pIn},
-		Outputs: []string{pOut},
-		Mount: func(s *hwsim.Socket) []hwsim.Component {
-			in, out := s.Pin(pIn), s.Pin(pOut)
-			var curOut bool
-			return []hwsim.Component{
-				func(c *hwsim.Circuit) {
-					// raising edge?
-					if c.AtTick() {
-						curOut = c.Get(in)
-					}
-					c.Set(out, curOut)
-				}}
-		}}).NewPart(w)
-}
-
 // OrNWay returns a N-Way OR gate.
 //
 //	Inputs: in[n]

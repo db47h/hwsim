@@ -341,3 +341,23 @@ func (c *Circuit) TickTock() {
 // Size returns the component count in the circuit.
 //
 func (c *Circuit) Size() int { return len(c.cs) }
+
+// GetInt64 returns the pins as an int64. Pin 0 is lsb.
+//
+func (c *Circuit) GetInt64(pins []int) int64 {
+	var out int64
+	for bit := range pins {
+		if c.Get(pins[bit]) {
+			out |= 1 << uint(bit)
+		}
+	}
+	return out
+}
+
+// SetInt64 sets the pins to the given int64 value.
+//
+func (c *Circuit) SetInt64(pins []int, v int64) {
+	for bit := range pins {
+		c.Set(pins[bit], v&(1<<uint(bit)) != 0)
+	}
+}

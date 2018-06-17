@@ -4,15 +4,21 @@
 package hwsim
 
 import (
-	"runtime"
-	"sync"
-
 	"github.com/pkg/errors"
 )
 
-// A Component is a component in a circuit that can Get and Set states.
+type updaterFn func(c *Circuit)
+
+func (u updaterFn) Update(c *Circuit) {
+	u(c)
+}
+
+// UpdaterFn wraps a single update function into an Updater slice, suitable
+// as a return value from a MountFn.
 //
-type Component func(c *Circuit)
+func UpdaterFn(f func(c *Circuit)) []Updater {
+	return []Updater{updaterFn(f)}
+}
 
 // A MountFn mounts a part into socket s. MountFn's should query
 // the socket for assigned pin numbers and return closures around
@@ -31,7 +37,7 @@ type Component func(c *Circuit)
 //			}
 //		}}
 //
-type MountFn func(s *Socket) []Component
+type MountFn func(s *Socket) []Updater
 
 // A PartSpec wraps a part specification (its blueprint).
 //
@@ -125,13 +131,10 @@ type Part struct {
 type Circuit struct {
 	s0    []bool // wire states frame #0
 	s1    []bool // wire states frame #1
-	cs    []Component
+	cs    []Updater
 	count int  // wire count
 	tpc   uint // ticks per clock cycle
 	tick  uint
-
-	wc []chan struct{}
-	wg sync.WaitGroup
 }
 
 // NewCircuit builds a new circuit based on the given parts.
@@ -173,7 +176,7 @@ func NewCircuit(workers int, stepsPerCycle uint, parts ...Part) (*Circuit, error
 		return nil, errors.Wrap(err, "failed to create chip wrapper")
 	}
 	ups := wrap("").Mount(newSocket(cc))
-	ups = append(ups, updClock)
+	ups = append(ups, updaterFn(updClock))
 	cc.cs = ups
 	cc.s0 = make([]bool, cc.count)
 	cc.s1 = make([]bool, cc.count)
@@ -183,24 +186,6 @@ func NewCircuit(workers int, stepsPerCycle uint, parts ...Part) (*Circuit, error
 	cc.s0[cstTrue] = true
 	cc.s1[cstFalse] = false
 	cc.s1[cstTrue] = true
-
-	// workers
-	if workers == 0 {
-		workers = runtime.GOMAXPROCS(-1)
-	}
-	if workers == 0 {
-		workers = 1
-	}
-	for len(ups) > 0 {
-		size := len(ups) / workers
-		if size*workers < len(ups) {
-			size++
-		}
-		wc := make(chan struct{}, 1)
-		cc.wc = append(cc.wc, wc)
-		go worker(cc, ups[:size], wc)
-		ups = ups[size:]
-	}
 
 	return cc, nil
 }
@@ -225,25 +210,6 @@ func updClock(c *Circuit) {
 // worker goroutines.
 //
 func (c *Circuit) Dispose() {
-	c.wg.Add(len(c.wc))
-	for _, wc := range c.wc {
-		close(wc)
-	}
-	c.wg.Wait()
-}
-
-func worker(c *Circuit, cs []Component, wc <-chan struct{}) {
-	for {
-		_, ok := <-wc
-		if !ok {
-			c.wg.Done()
-			return
-		}
-		for _, f := range cs {
-			f(c)
-		}
-		c.wg.Done()
-	}
 }
 
 // alloc allocates a pin and returns its number.
@@ -304,12 +270,9 @@ func (c *Circuit) Toggle(n int) {
 // Step advances the simulation by one step.
 //
 func (c *Circuit) Step() {
-	c.wg.Add(len(c.wc))
-	for _, wc := range c.wc {
-		wc <- struct{}{}
+	for _, u := range c.cs {
+		u.Update(c)
 	}
-
-	c.wg.Wait()
 	c.tick++
 	c.s0, c.s1 = c.s1, c.s0
 }

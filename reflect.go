@@ -95,8 +95,8 @@ func MakePart(t Updater) *PartSpec {
 	return sp
 }
 
-func mountPart(typ reflect.Type) func(s *Socket) []Component {
-	return func(s *Socket) []Component {
+func mountPart(typ reflect.Type) func(s *Socket) []Updater {
+	return func(s *Socket) []Updater {
 		v := reflect.New(typ)
 		e := v.Elem()
 		n := typ.NumField()
@@ -135,8 +135,6 @@ func mountPart(typ reflect.Type) func(s *Socket) []Component {
 		}
 
 		comp := v.Interface().(Updater)
-		return []Component{
-			comp.Update,
-		}
+		return []Updater{comp}
 	}
 }

@@ -16,16 +16,16 @@ func DFF(w string) hwsim.Part {
 		Name:    "DFF",
 		Inputs:  []string{pIn},
 		Outputs: []string{pOut},
-		Mount: func(s *hwsim.Socket) []hwsim.Component {
+		Mount: func(s *hwsim.Socket) []hwsim.Updater {
 			in, out := s.Pin(pIn), s.Pin(pOut)
 			var curOut bool
-			return []hwsim.Component{
+			return hwsim.UpdaterFn(
 				func(c *hwsim.Circuit) {
 					// raising edge?
 					if c.AtTick() {
 						curOut = c.Get(in)
 					}
 					c.Set(out, curOut)
-				}}
+				})
 		}}).NewPart(w)
 }

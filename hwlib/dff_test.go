@@ -1,11 +1,16 @@
-package hwsim_test
+package hwlib_test
 
 import (
+	"math/rand"
 	"testing"
 
 	hw "github.com/db47h/hwsim"
 	hl "github.com/db47h/hwsim/hwlib"
 )
+
+func randBool() bool {
+	return rand.Int63()&(1<<62) != 0
+}
 
 func TestDFF(t *testing.T) {
 	var (

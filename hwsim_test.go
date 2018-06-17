@@ -17,7 +17,7 @@ func randBool() bool {
 	return rand.Int63()&(1<<62) != 0
 }
 
-// Test a basic clock with a Nor gate.
+// Test a basic clock with a Nand gate.
 //
 // The purpose of this test is to catch changes in propagation delays
 // from Inputs and Outputs as well as testing loops between input and outputs.
@@ -26,7 +26,7 @@ func randBool() bool {
 // components or inputs. Or use a DFF.
 //
 func Test_clock(t *testing.T) {
-	var disable, tick bool
+	var enable, tick bool
 
 	check := func(v bool) {
 		t.Helper()
@@ -35,17 +35,17 @@ func Test_clock(t *testing.T) {
 		}
 	}
 	// we could implement the clock directly as a Nor in the cisrcuit (with no less gate delays)
-	// but we wrap it into a stand-alone chip in order to add a layer complexity
+	// but we wrap it into a stand-alone chip in order to add a layer of complexity
 	// for testing purposes.
-	clk, err := hwsim.Chip("CLK", "disable", "tick",
-		tl.nor("a=disable, b=tick, out=tick"),
+	clk, err := hwsim.Chip("CLK", "enable", "tick",
+		tl.nand("a=enable, b=tick, out=tick"),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	c, err := hwsim.NewCircuit(0, testTPC,
-		hwlib.Input(func() bool { return disable })("out=disable"),
-		clk("disable=disable, tick=out"),
+		hwlib.Input(func() bool { return enable })("out=enable"),
+		clk("enable=enable, tick=out"),
 		hwlib.Output(func(out bool) { tick = out })("in=out"),
 	)
 	if err != nil {
@@ -53,42 +53,42 @@ func Test_clock(t *testing.T) {
 	}
 	defer c.Dispose()
 
-	// we have two wires: "disable" and "out".
+	// we have two wires: "enable" and "out".
 	// note that Output("out", ...) is delayed by one tick after the Nand updates it.
 
-	disable = true
+	enable = false
 	c.Step()
 	check(false)
 	c.Step()
 	// this is an expected signal change appearing in the first couple of ticks due to signal propagation delay
 	check(true)
 	c.Step()
-	check(false)
-	c.Step()
-	check(false)
+	check(true)
 
-	disable = false
+	enable = true
 	c.Step()
-	check(false)
+	check(true)
 	c.Step()
-	check(false)
+	check(true)
 	c.Step()
 	// the clock starts ticking now.
+	check(false)
+	c.Step()
 	check(true)
 	c.Step()
 	check(false)
 	c.Step()
 	check(true)
-	disable = true
+	enable = false
 	c.Step()
 	check(false)
 	c.Step()
 	check(true)
 	c.Step()
 	// the clock stops ticking now.
-	check(false)
+	check(true)
 	c.Step()
-	check(false)
+	check(true)
 }
 
 // This bench is here to becnhmark the workers sync mechanism overhead.
@@ -144,12 +144,12 @@ func newTestLib() *testLib {
 			Name:    "NAND",
 			Inputs:  []string{"a", "b"},
 			Outputs: []string{"out"},
-			Mount: func(s *hwsim.Socket) []hwsim.Component {
+			Mount: func(s *hwsim.Socket) []hwsim.Updater {
 				a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
-				return []hwsim.Component{
+				return hwsim.UpdaterFn(
 					func(c *hwsim.Circuit) {
 						c.Set(out, !(c.Get(a) && c.Get(b)))
-					}}
+					})
 			}},
 	}
 	var err error
@@ -257,17 +257,17 @@ func Test_testLib(t *testing.T) {
 			Name:    "AdderN",
 			Inputs:  hwsim.IO(fmt.Sprintf("a[%d], b[%d]", bits, bits)),
 			Outputs: hwsim.IO(fmt.Sprintf("c, out[%d]", bits)),
-			Mount: func(s *hwsim.Socket) []hwsim.Component {
+			Mount: func(s *hwsim.Socket) []hwsim.Updater {
 				a, b, out := s.Bus("a", bits), s.Bus("b", bits), s.Bus("out", bits)
 				carry := s.Pin("c")
-				return []hwsim.Component{
+				return hwsim.UpdaterFn(
 					func(c *hwsim.Circuit) {
 						va := c.GetInt64(a)
 						vb := c.GetInt64(b)
 						s := va + vb
 						c.Set(carry, s >= 1<<uint(bits))
 						c.SetInt64(out, s&(1<<uint(bits)-1))
-					}}
+					})
 			},
 		}
 		return p.NewPart

@@ -15,58 +15,67 @@ func busPinName(name string, bit int) string {
 // See PartSpec.Pinout.
 //
 type Socket struct {
-	m map[string]int
+	m map[string]*Pin
 	c *Circuit
 }
 
 func newSocket(c *Circuit) *Socket {
 	return &Socket{
-		m: make(map[string]int),
+		m: map[string]*Pin{
+			False: c.wires[cstFalse],
+			True:  c.wires[cstTrue],
+			Clk:   c.wires[cstClk],
+		},
 		c: c,
 	}
 }
 
 // Pin returns the pin number assigned to the given pin name.
 //
-func (s *Socket) Pin(name string) int {
+func (s *Socket) Pin(name string) *Pin {
 	return s.m[name]
-}
-
-// Pins returns the pin numbers assigned to the given pin names.
-//
-func (s *Socket) Pins(name ...string) []int {
-	t := make([]int, len(name))
-	for i, n := range name {
-		t[i] = s.m[n]
-	}
-	return t
 }
 
 // pinOrNew returns the pin number assigned to the given pin name.
 // If no such pin exists a new one is assigned.
 //
-func (s *Socket) pinOrNew(name string) int {
-	n, ok := s.m[name]
+func (s *Socket) pinOrNew(name string) *Pin {
+	p, ok := s.m[name]
 	if !ok {
-		switch name {
-		case Clk:
-			n = cstClk
-		case False:
-			n = cstFalse
-		case True:
-			n = cstTrue
-		default:
-			n = s.c.allocPin()
-		}
-		s.m[name] = n
+		p = s.c.allocPin()
+		s.m[name] = p
 	}
-	return n
+	return p
+}
+
+type Bus []*Pin
+
+func (b Bus) GetInt64(clk bool) int64 {
+	var out int64
+	for bit, p := range b {
+		if p.Recv(clk) {
+			out |= 1 << uint(bit)
+		}
+	}
+	return out
+}
+
+func (b Bus) SetInt64(clk bool, v int64) {
+	for bit, p := range b {
+		p.Send(clk, v&(1<<uint(bit)) != 0)
+	}
+}
+
+func (b Bus) Connect(u Updater) {
+	for _, p := range b {
+		p.Connect(u)
+	}
 }
 
 // Bus returns the pin numbers assigned to the given bus name.
 //
-func (s *Socket) Bus(name string, size int) []int {
-	out := make([]int, size)
+func (s *Socket) Bus(name string, size int) Bus {
+	out := make([]*Pin, size)
 	for i := range out {
 		out[i] = s.m[busPinName(name, i)]
 	}

@@ -26,6 +26,38 @@ const (
 	cstCount
 )
 
+// A Pin is a component's output pin
+//
+type Pin struct {
+	src   Updater
+	clk   bool
+	value bool
+}
+
+// Connect sets the Updater as the connector's source.
+//
+func (c *Pin) Connect(u Updater) {
+	c.src = u
+}
+
+// Send sends a signal a time clk.
+//
+func (c *Pin) Send(clk bool, value bool) {
+	if c.clk != clk {
+		c.clk, c.value = clk, value
+	}
+}
+
+// Recv recieves a signal at time clk.
+// It may trigger an update of the source component.
+//
+func (c *Pin) Recv(clk bool) bool {
+	if c.clk != clk {
+		c.src.Update(clk) // should trigger a send
+	}
+	return c.value
+}
+
 // A Connection represents a connection between the pin PP of a part and
 // the pins CP in its host chip.
 //
@@ -34,7 +66,7 @@ type Connection struct {
 	CP []string
 }
 
-// a pin is identified by the part it belongs to and its name in that part's interface
+// a pin is used by Chip() and identified by the part it belongs to and its name in that part's interface
 type pin struct {
 	p    int
 	name string

@@ -4,20 +4,27 @@
 package hwsim
 
 import (
+	"log"
+
 	"github.com/pkg/errors"
 )
 
-type updaterFn func(c *Circuit)
-
-func (u updaterFn) Update(c *Circuit) {
-	u(c)
+// Updater is the interface that custom components built using reflection must implement.
+// See MakePart.
+//
+type Updater interface {
+	Update(clk bool)
 }
 
 // UpdaterFn wraps a single update function into an Updater slice, suitable
 // as a return value from a MountFn.
 //
-func UpdaterFn(f func(c *Circuit)) []Updater {
-	return []Updater{updaterFn(f)}
+type UpdaterFn func(clk bool)
+
+// Update implements Updater.
+//
+func (u UpdaterFn) Update(clk bool) {
+	u(clk)
 }
 
 // A MountFn mounts a part into socket s. MountFn's should query
@@ -37,7 +44,7 @@ func UpdaterFn(f func(c *Circuit)) []Updater {
 //			}
 //		}}
 //
-type MountFn func(s *Socket) []Updater
+type MountFn func(s *Socket) Updater
 
 // A PartSpec wraps a part specification (its blueprint).
 //
@@ -129,12 +136,10 @@ type Part struct {
 // Circuit is a runnable circuit simulation.
 //
 type Circuit struct {
-	s0    []bool // wire states frame #0
-	s1    []bool // wire states frame #1
-	cs    []Updater
-	count int  // wire count
-	tpc   uint // ticks per clock cycle
-	tick  uint
+	wires []*Pin
+	ups   []Updater
+	ticks uint
+	clk   bool
 }
 
 // NewCircuit builds a new circuit based on the given parts.
@@ -152,57 +157,50 @@ type Circuit struct {
 // Callers must make sure to call Dispose() once the circuit is no longer needed
 // in order to release allocated resources.
 //
-func NewCircuit(workers int, stepsPerCycle uint, parts ...Part) (*Circuit, error) {
+func NewCircuit(parts ...Part) (*Circuit, error) {
 	if len(parts) == 0 {
 		return nil, errors.New("empty part list")
 	}
 
-	if stepsPerCycle < 2 {
-		stepsPerCycle = 2
-	}
-	stepsPerCycle--
-	stepsPerCycle |= stepsPerCycle >> 1
-	stepsPerCycle |= stepsPerCycle >> 2
-	stepsPerCycle |= stepsPerCycle >> 4
-	stepsPerCycle |= stepsPerCycle >> 8
-	stepsPerCycle |= stepsPerCycle >> 16
-	stepsPerCycle |= stepsPerCycle >> 32
-	stepsPerCycle++
-
-	// new circuit with room for constant value pins.
-	cc := &Circuit{count: cstCount, tpc: stepsPerCycle}
 	wrap, err := Chip("CIRCUIT", "", "", parts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create chip wrapper")
 	}
-	ups := wrap("").Mount(newSocket(cc))
-	ups = append(ups, updaterFn(updClock))
-	cc.cs = ups
-	cc.s0 = make([]bool, cc.count)
-	cc.s1 = make([]bool, cc.count)
-	// init constant pins
-	cc.s0[cstClk] = true
-	cc.s0[cstFalse] = false
-	cc.s0[cstTrue] = true
-	cc.s1[cstFalse] = false
-	cc.s1[cstTrue] = true
 
-	return cc, nil
-}
+	c := new(Circuit)
+	c.wires = make([]*Pin, cstCount)
 
-func updClock(c *Circuit) {
-	if c.s0[cstFalse] || !c.s0[cstTrue] {
-		panic("true or false constants have been overwritten")
+	inputFn := func(f func() bool) *Pin {
+		p := new(Pin)
+		up := UpdaterFn(func(clk bool) { p.Send(clk, f()) })
+		p.Connect(up)
+		return p
 	}
 
-	// update clock signal
-	tick := c.tick + 1
-	if tick&(c.tpc-1) == 0 {
-		c.s1[cstClk] = true
-	} else if tick&(c.tpc/2-1) == 0 {
-		c.s1[cstClk] = false
-	} else {
-		c.s1[cstClk] = c.s0[cstClk]
+	c.wires[cstFalse] = inputFn(func() bool { return false })
+	c.wires[cstTrue] = inputFn(func() bool { return true })
+	c.wires[cstClk] = inputFn(func() bool { return c.clk })
+
+	unwrap(&c.ups, wrap("").Mount(newSocket(c)))
+
+	log.Printf("components: %d", len(c.ups))
+
+	for i := range c.wires {
+		if c.wires[i].src == nil {
+			log.Printf("nil src for wire %p (%d)", c.wires[i], i)
+		}
+	}
+
+	return c, nil
+}
+
+func unwrap(ul *[]Updater, u Updater) {
+	if uw, ok := u.(Container); ok {
+		for _, u := range uw.Contents() {
+			unwrap(ul, u)
+		}
+	} else if _, ok := u.(Ticker); ok {
+		*ul = append(*ul, u)
 	}
 }
 
@@ -212,76 +210,26 @@ func updClock(c *Circuit) {
 func (c *Circuit) Dispose() {
 }
 
-// alloc allocates a pin and returns its number.
+// alloc allocates a pin.
 //
-func (c *Circuit) allocPin() int {
-	cnt := c.count
-	c.count++
-	return cnt
+func (c *Circuit) allocPin() *Pin {
+	p := new(Pin)
+	c.wires = append(c.wires, p)
+	return p
 }
 
-// Steps returns the value of the step counter.
+// Ticks returns the value of the step counter.
 //
-func (c *Circuit) Steps() uint {
-	return c.tick
-}
-
-// SPC returns the stepsPerCycle value.
-//
-func (c *Circuit) SPC() uint {
-	return c.tpc
-}
-
-// AtTick returns true if the current step is at the beginning of a clock cycle
-// (raising edge of Clk).
-//
-func (c *Circuit) AtTick() bool {
-	return c.Steps()&(c.SPC()-1) == 0
-}
-
-// AtTock returns true if the current step is at the beginning of the second
-// half of a clock cycle (falling edge of Clk).
-//
-func (c *Circuit) AtTock() bool {
-	return (c.Steps()+c.SPC()/2)&(c.SPC()-1) == 0
-}
-
-// Get returns the state of pin n. The value of n should be obtained in a
-// MountFn by a call to one of the Socket methods.
-//
-func (c *Circuit) Get(n int) bool {
-	return c.s0[n]
-}
-
-// Set sets the state s of pin n. The value of n should be obtained in a
-// MountFn by a call to one of the Socket methods.
-//
-func (c *Circuit) Set(n int, s bool) {
-	c.s1[n] = s
-}
-
-// Toggle toggles the state of pin n. The value of n should be obtained in a
-// MountFn by a call to one of the Socket methods.
-//
-func (c *Circuit) Toggle(n int) {
-	c.s1[n] = !c.s0[n]
-}
-
-// Step advances the simulation by one step.
-//
-func (c *Circuit) Step() {
-	for _, u := range c.cs {
-		u.Update(c)
-	}
-	c.tick++
-	c.s0, c.s1 = c.s1, c.s0
+func (c *Circuit) Ticks() uint {
+	return c.ticks
 }
 
 // Tick runs the simulation until the beginning of the next half clock cycle.
 //
 func (c *Circuit) Tick() {
-	for c.Get(cstClk) {
-		c.Step()
+	if !c.clk {
+		c.clk = true
+		c.update()
 	}
 }
 
@@ -289,8 +237,19 @@ func (c *Circuit) Tick() {
 // Once Tock returns, the output of clocked components should have stabilized.
 //
 func (c *Circuit) Tock() {
-	for !c.Get(cstClk) {
-		c.Step()
+	if c.clk {
+		c.clk = false
+		c.update()
+	}
+}
+
+func (c *Circuit) update() {
+	c.ticks++
+	for _, u := range c.ups {
+		u.Update(c.clk)
+	}
+	for _, w := range c.wires {
+		w.clk = c.clk
 	}
 }
 
@@ -301,26 +260,17 @@ func (c *Circuit) TickTock() {
 	c.Tock()
 }
 
-// Size returns the component count in the circuit.
-//
-func (c *Circuit) Size() int { return len(c.cs) }
-
-// GetInt64 returns the pins as an int64. Pin 0 is lsb.
-//
-func (c *Circuit) GetInt64(pins []int) int64 {
-	var out int64
-	for bit := range pins {
-		if c.Get(pins[bit]) {
-			out |= 1 << uint(bit)
-		}
-	}
-	return out
+type Ticker interface {
+	Updater
+	Tick()
 }
 
-// SetInt64 sets the pins to the given int64 value.
-//
-func (c *Circuit) SetInt64(pins []int, v int64) {
-	for bit := range pins {
-		c.Set(pins[bit], v&(1<<uint(bit)) != 0)
-	}
+type tickerImpl struct {
+	Updater
+}
+
+func (t *tickerImpl) Tick() {}
+
+func NewTicker(u Updater) Ticker {
+	return &tickerImpl{u}
 }

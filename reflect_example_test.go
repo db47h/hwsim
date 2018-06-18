@@ -1,10 +1,12 @@
+// +build ignore
+
 package hwsim_test
 
 import (
 	"fmt"
 
 	hw "github.com/db47h/hwsim"
-	hl "github.com/db47h/hwsim/hwlib"
+	// hl "github.com/db47h/hwsim/hwlib"
 )
 
 // mux4 is a custom 4 bits mux.

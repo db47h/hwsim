@@ -4,18 +4,42 @@ import (
 	"testing"
 
 	hw "github.com/db47h/hwsim"
-	hl "github.com/db47h/hwsim/hwlib"
 	"github.com/db47h/hwsim/hwtest"
 )
 
+var nand = &hw.PartSpec{
+	Name:    "nand",
+	Inputs:  []string{"a", "b"},
+	Outputs: []string{"out"},
+	Mount: func(s *hw.Socket) hw.Updater {
+		a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
+		f := hw.UpdaterFn(func(clk bool) {
+			out.Send(clk, !(a.Recv(clk) && b.Recv(clk)))
+		})
+		out.Connect(f)
+		return f
+	}}
+var or = &hw.PartSpec{
+	Name:    "or",
+	Inputs:  []string{"a", "b"},
+	Outputs: []string{"out"},
+	Mount: func(s *hw.Socket) hw.Updater {
+		a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
+		f := hw.UpdaterFn(func(clk bool) {
+			out.Send(clk, a.Recv(clk) || b.Recv(clk))
+		})
+		out.Connect(f)
+		return f
+	}}
+
 func TestComparePart(t *testing.T) {
-	or, err := hw.Chip("custom_or", "a,b", "out",
-		hl.Nand("a=a, b=a, out=notA"),
-		hl.Nand("a=b, b=b, out=notB"),
-		hl.Nand("a=notA, b=notB, out=out"),
+	or2, err := hw.Chip("custom_or", "a,b", "out",
+		nand.NewPart("a=a, b=a, out=notA"),
+		nand.NewPart("a=b, b=b, out=notB"),
+		nand.NewPart("a=notA, b=notB, out=out"),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	hwtest.ComparePart(t, 4, hl.Or, or)
+	hwtest.ComparePart(t, or.NewPart, or2)
 }

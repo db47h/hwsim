@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/db47h/hwsim"
-	"github.com/db47h/hwsim/hwlib"
 )
 
 func connString(in, out []string) string {
@@ -84,8 +83,8 @@ func randBool() bool {
 // ComparePart takes two parts and compares their outputs given the same inputs.
 // Both parts must have the same Input/Output interface.
 //
-func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewPartFn) {
-	// t.Helper()
+func ComparePart(t *testing.T, part1 hwsim.NewPartFn, part2 hwsim.NewPartFn) {
+	t.Helper()
 
 	rand.Seed(time.Now().UnixNano())
 
@@ -105,12 +104,12 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 	parts1 := []hwsim.Part{ps1}
 	for i, o := range ps1.Outputs {
 		n := i
-		parts1 = append(parts1, hwlib.Output(func(b bool) { outputs[n][0] = b })("in="+o))
+		parts1 = append(parts1, hwsim.Output(func(b bool) { outputs[n][0] = b })("in="+o))
 	}
 	parts2 := []hwsim.Part{ps2}
 	for i, o := range ps2.Outputs {
 		n := i
-		parts2 = append(parts2, hwlib.Output(func(b bool) { outputs[n][1] = b })("in="+o))
+		parts2 = append(parts2, hwsim.Output(func(b bool) { outputs[n][1] = b })("in="+o))
 	}
 	w1, err := hwsim.Chip("wrapper1", pinList(ps1.Inputs), "", parts1...)
 	if err != nil {
@@ -142,12 +141,12 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 	var parts []hwsim.Part
 	for i, n := range ps1.Inputs {
 		k := i
-		parts = append(parts, hwlib.Input(func() bool { return inputs[k] })("out="+n))
+		parts = append(parts, hwsim.Input(func() bool { return inputs[k] })("out="+n))
 	}
 	cstr := connString(ps1.Inputs, nil)
 	parts = append(parts, w1(cstr), w2(cstr))
 
-	c, err := hwsim.NewCircuit(0, tpc, parts...)
+	c, err := hwsim.NewCircuit(parts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,6 +181,8 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 		return fmt.Sprintf("\nExpected %s => %s=%v\nGot %v", b.String(), oname, ex, got)
 	}
 
+	start := time.Now()
+
 	c.Tick()
 	// try all 0
 	c.Tock()
@@ -204,7 +205,6 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 		}
 	}
 
-	start := time.Now()
 	iter := len(ps1.Inputs)
 	const maxBits = 12
 	if iter > maxBits {
@@ -240,6 +240,5 @@ func ComparePart(t *testing.T, tpc uint, part1 hwsim.NewPartFn, part2 hwsim.NewP
 	}
 
 	elapsed := time.Since(start)
-	ticks := c.Steps() / tpc
-	t.Logf("%d components. %d steps in %v. %d clock ticks => %.2f Hz", c.Size(), c.Steps(), elapsed, ticks, float64(ticks)/(float64(elapsed)/float64(time.Second)))
+	t.Logf("%s: %d clock ticks in %v => %.2f Hz", ps2.Name, c.Ticks(), elapsed, float64(c.Ticks())/(float64(elapsed)/float64(time.Second)))
 }

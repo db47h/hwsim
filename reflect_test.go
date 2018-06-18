@@ -1,10 +1,12 @@
+// +build ignore
+
 package hwsim_test
 
 import (
 	"testing"
 
 	"github.com/db47h/hwsim"
-	"github.com/db47h/hwsim/hwlib"
+	// "github.com/db47h/hwsim/hwlib"
 	"github.com/db47h/hwsim/hwtest"
 )
 

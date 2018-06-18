@@ -10,14 +10,21 @@ import (
 	"github.com/pkg/errors"
 )
 
+type Container interface {
+	Updater
+	Contents() []Updater
+}
+
 type chip struct {
 	PartSpec             // PartSpec for this chip
 	parts    []*PartSpec // sub parts
 	w        wiring
 }
 
-func (c *chip) mount(s *Socket) []Updater {
-	var updaters []Updater
+func (c *chip) mount(s *Socket) Updater {
+	impl := &chipImpl{
+		ups: make([]Updater, len(c.parts)),
+	}
 	for i, p := range c.parts {
 		// make a sub-socket
 		sub := newSocket(s.c)
@@ -29,20 +36,30 @@ func (c *chip) mount(s *Socket) []Updater {
 			}
 			if n := c.w.wireName(pin{i, k}); n != "" {
 				sub.m[subK] = s.pinOrNew(n)
-				// log.Printf("%s:%s pin %s (%s) on wire %s =  %d", c.Name, p.Name, k, subK, n, sub.m[subK])
-			} else {
+				// log.Printf("%s:%s pin %s (%s) on wire %s = %p", c.Name, p.Name, k, subK, n, sub.m[subK])
+			} else if sub.m[subK] == nil {
 				// Chip() makes sure that unknown pins can only be inputs.
-				if subK == Clk {
-					sub.m[subK] = cstClk
-				} else {
-					sub.m[subK] = cstFalse
-				}
+				sub.m[subK] = s.Pin(False)
 				// log.Printf("%s:%s pin %s (%s) on wire ??? = FALSE", c.Name, p.Name, k, subK)
 			}
 		}
-		updaters = append(updaters, p.Mount(sub)...)
+		impl.ups[i] = p.Mount(sub)
 	}
-	return updaters
+	return impl
+}
+
+type chipImpl struct {
+	ups []Updater
+}
+
+func (c *chipImpl) Update(clk bool) {
+	for _, u := range c.ups {
+		u.Update(clk)
+	}
+}
+
+func (c *chipImpl) Contents() []Updater {
+	return c.ups
 }
 
 // Chip composes existing parts into a new chip.

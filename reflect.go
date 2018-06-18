@@ -1,6 +1,8 @@
 // Copyright 2018 Denis Bernard <db047h@gmail.com>
 // Licensed under the MIT license. See license text in the LICENSE file.
 
+// +build ignore
+
 package hwsim
 
 import (
@@ -10,13 +12,6 @@ import (
 
 	"github.com/pkg/errors"
 )
-
-// Updater is the interface that custom components built using reflection must implement.
-// See MakePart.
-//
-type Updater interface {
-	Update(*Circuit)
-}
 
 var updaterType = reflect.TypeOf((*Updater)(nil)).Elem()
 

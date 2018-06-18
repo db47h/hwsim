@@ -3,11 +3,9 @@ package hwsim_test
 import (
 	"fmt"
 	"math/rand"
-	"runtime"
 	"testing"
 
 	"github.com/db47h/hwsim"
-	"github.com/db47h/hwsim/hwlib"
 	"github.com/db47h/hwsim/hwtest"
 )
 
@@ -25,90 +23,90 @@ func randBool() bool {
 // Don't do this in your own circuits! Clocks should be implemented as custom
 // components or inputs. Or use a DFF.
 //
-func Test_clock(t *testing.T) {
-	var enable, tick bool
+// func Test_clock(t *testing.T) {
+// 	var enable, tick bool
 
-	check := func(v bool) {
-		t.Helper()
-		if tick != v {
-			t.Errorf("expected %v, got %v", v, tick)
-		}
-	}
-	// we could implement the clock directly as a Nor in the cisrcuit (with no less gate delays)
-	// but we wrap it into a stand-alone chip in order to add a layer of complexity
-	// for testing purposes.
-	clk, err := hwsim.Chip("CLK", "enable", "tick",
-		tl.nand("a=enable, b=tick, out=tick"),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	c, err := hwsim.NewCircuit(0, testTPC,
-		hwlib.Input(func() bool { return enable })("out=enable"),
-		clk("enable=enable, tick=out"),
-		hwlib.Output(func(out bool) { tick = out })("in=out"),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer c.Dispose()
+// 	check := func(v bool) {
+// 		t.Helper()
+// 		if tick != v {
+// 			t.Errorf("expected %v, got %v", v, tick)
+// 		}
+// 	}
+// 	// we could implement the clock directly as a Nor in the cisrcuit (with no less gate delays)
+// 	// but we wrap it into a stand-alone chip in order to add a layer of complexity
+// 	// for testing purposes.
+// 	clk, err := hwsim.Chip("CLK", "enable", "tick",
+// 		tl.nand("a=enable, b=tick, out=tick"),
+// 	)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	c, err := hwsim.NewCircuit(
+// 		hwsim.Input(func() bool { return enable })("out=enable"),
+// 		clk("enable=enable, tick=out"),
+// 		hwsim.Output(func(out bool) { tick = out })("in=out"),
+// 	)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	defer c.Dispose()
 
-	// we have two wires: "enable" and "out".
-	// note that Output("out", ...) is delayed by one tick after the Nand updates it.
+// 	// we have two wires: "enable" and "out".
+// 	// note that Output("out", ...) is delayed by one tick after the Nand updates it.
 
-	enable = false
-	c.Step()
-	check(false)
-	c.Step()
-	// this is an expected signal change appearing in the first couple of ticks due to signal propagation delay
-	check(true)
-	c.Step()
-	check(true)
+// 	enable = false
+// 	c.Step()
+// 	check(false)
+// 	c.Step()
+// 	// this is an expected signal change appearing in the first couple of ticks due to signal propagation delay
+// 	check(true)
+// 	c.Step()
+// 	check(true)
 
-	enable = true
-	c.Step()
-	check(true)
-	c.Step()
-	check(true)
-	c.Step()
-	// the clock starts ticking now.
-	check(false)
-	c.Step()
-	check(true)
-	c.Step()
-	check(false)
-	c.Step()
-	check(true)
-	enable = false
-	c.Step()
-	check(false)
-	c.Step()
-	check(true)
-	c.Step()
-	// the clock stops ticking now.
-	check(true)
-	c.Step()
-	check(true)
-}
+// 	enable = true
+// 	c.Step()
+// 	check(true)
+// 	c.Step()
+// 	check(true)
+// 	c.Step()
+// 	// the clock starts ticking now.
+// 	check(false)
+// 	c.Step()
+// 	check(true)
+// 	c.Step()
+// 	check(false)
+// 	c.Step()
+// 	check(true)
+// 	enable = false
+// 	c.Step()
+// 	check(false)
+// 	c.Step()
+// 	check(true)
+// 	c.Step()
+// 	// the clock stops ticking now.
+// 	check(true)
+// 	c.Step()
+// 	check(true)
+// }
 
-// This bench is here to becnhmark the workers sync mechanism overhead.
-func BenchmarkCircuit_Step(b *testing.B) {
-	workers := runtime.GOMAXPROCS(-1)
-	parts := make([]hwsim.Part, 0, workers)
-	for i := 0; i < workers; i++ {
-		parts = append(parts, tl.not(""))
-	}
+// // This bench is here to becnhmark the workers sync mechanism overhead.
+// func BenchmarkCircuit_Step(b *testing.B) {
+// 	workers := runtime.GOMAXPROCS(-1)
+// 	parts := make([]hwsim.Part, 0, workers)
+// 	for i := 0; i < workers; i++ {
+// 		parts = append(parts, tl.not(""))
+// 	}
 
-	c, err := hwsim.NewCircuit(workers, testTPC, parts...)
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer c.Dispose()
+// 	c, err := hwsim.NewCircuit(workers, testTPC, parts...)
+// 	if err != nil {
+// 		b.Fatal(err)
+// 	}
+// 	defer c.Dispose()
 
-	for i := 0; i < b.N; i++ {
-		c.Step()
-	}
-}
+// 	for i := 0; i < b.N; i++ {
+// 		c.Step()
+// 	}
+// }
 
 func ExampleIO() {
 	fmt.Println(hwsim.IO("a,b"))
@@ -144,12 +142,13 @@ func newTestLib() *testLib {
 			Name:    "NAND",
 			Inputs:  []string{"a", "b"},
 			Outputs: []string{"out"},
-			Mount: func(s *hwsim.Socket) []hwsim.Updater {
+			Mount: func(s *hwsim.Socket) hwsim.Updater {
 				a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
-				return hwsim.UpdaterFn(
-					func(c *hwsim.Circuit) {
-						c.Set(out, !(c.Get(a) && c.Get(b)))
-					})
+				f := hwsim.UpdaterFn(func(clk bool) {
+					out.Send(clk, !(a.Recv(clk) && b.Recv(clk)))
+				})
+				out.Connect(f)
+				return f
 			}},
 	}
 	var err error
@@ -257,17 +256,20 @@ func Test_testLib(t *testing.T) {
 			Name:    "AdderN",
 			Inputs:  hwsim.IO(fmt.Sprintf("a[%d], b[%d]", bits, bits)),
 			Outputs: hwsim.IO(fmt.Sprintf("c, out[%d]", bits)),
-			Mount: func(s *hwsim.Socket) []hwsim.Updater {
+			Mount: func(s *hwsim.Socket) hwsim.Updater {
 				a, b, out := s.Bus("a", bits), s.Bus("b", bits), s.Bus("out", bits)
 				carry := s.Pin("c")
-				return hwsim.UpdaterFn(
-					func(c *hwsim.Circuit) {
-						va := c.GetInt64(a)
-						vb := c.GetInt64(b)
+				f := hwsim.UpdaterFn(
+					func(clk bool) {
+						va := a.GetInt64(clk)
+						vb := b.GetInt64(clk)
 						s := va + vb
-						c.Set(carry, s >= 1<<uint(bits))
-						c.SetInt64(out, s&(1<<uint(bits)-1))
+						carry.Send(clk, s >= 1<<uint(bits))
+						out.SetInt64(clk, s&(1<<uint(bits)-1))
 					})
+				out.Connect(f)
+				carry.Connect(f)
+				return f
 			},
 		}
 		return p.NewPart
@@ -278,11 +280,15 @@ func Test_testLib(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hwtest.ComparePart(t, 16, adderN(4), wrap4)
+	hwtest.ComparePart(t, adderN(4), wrap4)
 
+	// dummy := hwsim.Output(func(bool) {})
+	// f := hwsim.Input(func() bool { return false })
 	add16, err := hwsim.Chip("Adder16", "a[16], b[16]", "out[16], c",
-		tl.lcu("p[0..3]=p[0..3], g[0..3]=g[0..3], g=c, c1=c1, c2=c2, c3=c3"),
-		tl.cla4("a[0..3]=a[0..3],   b[0..3]=b[0..3],          out[0..3]=out[0..3],   p=p[0], g=g[0]"),
+		// dummy("in=p"),
+		// f("out=c0"),
+		tl.lcu("p[0..3]=p[0..3], g[0..3]=g[0..3], g=c, c1=c1, c2=c2, c3=c3, c0=false"),
+		tl.cla4("a[0..3]=a[0..3],   b[0..3]=b[0..3],   c0=false, out[0..3]=out[0..3],   p=p[0], g=g[0]"),
 		tl.cla4("a[0..3]=a[4..7],   b[0..3]=b[4..7],   c0=c1, out[0..3]=out[4..7],   p=p[1], g=g[1]"),
 		tl.cla4("a[0..3]=a[8..11],  b[0..3]=b[8..11],  c0=c2, out[0..3]=out[8..11],  p=p[2], g=g[2]"),
 		tl.cla4("a[0..3]=a[12..15], b[0..3]=b[12..15], c0=c3, out[0..3]=out[12..15], p=p[3], g=g[3]"),
@@ -290,5 +296,5 @@ func Test_testLib(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hwtest.ComparePart(t, 32, adderN(16), add16)
+	hwtest.ComparePart(t, adderN(16), add16)
 }

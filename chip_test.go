@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	hw "github.com/db47h/hwsim"
-	hl "github.com/db47h/hwsim/hwlib"
 )
 
 func TestChip_errors(t *testing.T) {
@@ -72,44 +71,44 @@ func TestChip_errors(t *testing.T) {
 
 }
 
-func TestChip_omitted_pins(t *testing.T) {
-	var a, b, c, tr, f, o0, o1 int
-	dummy := (&hw.PartSpec{
-		Name:    "dummy",
-		Inputs:  hw.IO("a, b, c, t, f"),
-		Outputs: hw.IO("o0, o1"),
-		Mount: func(s *hw.Socket) []hw.Updater {
-			a, b, c, tr, f, o0, o1 = s.Pin("a"), s.Pin("b"), s.Pin("c"), s.Pin("t"), s.Pin("f"), s.Pin("o0"), s.Pin("o1")
-			return nil
-		}}).NewPart
-	// this is just to add another layer of testing.
-	// inspecting o0 and o1 shows that another dummy wire was allocated for dummy.o0:wo0
-	wrapper, err := hw.Chip("wrapper", "wa, wb", "wo0, wo1",
-		dummy("a=wa, c=clk, t=true, f=false, o0=wo0"),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+// func TestChip_omitted_pins(t *testing.T) {
+// 	var a, b, c, tr, f, o0, o1 *hw.Pin
+// 	dummy := (&hw.PartSpec{
+// 		Name:    "dummy",
+// 		Inputs:  hw.IO("a, b, c, t, f"),
+// 		Outputs: hw.IO("o0, o1"),
+// 		Mount: func(s *hw.Socket) hw.Updater {
+// 			a, b, c, tr, f, o0, o1 = s.Pin("a"), s.Pin("b"), s.Pin("c"), s.Pin("t"), s.Pin("f"), s.Pin("o0"), s.Pin("o1")
+// 			return nil
+// 		}}).NewPart
+// 	// this is just to add another layer of testing.
+// 	// inspecting o0 and o1 shows that another dummy wire was allocated for dummy.o0:wo0
+// 	wrapper, err := hw.Chip("wrapper", "wa, wb", "wo0, wo1",
+// 		dummy("a=wa, c=clk, t=true, f=false, o0=wo0"),
+// 	)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	cc, err := hw.NewCircuit(0, 0, wrapper(""))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cc.Dispose()
+// 	cc, err := hw.NewCircuit(wrapper(""))
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	defer cc.Dispose()
 
-	if a != 0 || b != 0 || f != 0 { // 0 = cstFalse
-		t.Errorf("a = %v, b = %v, f = %v, all must be 0", a, b, f)
-	}
-	if tr != 1 { // 1 = cstTrue
-		t.Errorf("t = %v, must be 1", tr)
-	}
-	if c != 2 { // 2 = cstClk
-		t.Errorf("c = %v, must be 2", c)
-	}
-	if o0 < 3 || o1 < 3 { // 3 = cstCount
-		t.Errorf("o0 = %v, o1 = %v, both must be > 3", o0, o1)
-	}
-}
+// 	if a != 0 || b != 0 || f != 0 { // 0 = cstFalse
+// 		t.Errorf("a = %v, b = %v, f = %v, all must be 0", a, b, f)
+// 	}
+// 	if tr != 1 { // 1 = cstTrue
+// 		t.Errorf("t = %v, must be 1", tr)
+// 	}
+// 	if c != 2 { // 2 = cstClk
+// 		t.Errorf("c = %v, must be 2", c)
+// 	}
+// 	if o0 < 3 || o1 < 3 { // 3 = cstCount
+// 		t.Errorf("o0 = %v, o1 = %v, both must be > 3", o0, o1)
+// 	}
+// }
 
 func TestChip_fanout_to_outputs(t *testing.T) {
 	gate, err := hw.Chip("FANOUT", "in", "a, b, bus[2], c",
@@ -125,9 +124,10 @@ func TestChip_fanout_to_outputs(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out int64
-	c, err := hw.NewCircuit(0, testTPC,
+	c, err := hw.NewCircuit(
+		//		hw.Input(func() bool { return true })("out=in"),
 		wrapper1("in=true, o[0..7]=wrapOut[0..7]"),
-		hl.OutputN(16, func(v int64) { out = v })("in[0..7]=wrapOut[0..7]"),
+		hw.OutputN(16, func(v int64) { out = v })("in[0..7]=wrapOut[0..7]"),
 	)
 	if err != nil {
 		t.Fatal(err)

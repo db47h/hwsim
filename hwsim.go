@@ -14,8 +14,7 @@ type Updater interface {
 	Update(clk bool)
 }
 
-// UpdaterFn wraps a single update function into an Updater slice, suitable
-// as a return value from a MountFn.
+// A UpdaterFn is a single update function that implements Updater.
 //
 type UpdaterFn func(clk bool)
 
@@ -274,14 +273,14 @@ type Ticker interface {
 	Tick()
 }
 
-type tickerImpl struct {
-	Updater
-}
-
-func (t *tickerImpl) Tick() {}
-
-// NewTicker wraps an updater into a Ticker.
+// A TickerFn is a single update function that implements Ticker.
 //
-func NewTicker(u Updater) Ticker {
-	return &tickerImpl{u}
-}
+type TickerFn func(clk bool)
+
+// Update implements Updater.
+//
+func (f TickerFn) Update(clk bool) { f(clk) }
+
+// Tick implements Ticker.
+//
+func (f TickerFn) Tick() {}

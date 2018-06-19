@@ -13,11 +13,9 @@ var nand = &hw.PartSpec{
 	Outputs: []string{"out"},
 	Mount: func(s *hw.Socket) hw.Updater {
 		a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
-		f := hw.UpdaterFn(func(clk bool) {
+		return hw.UpdaterFn(func(clk bool) {
 			out.Send(clk, !(a.Recv(clk) && b.Recv(clk)))
 		})
-		out.Connect(f)
-		return f
 	}}
 var or = &hw.PartSpec{
 	Name:    "or",
@@ -25,11 +23,9 @@ var or = &hw.PartSpec{
 	Outputs: []string{"out"},
 	Mount: func(s *hw.Socket) hw.Updater {
 		a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
-		f := hw.UpdaterFn(func(clk bool) {
+		return hw.UpdaterFn(func(clk bool) {
 			out.Send(clk, a.Recv(clk) || b.Recv(clk))
 		})
-		out.Connect(f)
-		return f
 	}}
 
 func TestComparePart(t *testing.T) {

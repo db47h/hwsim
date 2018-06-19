@@ -38,7 +38,20 @@ func (c *chip) mount(s *Socket) Updater {
 				// log.Printf("%s:%s pin %s (%s) on wire ??? = FALSE", c.Name, p.Name, k, subK)
 			}
 		}
-		impl.ups[i] = p.Mount(sub)
+		up := p.Mount(sub)
+		impl.ups[i] = up
+		if _, ok := up.(Wrapper); ok {
+			continue
+		}
+		for _, k := range p.Outputs {
+			subK := p.Pinout[k]
+			if subK == "" {
+				continue
+			}
+			if w := sub.m[subK]; w != nil {
+				w.SetSource(up)
+			}
+		}
 	}
 	return impl
 }
@@ -53,7 +66,7 @@ func (c *chipImpl) Update(clk bool) {
 	}
 }
 
-func (c *chipImpl) Contents() []Updater {
+func (c *chipImpl) Unwrap() []Updater {
 	return c.ups
 }
 

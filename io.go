@@ -16,11 +16,9 @@ func Input(f func() bool) NewPartFn {
 		Outputs: []string{"out"},
 		Mount: func(s *Socket) Updater {
 			out := s.Pin("out")
-			upd := UpdaterFn(func(clk bool) {
+			return UpdaterFn(func(clk bool) {
 				out.Send(clk, f())
 			})
-			out.Connect(upd)
-			return upd
 		}}
 	return p.NewPart
 }
@@ -52,12 +50,10 @@ func InputN(bits int, f func() int64) NewPartFn {
 		Outputs: IO("out[" + bs + "]"),
 		Mount: func(s *Socket) Updater {
 			pins := s.Bus("out", bits)
-			upd := UpdaterFn(
+			return UpdaterFn(
 				func(clk bool) {
 					pins.SetInt64(clk, f())
 				})
-			pins.Connect(upd)
-			return upd
 		}}).NewPart
 }
 

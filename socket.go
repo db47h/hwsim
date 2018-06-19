@@ -48,8 +48,12 @@ func (s *Socket) pinOrNew(name string) *Pin {
 	return p
 }
 
+// A Bus is a set of wires.
+//
 type Bus []*Pin
 
+// GetInt64 returns the int64 value of the bus. Element 0 is the LSB.
+//
 func (b Bus) GetInt64(clk bool) int64 {
 	var out int64
 	for bit, p := range b {
@@ -60,15 +64,11 @@ func (b Bus) GetInt64(clk bool) int64 {
 	return out
 }
 
+// SetInt64 sets the int64 value of the bus. Element 0 is the LSB.
+//
 func (b Bus) SetInt64(clk bool, v int64) {
 	for bit, p := range b {
 		p.Send(clk, v&(1<<uint(bit)) != 0)
-	}
-}
-
-func (b Bus) Connect(u Updater) {
-	for _, p := range b {
-		p.Connect(u)
 	}
 }
 

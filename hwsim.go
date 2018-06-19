@@ -180,7 +180,7 @@ func NewCircuit(parts ...Part) (*Circuit, error) {
 	inputFn := func(f func() bool) *Pin {
 		p := new(Pin)
 		up := UpdaterFn(func(clk bool) { p.Send(clk, f()) })
-		p.Connect(up)
+		p.SetSource(up)
 		return p
 	}
 
@@ -251,7 +251,7 @@ func (c *Circuit) Tock() {
 func (c *Circuit) update() {
 	c.ticks++
 	for _, u := range c.tickers {
-		u.Tick(c.clk)
+		u.Update(c.clk)
 	}
 	for _, w := range c.wires {
 		w.clk = c.clk
@@ -265,25 +265,20 @@ func (c *Circuit) TickTock() {
 	c.Tock()
 }
 
-// Ticker is the interface implemented by updaters that have side effects
+// Ticker is a marker interface implemented by updaters that have side effects
 // outside of a circuit or that somehow drives the circuit. All sequential
 // components must implement Ticker.
 //
 type Ticker interface {
 	Updater
-	// Tick is called at every clock Tick or Tock. Most implementations
-	// just call Update().
-	//
-	Tick(clk bool)
+	Tick()
 }
 
 type tickerImpl struct {
 	Updater
 }
 
-func (t *tickerImpl) Tick(clk bool) {
-	t.Update(clk)
-}
+func (t *tickerImpl) Tick() {}
 
 // NewTicker wraps an updater into a Ticker.
 //

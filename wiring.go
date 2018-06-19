@@ -30,9 +30,9 @@ type Pin struct {
 	value bool
 }
 
-// Connect sets the Updater as the connector's source.
+// SetSource sets the given Updater as the connector's source.
 //
-func (c *Pin) Connect(u Updater) {
+func (c *Pin) SetSource(u Updater) {
 	c.src = u
 }
 

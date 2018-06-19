@@ -9,8 +9,6 @@ import (
 	"github.com/db47h/hwsim/hwtest"
 )
 
-const testTPC = 16
-
 func randBool() bool {
 	return rand.Int63()&(1<<62) != 0
 }
@@ -23,71 +21,48 @@ func randBool() bool {
 // Don't do this in your own circuits! Clocks should be implemented as custom
 // components or inputs. Or use a DFF.
 //
-// func Test_clock(t *testing.T) {
-// 	var enable, tick bool
+func Test_clock(t *testing.T) {
+	t.Fatal("loop detection not implemented")
+	// var enable, tick bool
 
-// 	check := func(v bool) {
-// 		t.Helper()
-// 		if tick != v {
-// 			t.Errorf("expected %v, got %v", v, tick)
-// 		}
-// 	}
-// 	// we could implement the clock directly as a Nor in the cisrcuit (with no less gate delays)
-// 	// but we wrap it into a stand-alone chip in order to add a layer of complexity
-// 	// for testing purposes.
-// 	clk, err := hwsim.Chip("CLK", "enable", "tick",
-// 		tl.nand("a=enable, b=tick, out=tick"),
-// 	)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	c, err := hwsim.NewCircuit(
-// 		hwsim.Input(func() bool { return enable })("out=enable"),
-// 		clk("enable=enable, tick=out"),
-// 		hwsim.Output(func(out bool) { tick = out })("in=out"),
-// 	)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	defer c.Dispose()
+	// check := func(v bool) {
+	// 	t.Helper()
+	// 	if tick != v {
+	// 		t.Errorf("expected %v, got %v", v, tick)
+	// 	}
+	// }
 
-// 	// we have two wires: "enable" and "out".
-// 	// note that Output("out", ...) is delayed by one tick after the Nand updates it.
+	// c, err := hwsim.NewCircuit(
+	// 	hwsim.Input(func() bool { return enable })("out=enable"),
+	// 	tl.nand("a=enable, b=tick, out=tick"),
+	// 	hwsim.Output(func(out bool) { tick = out })("in=out"),
+	// )
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
 
-// 	enable = false
-// 	c.Step()
-// 	check(false)
-// 	c.Step()
-// 	// this is an expected signal change appearing in the first couple of ticks due to signal propagation delay
-// 	check(true)
-// 	c.Step()
-// 	check(true)
+	// defer c.Dispose()
 
-// 	enable = true
-// 	c.Step()
-// 	check(true)
-// 	c.Step()
-// 	check(true)
-// 	c.Step()
-// 	// the clock starts ticking now.
-// 	check(false)
-// 	c.Step()
-// 	check(true)
-// 	c.Step()
-// 	check(false)
-// 	c.Step()
-// 	check(true)
-// 	enable = false
-// 	c.Step()
-// 	check(false)
-// 	c.Step()
-// 	check(true)
-// 	c.Step()
-// 	// the clock stops ticking now.
-// 	check(true)
-// 	c.Step()
-// 	check(true)
-// }
+	// // we have two wires: "enable" and "out".
+	// // note that Output("out", ...) is delayed by one tick after the Nand updates it.
+
+	// enable = false
+	// c.Tick()
+	// check(false)
+	// c.Tock()
+	// // this is an expected signal change appearing in the first couple of ticks due to signal propagation delay
+	// check(true)
+	// c.Tick()
+	// check(true)
+	// c.Tock()
+	// check(true)
+
+	// enable = true
+	// c.Tick()
+	// check(true)
+	// c.Tock()
+	// check(true)
+}
 
 // // This bench is here to becnhmark the workers sync mechanism overhead.
 // func BenchmarkCircuit_Step(b *testing.B) {
@@ -147,7 +122,6 @@ func newTestLib() *testLib {
 				f := hwsim.UpdaterFn(func(clk bool) {
 					out.Send(clk, !(a.Recv(clk) && b.Recv(clk)))
 				})
-				out.Connect(f)
 				return f
 			}},
 	}
@@ -259,7 +233,7 @@ func Test_testLib(t *testing.T) {
 			Mount: func(s *hwsim.Socket) hwsim.Updater {
 				a, b, out := s.Bus("a", bits), s.Bus("b", bits), s.Bus("out", bits)
 				carry := s.Pin("c")
-				f := hwsim.UpdaterFn(
+				return hwsim.UpdaterFn(
 					func(clk bool) {
 						va := a.GetInt64(clk)
 						vb := b.GetInt64(clk)
@@ -267,9 +241,6 @@ func Test_testLib(t *testing.T) {
 						carry.Send(clk, s >= 1<<uint(bits))
 						out.SetInt64(clk, s&(1<<uint(bits)-1))
 					})
-				out.Connect(f)
-				carry.Connect(f)
-				return f
 			},
 		}
 		return p.NewPart
@@ -282,13 +253,9 @@ func Test_testLib(t *testing.T) {
 	}
 	hwtest.ComparePart(t, adderN(4), wrap4)
 
-	// dummy := hwsim.Output(func(bool) {})
-	// f := hwsim.Input(func() bool { return false })
 	add16, err := hwsim.Chip("Adder16", "a[16], b[16]", "out[16], c",
-		// dummy("in=p"),
-		// f("out=c0"),
-		tl.lcu("p[0..3]=p[0..3], g[0..3]=g[0..3], g=c, c1=c1, c2=c2, c3=c3, c0=false"),
-		tl.cla4("a[0..3]=a[0..3],   b[0..3]=b[0..3],   c0=false, out[0..3]=out[0..3],   p=p[0], g=g[0]"),
+		tl.lcu("p[0..3]=p[0..3], g[0..3]=g[0..3], g=c, c1=c1, c2=c2, c3=c3"),
+		tl.cla4("a[0..3]=a[0..3],   b[0..3]=b[0..3],          out[0..3]=out[0..3],   p=p[0], g=g[0]"),
 		tl.cla4("a[0..3]=a[4..7],   b[0..3]=b[4..7],   c0=c1, out[0..3]=out[4..7],   p=p[1], g=g[1]"),
 		tl.cla4("a[0..3]=a[8..11],  b[0..3]=b[8..11],  c0=c2, out[0..3]=out[8..11],  p=p[2], g=g[2]"),
 		tl.cla4("a[0..3]=a[12..15], b[0..3]=b[12..15], c0=c3, out[0..3]=out[12..15], p=p[3], g=g[3]"),
@@ -297,4 +264,9 @@ func Test_testLib(t *testing.T) {
 		t.Fatal(err)
 	}
 	hwtest.ComparePart(t, adderN(16), add16)
+
+	// var a, b, s int64
+	// c, err := hw.NewCircuit(
+	// 	hw.Outpu
+	// )
 }

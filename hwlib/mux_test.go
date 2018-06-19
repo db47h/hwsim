@@ -21,7 +21,7 @@ func TestMuxN(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	hwtest.ComparePart(t, 4, hl.MuxN(4), m)
+	hwtest.ComparePart(t, hl.MuxN(4), m)
 }
 
 func TestDMuxN(t *testing.T) {
@@ -34,7 +34,7 @@ func TestDMuxN(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hwtest.ComparePart(t, 4, hl.DMuxN(4), dmux4)
+	hwtest.ComparePart(t, hl.DMuxN(4), dmux4)
 }
 
 func TestMuxMWayN(t *testing.T) {
@@ -47,7 +47,7 @@ func TestMuxMWayN(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hwtest.ComparePart(t, 4, hl.MuxMWayN(4, 4), mux44)
+	hwtest.ComparePart(t, hl.MuxMWayN(4, 4), mux44)
 }
 
 func TestDMuxNWay(t *testing.T) {
@@ -59,7 +59,7 @@ func TestDMuxNWay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hwtest.ComparePart(t, 4, hl.DMuxNWay(4), dmux4)
+	hwtest.ComparePart(t, hl.DMuxNWay(4), dmux4)
 }
 
 func TestDMuxMWayN(t *testing.T) {
@@ -72,5 +72,5 @@ func TestDMuxMWayN(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hwtest.ComparePart(t, 4, hl.DMuxMWayN(4, 4), dmux44)
+	hwtest.ComparePart(t, hl.DMuxMWayN(4, 4), dmux44)
 }

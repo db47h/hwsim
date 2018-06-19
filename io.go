@@ -32,10 +32,10 @@ func Output(f func(value bool)) NewPartFn {
 		Outputs: nil,
 		Mount: func(s *Socket) Updater {
 			out := s.Pin("in")
-			return NewTicker(UpdaterFn(
+			return TickerFn(
 				func(clk bool) {
 					f(out.Recv(clk))
-				}))
+				})
 		}}
 	return p.NewPart
 }
@@ -67,9 +67,9 @@ func OutputN(bits int, f func(int64)) NewPartFn {
 		Outputs: nil,
 		Mount: func(s *Socket) Updater {
 			pins := s.Bus("in", bits)
-			return NewTicker(UpdaterFn(
+			return TickerFn(
 				func(clk bool) {
 					f(pins.GetInt64(clk))
-				}))
+				})
 		}}).NewPart
 }

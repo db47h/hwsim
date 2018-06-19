@@ -26,7 +26,7 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 		w.WriteByte('=')
 		w.WriteString(n)
 		in := &inputs[i]
-		parts = append(parts, hl.Input(func() bool { return *in })("out="+n))
+		parts = append(parts, hw.Input(func() bool { return *in })("out="+n))
 	}
 	for i, n := range part.Outputs {
 		w.WriteByte(',')
@@ -34,7 +34,7 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 		w.WriteByte('=')
 		w.WriteString(n)
 		out := &outputs[i]
-		parts = append(parts, hl.Output(func(v bool) { *out = v })("in="+n))
+		parts = append(parts, hw.Output(func(v bool) { *out = v })("in="+n))
 	}
 	wr := w.String()
 	// trim first ','
@@ -42,7 +42,7 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 		wr = wr[1:]
 	}
 	parts = append(parts, gate(wr))
-	c, err := hw.NewCircuit(0, testTPC, parts...)
+	c, err := hw.NewCircuit(parts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,9 +99,9 @@ func Test_gate_builtin(t *testing.T) {
 func TestInput16(t *testing.T) {
 	in := int64(0)
 	out := int64(0)
-	c, err := hw.NewCircuit(0, testTPC,
-		hl.InputN(16, func() int64 { return in })("out[0..15]= t[0..15]"),
-		hl.OutputN(16, func(n int64) { out = n })("in[0..15] = t[0..15]"),
+	c, err := hw.NewCircuit(
+		hw.InputN(16, func() int64 { return in })("out[0..15]= t[0..15]"),
+		hw.OutputN(16, func(n int64) { out = n })("in[0..15] = t[0..15]"),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -140,11 +140,11 @@ func Test_gateN_builtin(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			c, err := hw.NewCircuit(0, testTPC,
-				hl.InputN(16, func() int64 { return int64(a) })("out[0..15]=a[0..15]"),
-				hl.InputN(16, func() int64 { return int64(b) })("out[0..15]=b[0..15]"),
+			c, err := hw.NewCircuit(
+				hw.InputN(16, func() int64 { return int64(a) })("out[0..15]=a[0..15]"),
+				hw.InputN(16, func() int64 { return int64(b) })("out[0..15]=b[0..15]"),
 				chip(twoIn),
-				hl.OutputN(16, func(v int64) { out = int16(v) })("in[0..15]=out[0..15]"),
+				hw.OutputN(16, func(v int64) { out = int16(v) })("in[0..15]=out[0..15]"),
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -172,7 +172,7 @@ func TestOrNWays(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hwtest.ComparePart(t, 4, hl.OrNWay(4), or4)
+	hwtest.ComparePart(t, hl.OrNWay(4), or4)
 }
 
 func TestAndNWays(t *testing.T) {
@@ -184,5 +184,5 @@ func TestAndNWays(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hwtest.ComparePart(t, 4, hl.AndNWay(4), and4)
+	hwtest.ComparePart(t, hl.AndNWay(4), and4)
 }

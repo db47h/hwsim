@@ -21,14 +21,14 @@ var mux = hwsim.PartSpec{
 	Name:    "MUX",
 	Inputs:  []string{pA, pB, pSel},
 	Outputs: []string{pOut},
-	Mount: func(s *hwsim.Socket) []hwsim.Updater {
+	Mount: func(s *hwsim.Socket) hwsim.Updater {
 		a, b, sel, out := s.Pin(pA), s.Pin(pB), s.Pin(pSel), s.Pin(pOut)
 		return hwsim.UpdaterFn(
-			func(c *hwsim.Circuit) {
-				if c.Get(sel) {
-					c.Set(out, c.Get(b))
+			func(clk bool) {
+				if sel.Recv(clk) {
+					out.Send(clk, b.Recv(clk))
 				} else {
-					c.Set(out, c.Get(a))
+					out.Send(clk, a.Recv(clk))
 				}
 			})
 	}}
@@ -45,16 +45,16 @@ var dmux = hwsim.PartSpec{
 	Name:    "DMUX",
 	Inputs:  []string{pIn, pSel},
 	Outputs: []string{pA, pB},
-	Mount: func(s *hwsim.Socket) []hwsim.Updater {
+	Mount: func(s *hwsim.Socket) hwsim.Updater {
 		in, sel, a, b := s.Pin(pIn), s.Pin(pSel), s.Pin(pA), s.Pin(pB)
 		return hwsim.UpdaterFn(
-			func(c *hwsim.Circuit) {
-				if c.Get(sel) {
-					c.Set(a, false)
-					c.Set(b, c.Get(in))
+			func(clk bool) {
+				if sel.Recv(clk) {
+					a.Send(clk, false)
+					b.Send(clk, in.Recv(clk))
 				} else {
-					c.Set(a, c.Get(in))
-					c.Set(b, false)
+					a.Send(clk, in.Recv(clk))
+					b.Send(clk, false)
 				}
 			})
 	},
@@ -65,18 +65,18 @@ func muxN(bits int) *hwsim.PartSpec {
 		Name:    "Mux" + strconv.Itoa(bits),
 		Inputs:  append(bus(bits, pA, pB), pSel),
 		Outputs: bus(bits, pOut),
-		Mount: func(s *hwsim.Socket) []hwsim.Updater {
+		Mount: func(s *hwsim.Socket) hwsim.Updater {
 			a, b, sel := s.Bus(pA, bits), s.Bus(pB, bits), s.Pin(pSel)
 			o := s.Bus(pOut, bits)
 			return hwsim.UpdaterFn(
-				func(c *hwsim.Circuit) {
-					if c.Get(sel) {
+				func(clk bool) {
+					if sel.Recv(clk) {
 						for i, out := range o {
-							c.Set(out, c.Get(b[i]))
+							out.Send(clk, b[i].Recv(clk))
 						}
 					} else {
 						for i, out := range o {
-							c.Set(out, c.Get(a[i]))
+							out.Send(clk, a[i].Recv(clk))
 						}
 					}
 				})
@@ -118,23 +118,23 @@ func DMuxN(bits int) hwsim.NewPartFn {
 		Name:    "DMux" + strconv.Itoa(bits),
 		Inputs:  append(bus(bits, pIn), pSel),
 		Outputs: bus(bits, pA, pB),
-		Mount: func(s *hwsim.Socket) []hwsim.Updater {
+		Mount: func(s *hwsim.Socket) hwsim.Updater {
 			in, sel, a, b := s.Bus(pIn, bits), s.Pin(pSel), s.Bus(pA, bits), s.Bus(pB, bits)
 			return hwsim.UpdaterFn(
-				func(c *hwsim.Circuit) {
-					var i, f []int
-					if c.Get(sel) {
-						f = a
-						i = b
+				func(clk bool) {
+					var si, sf []*hwsim.Pin
+					if sel.Recv(clk) {
+						sf = a
+						si = b
 					} else {
-						i = a
-						f = b
+						si = a
+						sf = b
 					}
-					for n, iv := range in {
-						c.Set(i[n], c.Get(iv))
+					for i, ip := range in {
+						si[i].Send(clk, ip.Recv(clk))
 					}
-					for _, o := range f {
-						c.Set(o, false)
+					for _, o := range sf {
+						o.Send(clk, false)
 					}
 				})
 		}}).NewPart
@@ -184,18 +184,18 @@ func MuxMWayN(ways int, bits int) hwsim.NewPartFn {
 		Name:    "Mux" + strconv.Itoa(ways) + "Way" + strconv.Itoa(bits),
 		Inputs:  inputs,
 		Outputs: bus(bits, pOut),
-		Mount: func(s *hwsim.Socket) []hwsim.Updater {
-			in := make([][]int, 1<<uint(selBits))
+		Mount: func(s *hwsim.Socket) hwsim.Updater {
+			in := make([]hwsim.Bus, 1<<uint(selBits))
 			for i := range in {
 				in[i] = s.Bus(inputNames[i], bits)
 			}
 			sel := s.Bus(pSel, int(selBits))
 			out := s.Bus(pOut, bits)
 			return hwsim.UpdaterFn(
-				func(c *hwsim.Circuit) {
-					selIn := in[c.GetInt64(sel)]
+				func(clk bool) {
+					selIn := in[sel.GetInt64(clk)]
 					for i, o := range out {
-						c.Set(o, c.Get(selIn[i]))
+						o.Send(clk, selIn[i].Recv(clk))
 					}
 				})
 		}}
@@ -218,19 +218,23 @@ func DMuxNWay(ways int) hwsim.NewPartFn {
 		Name:    "DMux" + strconv.Itoa(ways) + "Way",
 		Inputs:  append([]string{pIn}, bus(selBits, pSel)...),
 		Outputs: inputNames[:ways],
-		Mount: func(s *hwsim.Socket) []hwsim.Updater {
+		Mount: func(s *hwsim.Socket) hwsim.Updater {
 			in := s.Pin(pIn)
 			sel := s.Bus(pSel, selBits)
-			outs := make([]int, 1<<uint(selBits))
+			outs := make([]*hwsim.Pin, 1<<uint(selBits))
 			for i := range outs {
 				outs[i] = s.Pin(inputNames[i])
 			}
 			return hwsim.UpdaterFn(
-				func(c *hwsim.Circuit) {
-					for _, o := range outs {
-						c.Set(o, false)
+				func(clk bool) {
+					s := int(sel.GetInt64(clk))
+					for i, o := range outs {
+						if i == s {
+							o.Send(clk, in.Recv(clk))
+						} else {
+							o.Send(clk, false)
+						}
 					}
-					c.Set(outs[c.GetInt64(sel)], c.Get(in))
 				})
 		}}
 	return p.NewPart
@@ -259,24 +263,24 @@ func DMuxMWayN(ways int, bits int) hwsim.NewPartFn {
 		Name:    "DMux" + strconv.Itoa(ways) + "Way",
 		Inputs:  append(bus(bits, pIn), bus(selBits, pSel)...),
 		Outputs: outputs,
-		Mount: func(s *hwsim.Socket) []hwsim.Updater {
+		Mount: func(s *hwsim.Socket) hwsim.Updater {
 			in := s.Bus(pIn, bits)
 			sel := s.Bus(pSel, selBits)
-			outs := make([][]int, 1<<uint(selBits))
+			outs := make([]hwsim.Bus, 1<<uint(selBits))
 			for i := range outs {
 				outs[i] = s.Bus(inputNames[i], bits)
 			}
 			return hwsim.UpdaterFn(
-				func(c *hwsim.Circuit) {
-					selV := int(c.GetInt64(sel))
+				func(clk bool) {
+					selV := int(sel.GetInt64(clk))
 					for i, out := range outs {
 						if i == selV {
 							for bit, o := range out {
-								c.Set(o, c.Get(in[bit]))
+								o.Send(clk, in[bit].Recv(clk))
 							}
 						} else {
 							for _, o := range out {
-								c.Set(o, false)
+								o.Send(clk, false)
 							}
 						}
 					}

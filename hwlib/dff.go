@@ -12,20 +12,32 @@ import "github.com/db47h/hwsim"
 //	Function: out(t) = in(t-1) // where t is the current clock cycle.
 //
 func DFF(w string) hwsim.Part {
-	return (&hwsim.PartSpec{
-		Name:    "DFF",
-		Inputs:  []string{pIn},
-		Outputs: []string{pOut},
-		Mount: func(s *hwsim.Socket) []hwsim.Updater {
-			in, out := s.Pin(pIn), s.Pin(pOut)
-			var curOut bool
-			return hwsim.UpdaterFn(
-				func(c *hwsim.Circuit) {
-					// raising edge?
-					if c.AtTick() {
-						curOut = c.Get(in)
-					}
-					c.Set(out, curOut)
-				})
-		}}).NewPart(w)
+	return dff.NewPart(w)
 }
+
+var dff = &hwsim.PartSpec{
+	Name:    "DFF",
+	Inputs:  []string{pIn},
+	Outputs: []string{pOut},
+	Mount: func(s *hwsim.Socket) hwsim.Updater {
+		return &dffImpl{in: s.Pin(pIn), out: s.Pin(pOut)}
+	}}
+
+type dffImpl struct {
+	in, out *hwsim.Pin
+	v       bool
+	n       bool
+}
+
+func (d *dffImpl) Update(clk bool) {
+	if clk {
+		// send first in order to prevent update loops
+		d.out.Send(clk, d.v)
+		d.n = d.in.Recv(clk)
+	} else {
+		d.v = d.n
+		d.out.Send(clk, d.v)
+	}
+}
+
+func (*dffImpl) Tick() {}

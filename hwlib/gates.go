@@ -36,9 +36,9 @@ func bus(bits int, names ...string) []string {
 }
 
 var notGate = hwsim.PartSpec{Name: "NOR", Inputs: []string{pIn}, Outputs: []string{pOut},
-	Mount: func(s *hwsim.Socket) []hwsim.Updater {
+	Mount: func(s *hwsim.Socket) hwsim.Updater {
 		in, out := s.Pin(pIn), s.Pin(pOut)
-		return hwsim.UpdaterFn(func(c *hwsim.Circuit) { c.Set(out, !c.Get(in)) })
+		return hwsim.UpdaterFn(func(clk bool) { out.Send(clk, !in.Recv(clk)) })
 	}}
 
 // Not returns a NOT gate.
@@ -54,9 +54,9 @@ func Not(w string) hwsim.Part {
 // other gates
 type gate func(a, b bool) bool
 
-func (g gate) mount(s *hwsim.Socket) []hwsim.Updater {
+func (g gate) mount(s *hwsim.Socket) hwsim.Updater {
 	a, b, out := s.Pin(pA), s.Pin(pB), s.Pin(pOut)
-	return hwsim.UpdaterFn(func(c *hwsim.Circuit) { c.Set(out, g(c.Get(a), c.Get(b))) })
+	return hwsim.UpdaterFn(func(clk bool) { out.Send(clk, g(a.Recv(clk), b.Recv(clk))) })
 }
 
 func newGate(name string, fn func(a, b bool) bool) *hwsim.PartSpec {
@@ -133,13 +133,13 @@ func notN(bits int) *hwsim.PartSpec {
 		Name:    "NOT" + strconv.Itoa(bits),
 		Inputs:  bus(bits, pIn),
 		Outputs: bus(bits, pOut),
-		Mount: func(s *hwsim.Socket) []hwsim.Updater {
+		Mount: func(s *hwsim.Socket) hwsim.Updater {
 			ins := s.Bus(pIn, bits)
 			outs := s.Bus(pOut, bits)
 			return hwsim.UpdaterFn(
-				func(c *hwsim.Circuit) {
+				func(clk bool) {
 					for i, pin := range ins {
-						c.Set(outs[i], !c.Get(pin))
+						outs[i].Send(clk, !pin.Recv(clk))
 					}
 				})
 		}}
@@ -172,12 +172,12 @@ type gateN struct {
 	fn   func(bool, bool) bool
 }
 
-func (g *gateN) mount(s *hwsim.Socket) []hwsim.Updater {
+func (g *gateN) mount(s *hwsim.Socket) hwsim.Updater {
 	a, b, out := s.Bus(pA, g.bits), s.Bus(pB, g.bits), s.Bus(pOut, g.bits)
 	return hwsim.UpdaterFn(
-		func(c *hwsim.Circuit) {
-			for i := range a {
-				c.Set(out[i], g.fn(c.Get(a[i]), c.Get(b[i])))
+		func(clk bool) {
+			for i, o := range out {
+				o.Send(clk, g.fn(a[i].Recv(clk), b[i].Recv(clk)))
 			}
 		})
 }
@@ -251,18 +251,18 @@ func OrNWay(ways int) hwsim.NewPartFn {
 		Name:    "OR" + strconv.Itoa(ways) + "Way",
 		Inputs:  bus(ways, pIn),
 		Outputs: hwsim.IO(pOut),
-		Mount: func(s *hwsim.Socket) []hwsim.Updater {
+		Mount: func(s *hwsim.Socket) hwsim.Updater {
 			in := s.Bus(pIn, ways)
 			out := s.Pin(pOut)
 			return hwsim.UpdaterFn(
-				func(c *hwsim.Circuit) {
+				func(clk bool) {
 					for _, i := range in {
-						if c.Get(i) {
-							c.Set(out, true)
+						if i.Recv(clk) {
+							out.Send(clk, true)
 							return
 						}
 					}
-					c.Set(out, false)
+					out.Send(clk, false)
 				})
 		}}).NewPart
 }
@@ -278,18 +278,18 @@ func AndNWay(ways int) hwsim.NewPartFn {
 		Name:    "AND" + strconv.Itoa(ways) + "Way",
 		Inputs:  bus(ways, pIn),
 		Outputs: hwsim.IO(pOut),
-		Mount: func(s *hwsim.Socket) []hwsim.Updater {
+		Mount: func(s *hwsim.Socket) hwsim.Updater {
 			in := s.Bus(pIn, ways)
 			out := s.Pin(pOut)
 			return hwsim.UpdaterFn(
-				func(c *hwsim.Circuit) {
+				func(clk bool) {
 					for _, i := range in {
-						if c.Get(i) == false {
-							c.Set(out, false)
+						if i.Recv(clk) == false {
+							out.Send(clk, false)
 							return
 						}
 					}
-					c.Set(out, true)
+					out.Send(clk, true)
 				})
 		}}).NewPart
 }

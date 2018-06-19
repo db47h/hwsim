@@ -4,8 +4,6 @@
 package hwsim
 
 import (
-	"log"
-
 	"github.com/pkg/errors"
 )
 
@@ -133,13 +131,22 @@ type Part struct {
 	Conns []Connection
 }
 
+// A Wrapper is a parts that wraps together several other parts and has no
+// additional function. When a Circtuit is built, Wrappers are unwrapped
+// and discarded ─ their Update function is never called.
+//
+type Wrapper interface {
+	Updater
+	Unwrap() []Updater
+}
+
 // Circuit is a runnable circuit simulation.
 //
 type Circuit struct {
-	wires []*Pin
-	ups   []Updater
-	ticks uint
-	clk   bool
+	wires   []*Pin
+	tickers []Ticker
+	ticks   uint64
+	clk     bool
 }
 
 // NewCircuit builds a new circuit based on the given parts.
@@ -181,26 +188,24 @@ func NewCircuit(parts ...Part) (*Circuit, error) {
 	c.wires[cstTrue] = inputFn(func() bool { return true })
 	c.wires[cstClk] = inputFn(func() bool { return c.clk })
 
-	unwrap(&c.ups, wrap("").Mount(newSocket(c)))
-
-	log.Printf("components: %d", len(c.ups))
+	unwrap(&c.tickers, wrap("").Mount(newSocket(c)))
 
 	for i := range c.wires {
 		if c.wires[i].src == nil {
-			log.Printf("nil src for wire %p (%d)", c.wires[i], i)
+			panic(errors.Errorf("nil src for wire %p (%d)", c.wires[i], i))
 		}
 	}
 
 	return c, nil
 }
 
-func unwrap(ul *[]Updater, u Updater) {
-	if uw, ok := u.(Container); ok {
-		for _, u := range uw.Contents() {
+func unwrap(ul *[]Ticker, u Updater) {
+	if uw, ok := u.(Wrapper); ok {
+		for _, u := range uw.Unwrap() {
 			unwrap(ul, u)
 		}
-	} else if _, ok := u.(Ticker); ok {
-		*ul = append(*ul, u)
+	} else if t, ok := u.(Ticker); ok {
+		*ul = append(*ul, t)
 	}
 }
 
@@ -220,7 +225,7 @@ func (c *Circuit) allocPin() *Pin {
 
 // Ticks returns the value of the step counter.
 //
-func (c *Circuit) Ticks() uint {
+func (c *Circuit) Ticks() uint64 {
 	return c.ticks
 }
 
@@ -245,8 +250,8 @@ func (c *Circuit) Tock() {
 
 func (c *Circuit) update() {
 	c.ticks++
-	for _, u := range c.ups {
-		u.Update(c.clk)
+	for _, u := range c.tickers {
+		u.Tick(c.clk)
 	}
 	for _, w := range c.wires {
 		w.clk = c.clk
@@ -260,17 +265,28 @@ func (c *Circuit) TickTock() {
 	c.Tock()
 }
 
+// Ticker is the interface implemented by updaters that have side effects
+// outside of a circuit or that somehow drives the circuit. All sequential
+// components must implement Ticker.
+//
 type Ticker interface {
 	Updater
-	Tick()
+	// Tick is called at every clock Tick or Tock. Most implementations
+	// just call Update().
+	//
+	Tick(clk bool)
 }
 
 type tickerImpl struct {
 	Updater
 }
 
-func (t *tickerImpl) Tick() {}
+func (t *tickerImpl) Tick(clk bool) {
+	t.Update(clk)
+}
 
+// NewTicker wraps an updater into a Ticker.
+//
 func NewTicker(u Updater) Ticker {
 	return &tickerImpl{u}
 }

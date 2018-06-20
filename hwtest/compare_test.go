@@ -12,7 +12,7 @@ var nand = &hw.PartSpec{
 	Inputs:  []string{"a", "b"},
 	Outputs: []string{"out"},
 	Mount: func(s *hw.Socket) hw.Updater {
-		a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
+		a, b, out := s.Wire("a"), s.Wire("b"), s.Wire("out")
 		return hw.UpdaterFn(func(clk bool) {
 			out.Send(clk, !(a.Recv(clk) && b.Recv(clk)))
 		})
@@ -22,7 +22,7 @@ var or = &hw.PartSpec{
 	Inputs:  []string{"a", "b"},
 	Outputs: []string{"out"},
 	Mount: func(s *hw.Socket) hw.Updater {
-		a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
+		a, b, out := s.Wire("a"), s.Wire("b"), s.Wire("out")
 		return hw.UpdaterFn(func(clk bool) {
 			out.Send(clk, a.Recv(clk) || b.Recv(clk))
 		})

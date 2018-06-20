@@ -72,16 +72,16 @@ func TestChip_errors(t *testing.T) {
 }
 
 func TestChip_omitted_pins(t *testing.T) {
-	var cFalse, cTrue, cClk, a, b, c, tr, f, o0, o1 *hw.Pin
+	var cFalse, cTrue, cClk, a, b, c, tr, f, o0, o1 *hw.Wire
 	dummy := (&hw.PartSpec{
 		Name:    "dummy",
 		Inputs:  hw.IO("a, b, c, t, f"),
 		Outputs: hw.IO("o0, o1"),
 		Mount: func(s *hw.Socket) hw.Updater {
-			cFalse = s.Pin(hw.False)
-			cTrue = s.Pin(hw.True)
-			cClk = s.Pin(hw.Clk)
-			a, b, c, tr, f, o0, o1 = s.Pin("a"), s.Pin("b"), s.Pin("c"), s.Pin("t"), s.Pin("f"), s.Pin("o0"), s.Pin("o1")
+			cFalse = s.Wire(hw.False)
+			cTrue = s.Wire(hw.True)
+			cClk = s.Wire(hw.Clk)
+			a, b, c, tr, f, o0, o1 = s.Wire("a"), s.Wire("b"), s.Wire("c"), s.Wire("t"), s.Wire("f"), s.Wire("o0"), s.Wire("o1")
 			return hw.UpdaterFn(func(clk bool) {})
 		}}).NewPart
 	// this is just to add another layer of testing.

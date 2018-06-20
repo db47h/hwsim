@@ -107,7 +107,7 @@ func newTestLib() *testLib {
 			Inputs:  []string{"a", "b"},
 			Outputs: []string{"out"},
 			Mount: func(s *hwsim.Socket) hwsim.Updater {
-				a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
+				a, b, out := s.Wire("a"), s.Wire("b"), s.Wire("out")
 				f := hwsim.UpdaterFn(func(clk bool) {
 					out.Send(clk, !(a.Recv(clk) && b.Recv(clk)))
 				})
@@ -217,7 +217,7 @@ func newTestLib() *testLib {
 		Inputs:  []string{"in"},
 		Outputs: []string{"out"},
 		Mount: func(s *hwsim.Socket) hwsim.Updater {
-			in, out := s.Pin("in"), s.Pin("out")
+			in, out := s.Wire("in"), s.Wire("out")
 			var v bool
 			return hwsim.TickerFn(func(clk bool) {
 				out.Send(clk, v)
@@ -240,7 +240,7 @@ func Test_testLib(t *testing.T) {
 			Outputs: hwsim.IO(fmt.Sprintf("c, out[%d]", bits)),
 			Mount: func(s *hwsim.Socket) hwsim.Updater {
 				a, b, out := s.Bus("a", bits), s.Bus("b", bits), s.Bus("out", bits)
-				carry := s.Pin("c")
+				carry := s.Wire("c")
 				return hwsim.UpdaterFn(
 					func(clk bool) {
 						va := a.GetInt64(clk)

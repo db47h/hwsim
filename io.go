@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-// Input returns a 1 bit input.
+// Input returns a 1 bit input. The input value is the return value of f.
 //
 func Input(f func() bool) NewPartFn {
 	p := &PartSpec{
@@ -15,7 +15,7 @@ func Input(f func() bool) NewPartFn {
 		Inputs:  nil,
 		Outputs: []string{"out"},
 		Mount: func(s *Socket) Updater {
-			out := s.Pin("out")
+			out := s.Wire("out")
 			return UpdaterFn(func(clk bool) {
 				out.Send(clk, f())
 			})
@@ -23,7 +23,7 @@ func Input(f func() bool) NewPartFn {
 	return p.NewPart
 }
 
-// Output returns a 1 bit output.
+// Output returns a 1 bit output. f is called with the output value.
 //
 func Output(f func(value bool)) NewPartFn {
 	p := &PartSpec{
@@ -31,7 +31,7 @@ func Output(f func(value bool)) NewPartFn {
 		Inputs:  []string{"in"},
 		Outputs: nil,
 		Mount: func(s *Socket) Updater {
-			out := s.Pin("in")
+			out := s.Wire("in")
 			return TickerFn(
 				func(clk bool) {
 					f(out.Recv(clk))
@@ -40,7 +40,7 @@ func Output(f func(value bool)) NewPartFn {
 	return p.NewPart
 }
 
-// InputN creates an input bus of the given bits size.
+// InputN returns an input bus of the given bits size.
 //
 func InputN(bits int, f func() int64) NewPartFn {
 	bs := strconv.Itoa(bits)
@@ -57,7 +57,7 @@ func InputN(bits int, f func() int64) NewPartFn {
 		}}).NewPart
 }
 
-// OutputN creates an output bus of the given bits size.
+// OutputN returns an output bus of the given bits size.
 //
 func OutputN(bits int, f func(int64)) NewPartFn {
 	bs := strconv.Itoa(bits)

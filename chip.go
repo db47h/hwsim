@@ -30,11 +30,11 @@ func (c *chip) mount(s *Socket) Updater {
 				continue
 			}
 			if n := c.w.wireName(pin{i, k}); n != "" {
-				sub.m[subK] = s.pinOrNew(n)
+				sub.m[subK] = s.wireOrNew(n)
 				// log.Printf("%s:%s pin %s (%s) on wire %s = %p", c.Name, p.Name, k, subK, n, sub.m[subK])
 			} else if sub.m[subK] == nil {
 				// Chip() makes sure that unknown pins can only be inputs.
-				sub.m[subK] = s.Pin(False)
+				sub.m[subK] = s.Wire(False)
 				// log.Printf("%s:%s pin %s (%s) on wire ??? = FALSE", c.Name, p.Name, k, subK)
 			}
 		}
@@ -79,27 +79,26 @@ func (c *chipImpl) Unwrap() []Updater {
 //
 //	xor, err := hwsim.Chip(
 //		"XOR",
-//		hwsim.In("a, b"),
-//		hwsim.Out("out"),
-//		hwsim.Parts{
-//			hwlib.Nand("a=a, b=b, out=nandAB")),
-//			hwlib.Nand("a=a, b=nandAB, out=w0")),
-//			hwlib.Nand("a=b, b=nandAB, out=w1")),
-//			hwlib.Nand("a=w0, b=w1, out=out")),
-//		})
+//		hwsim.IO("a, b"),
+//		hwsim.IO("out"),
+//		hwlib.Nand("a=a, b=b, out=nandAB"),
+//		hwlib.Nand("a=a, b=nandAB, out=w0"),
+//		hwlib.Nand("a=b, b=nandAB, out=w1"),
+//		hwlib.Nand("a=w0, b=w1, out=out"),
+//	)
+//
 //
 // The created chip can be composed with other parts to create other chips
 // simply by calling the returned NewPartFn with a connection configuration:
 //
 //	xnor, err := Chip(
 //		"XNOR",
-//		hwsim.In("a, b"),
-//		hwsim.Out("out"),
-//		hwsim.Parts{
-//			// reuse the xor chip created above
-//			xor("a=a, b=b, out=xorAB"}),
-//			hwlib.Not("in=xorAB, out=out"}),
-//		})
+//		hwsim.IO("a, b"),
+//		hwsim.IO("out"),
+//		// reuse the xor chip created above
+//		xor("a=a, b=b, out=xorAB"),
+//		hwlib.Not("in=xorAB, out=out"),
+//	)
 //
 func Chip(name string, inputs string, outputs string, parts ...Part) (NewPartFn, error) {
 	// build wiring
@@ -140,7 +139,7 @@ func Chip(name string, inputs string, outputs string, parts ...Part) (NewPartFn,
 				for _, v := range c.CP {
 					i, o := pin{pnum, k}, pin{-1, v}
 					if err := wr.connect(i, typeOutput, tmpName(pnum, k), o, typeUnknown); err != nil {
-						return nil, errors.Wrap(err, pinName(spcs, i)+":"+pinName(spcs, o))
+						return nil, errors.Wrap(err, getPinName(spcs, i)+":"+getPinName(spcs, o))
 					}
 				}
 			} else {
@@ -149,7 +148,7 @@ func Chip(name string, inputs string, outputs string, parts ...Part) (NewPartFn,
 				}
 				i, o := pin{-1, c.CP[0]}, pin{pnum, k}
 				if err := wr.connect(i, typeUnknown, c.CP[0], o, typeInput); err != nil {
-					return nil, errors.Wrap(err, pinName(spcs, i)+":"+pinName(spcs, o))
+					return nil, errors.Wrap(err, getPinName(spcs, i)+":"+getPinName(spcs, o))
 				}
 			}
 		}
@@ -206,7 +205,7 @@ func Chip(name string, inputs string, outputs string, parts ...Part) (NewPartFn,
 	return c.PartSpec.NewPart, nil
 }
 
-func pinName(sp []*PartSpec, p pin) string {
+func getPinName(sp []*PartSpec, p pin) string {
 	if p.p < 0 {
 		return p.name
 	}

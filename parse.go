@@ -34,7 +34,7 @@ func IO(spec string) []string {
 //	digit      = "0" ... "9" .
 //
 // Buses are declared by simply specifying their size. For example,
-// the input description string "a, b, bus[4]" will be expanded to:
+// the I/O specification string "a, b, bus[4]" will be expanded to:
 //
 //	[]string{"a", "b", "bus[0]", "bus[1]", "bus[2]", "bus[3]"}
 //
@@ -60,11 +60,11 @@ func ParseIOSpec(names string) ([]string, error) {
 		switch p := i.(type) {
 		case *hdl.PinRange:
 			for i := p.Start; i <= p.End; i++ {
-				out = append(out, busPinName(p.Name, i))
+				out = append(out, pinName(p.Name, i))
 			}
 		case *hdl.PinIndex:
 			for i := 0; i < p.Index; i++ {
-				out = append(out, busPinName(p.Name, i))
+				out = append(out, pinName(p.Name, i))
 			}
 		case *hdl.Pin:
 			out = append(out, p.Name)
@@ -127,11 +127,11 @@ func expandRange(v hdl.PinExpr) []string {
 	case *hdl.PinRange:
 		var l []string
 		for i := p.Start; i <= p.End; i++ {
-			l = append(l, busPinName(p.Name, i))
+			l = append(l, pinName(p.Name, i))
 		}
 		return l
 	case *hdl.PinIndex:
-		return []string{busPinName(p.Name, p.Index)}
+		return []string{pinName(p.Name, p.Index)}
 	case *hdl.Pin:
 		return []string{p.Name}
 	default:

@@ -72,12 +72,15 @@ func TestChip_errors(t *testing.T) {
 }
 
 func TestChip_omitted_pins(t *testing.T) {
-	var a, b, c, tr, f, o0, o1 *hw.Pin
+	var cFalse, cTrue, cClk, a, b, c, tr, f, o0, o1 *hw.Pin
 	dummy := (&hw.PartSpec{
 		Name:    "dummy",
 		Inputs:  hw.IO("a, b, c, t, f"),
 		Outputs: hw.IO("o0, o1"),
 		Mount: func(s *hw.Socket) hw.Updater {
+			cFalse = s.Pin(hw.False)
+			cTrue = s.Pin(hw.True)
+			cClk = s.Pin(hw.Clk)
 			a, b, c, tr, f, o0, o1 = s.Pin("a"), s.Pin("b"), s.Pin("c"), s.Pin("t"), s.Pin("f"), s.Pin("o0"), s.Pin("o1")
 			return nil
 		}}).NewPart
@@ -89,7 +92,21 @@ func TestChip_omitted_pins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, _, _, _, _, _ = a, b, c, tr, f, o0, o1
+	if a != cFalse || b != cFalse || f != cFalse { // 0 = cstFalse
+		t.Errorf("a = %p, b = %p, f = %p, all must be False (%p)", a, b, f, cFalse)
+	}
+	if tr != cTrue { // 1 = cstTrue
+		t.Errorf("t = %p, must be true (%p)", tr, cTrue)
+	}
+	if c != cClk { // 2 = cstClk
+		t.Errorf("c = %p, must be clk (%p)", c, cClk)
+	}
+	if o0 == nil || o0 == cFalse || o0 == cTrue || o0 == cClk {
+		t.Errorf("o0 = %p, must be != nil and cst pins", o0)
+	}
+	if o1 == nil || o1 == cFalse || o1 == cTrue || o1 == cClk {
+		t.Errorf("o1 = %p, must be != nil and != cst pins", o1)
+	}
 }
 
 func TestChip_fanout_to_outputs(t *testing.T) {

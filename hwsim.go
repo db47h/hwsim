@@ -7,10 +7,16 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Updater is the interface that custom components built using reflection must implement.
-// See MakePart.
+// Updater is the interface for components in a circuit.
+//
+// Clocked components must also implement Ticker.
 //
 type Updater interface {
+	// Update is called every time an Updater's output pins must be updated.
+	// The clk value is the current state of the clock signal (true during a
+	// tick, false during a tock). Non-clocked components should ignore this
+	// signal and just pass it along in the Recv and Send calls to their
+	// connected wires.
 	Update(clk bool)
 }
 
@@ -24,38 +30,38 @@ func (u UpdaterFn) Update(clk bool) {
 	u(clk)
 }
 
-// A MountFn mounts a part into socket s. MountFn's should query
-// the socket for assigned pin numbers and return closures around
-// these pin numbers.
+// A MountFn mounts a part into socket s. MountFn's should query the socket
+// to get Wires connected to a part's pins and return closures around these
+// Wires.
 //
 // For example, a Not gate can be defined like this:
 //
-//	not := &PartSpec{
+//	notSpec := &hwsim.PartSpec{
 //		Name: "Not",
-//		In: In("in"),
-//		Out: Out("out"),
-//		Mount: func (s *Socket) []Component {
-//			in, out := s.Pin("in"), s.Pin("out")
-//			return []Component{
-//				func (c *Circuit) { c.Set(out, !c.Get(in)) }
-//			}
+//		In: hwsim.IO("in"),
+//		Out: hwsim.IO("out"),
+//		Mount: func (s *hwsim.Socket) hwsim.Updater {
+//			in, out := s.Wire("in"), s.Wire("out")
+//			return hwsim.UpdaterFn(
+//				func (clk bool) { out.Send(clk, !in.Recv(clk)) }
+//			)
 //		}}
 //
 type MountFn func(s *Socket) Updater
 
-// A PartSpec wraps a part specification (its blueprint).
+// A PartSpec represents a part specification (its blueprint).
 //
 // Custom parts are implemented by creating a PartSpec:
 //
 //	notSpec := &hwsim.PartSpec{
 //		Name: "Not",
-//		In: hwsim.In("in"),
-//		Out: hwsim.Out("out"),
-//		Mount: func (s *hwsim.Socket) []hwsim.Component {
-//			in, out := s.Pin("in"), s.Pin("out")
-//			return []hwsim.Component{
-//				func (c *Circuit) { c.Set(out, !c.Get(in)) }
-//			}
+//		In: hwsim.IO("in"),
+//		Out: hwsim.IO("out"),
+//		Mount: func (s *hwsim.Socket) hwsim.Updater {
+//			in, out := s.Wire("in"), s.Wire("out")
+//			return hwsim.UpdaterFn(
+//				func (clk bool) { out.Send(clk, !in.Recv(clk)) }
+//			)
 //		}}
 //
 // Then get a NewPartFn for that PartSpec:
@@ -68,10 +74,10 @@ type MountFn func(s *Socket) Updater
 //
 // Which can the be used as a NewPartFn when building other chips:
 //
-//	c, _ := Chip("dummy", In("a, b"), Out("c, d"), Parts{
-//		notGate("in: a, out: c"),
-//		Not("in: b, out: d"),
-//	})
+//	c, _ := Chip("dummy", In("a, b"), Out("notA, d"),
+//		notGate("in: a, out: notA"),
+//		// ...
+//	)
 //
 type PartSpec struct {
 	// Part name.
@@ -87,7 +93,7 @@ type PartSpec struct {
 	// Pinout maps the input and output pin names (public interface) of a part
 	// to internal (private) names. If nil, the In and Out values will be used
 	// and mapped one to one.
-	// In a MountFn, only private pin names must be used when calling the Socket
+	// In a MountFn, only internal pin names must be used when calling the Socket
 	// methods.
 	// Most custom part implementations should ignore this field and set it to
 	// nil.
@@ -142,26 +148,13 @@ type Wrapper interface {
 // Circuit is a runnable circuit simulation.
 //
 type Circuit struct {
-	wires   []*Pin
+	wires   []*Wire
 	tickers []Ticker
 	ticks   uint64
 	clk     bool
 }
 
-// NewCircuit builds a new circuit based on the given parts.
-//
-// workers is the number of goroutines used to update the state of the Circuit
-// each step of the simulation. If less or equal to 0, the value of GOMAXPROCS
-// will be used.
-//
-// stepsPerCycle indicates how many simulation steps to run per clock cycle
-// (the Clk signal, not wall clock). The exact value to use depends on the
-// complexity of the chips used (a built-in NAND takes one step to update its
-// output). While this value could be computed, this feature is not implemented
-// yet.
-//
-// Callers must make sure to call Dispose() once the circuit is no longer needed
-// in order to release allocated resources.
+// NewCircuit builds a new circuit simulation based on the given parts.
 //
 func NewCircuit(parts ...Part) (*Circuit, error) {
 	if len(parts) == 0 {
@@ -174,10 +167,10 @@ func NewCircuit(parts ...Part) (*Circuit, error) {
 	}
 
 	c := new(Circuit)
-	c.wires = make([]*Pin, cstCount)
+	c.wires = make([]*Wire, cstCount)
 
-	inputFn := func(f func() bool) *Pin {
-		p := new(Pin)
+	inputFn := func(f func() bool) *Wire {
+		p := new(Wire)
 		up := UpdaterFn(func(clk bool) { p.Send(clk, f()) })
 		p.SetSource(up)
 		return p
@@ -210,8 +203,8 @@ func unwrap(ul *[]Ticker, u Updater) {
 
 // alloc allocates a pin.
 //
-func (c *Circuit) allocPin() *Pin {
-	p := new(Pin)
+func (c *Circuit) allocPin() *Wire {
+	p := new(Wire)
 	c.wires = append(c.wires, p)
 	return p
 }
@@ -258,8 +251,8 @@ func (c *Circuit) TickTock() {
 	c.Tock()
 }
 
-// Ticker is a marker interface implemented by updaters that have side effects
-// outside of a circuit or that somehow drives the circuit. All sequential
+// Ticker is a marker interface implemented by Updaters that have side effects
+// outside of a circuit or that somehow drive the circuit. All sequential
 // components must implement Ticker.
 //
 type Ticker interface {

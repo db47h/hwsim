@@ -8,10 +8,10 @@ import (
 )
 
 type testPart struct {
-	A   [4]*hwsim.Pin `hw:"in"`
-	B   [4]*hwsim.Pin `hw:"in"`
-	Sel *hwsim.Pin    `hw:"in"`
-	Out [4]*hwsim.Pin `hw:"out"`
+	A   [4]*hwsim.Wire `hw:"in"`
+	B   [4]*hwsim.Wire `hw:"in"`
+	Sel *hwsim.Wire    `hw:"in"`
+	Out [4]*hwsim.Wire `hw:"out"`
 }
 
 func (t *testPart) Update(clk bool) {

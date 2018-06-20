@@ -22,7 +22,7 @@ var mux = hwsim.PartSpec{
 	Inputs:  []string{pA, pB, pSel},
 	Outputs: []string{pOut},
 	Mount: func(s *hwsim.Socket) hwsim.Updater {
-		a, b, sel, out := s.Pin(pA), s.Pin(pB), s.Pin(pSel), s.Pin(pOut)
+		a, b, sel, out := s.Wire(pA), s.Wire(pB), s.Wire(pSel), s.Wire(pOut)
 		return hwsim.UpdaterFn(
 			func(clk bool) {
 				if sel.Recv(clk) {
@@ -46,7 +46,7 @@ var dmux = hwsim.PartSpec{
 	Inputs:  []string{pIn, pSel},
 	Outputs: []string{pA, pB},
 	Mount: func(s *hwsim.Socket) hwsim.Updater {
-		in, sel, a, b := s.Pin(pIn), s.Pin(pSel), s.Pin(pA), s.Pin(pB)
+		in, sel, a, b := s.Wire(pIn), s.Wire(pSel), s.Wire(pA), s.Wire(pB)
 		return hwsim.UpdaterFn(
 			func(clk bool) {
 				if sel.Recv(clk) {
@@ -66,7 +66,7 @@ func muxN(bits int) *hwsim.PartSpec {
 		Inputs:  append(bus(bits, pA, pB), pSel),
 		Outputs: bus(bits, pOut),
 		Mount: func(s *hwsim.Socket) hwsim.Updater {
-			a, b, sel := s.Bus(pA, bits), s.Bus(pB, bits), s.Pin(pSel)
+			a, b, sel := s.Bus(pA, bits), s.Bus(pB, bits), s.Wire(pSel)
 			o := s.Bus(pOut, bits)
 			return hwsim.UpdaterFn(
 				func(clk bool) {
@@ -119,10 +119,10 @@ func DMuxN(bits int) hwsim.NewPartFn {
 		Inputs:  append(bus(bits, pIn), pSel),
 		Outputs: bus(bits, pA, pB),
 		Mount: func(s *hwsim.Socket) hwsim.Updater {
-			in, sel, a, b := s.Bus(pIn, bits), s.Pin(pSel), s.Bus(pA, bits), s.Bus(pB, bits)
+			in, sel, a, b := s.Bus(pIn, bits), s.Wire(pSel), s.Bus(pA, bits), s.Bus(pB, bits)
 			return hwsim.UpdaterFn(
 				func(clk bool) {
-					var si, sf []*hwsim.Pin
+					var si, sf []*hwsim.Wire
 					if sel.Recv(clk) {
 						sf = a
 						si = b
@@ -219,11 +219,11 @@ func DMuxNWay(ways int) hwsim.NewPartFn {
 		Inputs:  append([]string{pIn}, bus(selBits, pSel)...),
 		Outputs: inputNames[:ways],
 		Mount: func(s *hwsim.Socket) hwsim.Updater {
-			in := s.Pin(pIn)
+			in := s.Wire(pIn)
 			sel := s.Bus(pSel, selBits)
-			outs := make([]*hwsim.Pin, 1<<uint(selBits))
+			outs := make([]*hwsim.Wire, 1<<uint(selBits))
 			for i := range outs {
-				outs[i] = s.Pin(inputNames[i])
+				outs[i] = s.Wire(inputNames[i])
 			}
 			return hwsim.UpdaterFn(
 				func(clk bool) {

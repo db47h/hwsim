@@ -24,11 +24,11 @@ var dff = &hwsim.PartSpec{
 	Inputs:  []string{pIn},
 	Outputs: []string{pOut},
 	Mount: func(s *hwsim.Socket) hwsim.Updater {
-		return &dffImpl{in: s.Pin(pIn), out: s.Pin(pOut)}
+		return &dffImpl{in: s.Wire(pIn), out: s.Wire(pOut)}
 	}}
 
 type dffImpl struct {
-	in, out *hwsim.Pin
+	in, out *hwsim.Wire
 	v       bool
 }
 

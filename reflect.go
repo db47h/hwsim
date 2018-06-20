@@ -13,17 +13,17 @@ import (
 
 var (
 	updaterType = reflect.TypeOf(Updater(nil))
-	pinType     = reflect.TypeOf((*Pin)(nil))
+	pinType     = reflect.TypeOf((*Wire)(nil))
 )
 
 // MakePart wraps an Updater into a custom component.
-// Input/output pins are identified by field tags.
+// Input/output pins are identified by tags on fields of type *Wire.
 //
 // The field tag must be `hw:"in"`` or `hw:"out"` to identify input and output
 // pins. By default, the pin name is the field name in lowercase. A specific
 // field name can be forced by adding it in the tag: `hw:"in,pin_name"`.
 //
-// Buses must be arrays of int.
+// Buses must be arrays of *Wire (not slices).
 //
 func MakePart(t Updater) *PartSpec {
 	typ := reflect.TypeOf(t)
@@ -120,11 +120,11 @@ func mountPart(typ reflect.Type) func(s *Socket) Updater {
 			if k := ft.Kind(); k == reflect.Array && pinType.AssignableTo(ft.Elem()) {
 				// bus
 				for i := 0; i < fv.Len(); i++ {
-					fv.Index(i).Set(reflect.ValueOf(s.Pin(pin + "[" + strconv.Itoa(i) + "]")))
+					fv.Index(i).Set(reflect.ValueOf(s.Wire(pin + "[" + strconv.Itoa(i) + "]")))
 				}
 			} else if pinType.AssignableTo(ft) {
 				// pin
-				fv.Set(reflect.ValueOf(s.Pin(pin)))
+				fv.Set(reflect.ValueOf(s.Wire(pin)))
 			} else {
 				panic(errors.Errorf("unsupported type %q for field %q in %q", k, f.Name, typ.Name()))
 			}

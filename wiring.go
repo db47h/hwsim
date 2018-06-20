@@ -27,6 +27,7 @@ const (
 type Pin struct {
 	src   Updater
 	clk   bool
+	recv  bool
 	value bool
 }
 
@@ -49,7 +50,13 @@ func (c *Pin) Send(clk bool, value bool) {
 //
 func (c *Pin) Recv(clk bool) bool {
 	if c.clk != clk {
-		c.src.Update(clk) // should trigger a send
+		if c.recv {
+			panic("wiring loop detected")
+		} else {
+			c.recv = true
+			c.src.Update(clk) // should trigger a send
+			c.recv = false
+		}
 	}
 	return c.value
 }

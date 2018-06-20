@@ -82,16 +82,21 @@ func TestChip_omitted_pins(t *testing.T) {
 			cTrue = s.Pin(hw.True)
 			cClk = s.Pin(hw.Clk)
 			a, b, c, tr, f, o0, o1 = s.Pin("a"), s.Pin("b"), s.Pin("c"), s.Pin("t"), s.Pin("f"), s.Pin("o0"), s.Pin("o1")
-			return nil
+			return hw.UpdaterFn(func(clk bool) {})
 		}}).NewPart
 	// this is just to add another layer of testing.
 	// inspecting o0 and o1 shows that another dummy wire was allocated for dummy.o0:wo0
-	_, err := hw.Chip("wrapper", "wa, wb", "wo0, wo1",
+	wrapper, err := hw.Chip("wrapper", "wa, wb", "wo0, wo1",
 		dummy("a=wa, c=clk, t=true, f=false, o0=wo0"),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
+	_, err = hw.NewCircuit(wrapper(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if a != cFalse || b != cFalse || f != cFalse { // 0 = cstFalse
 		t.Errorf("a = %p, b = %p, f = %p, all must be False (%p)", a, b, f, cFalse)
 	}
@@ -102,7 +107,7 @@ func TestChip_omitted_pins(t *testing.T) {
 		t.Errorf("c = %p, must be clk (%p)", c, cClk)
 	}
 	if o0 == nil || o0 == cFalse || o0 == cTrue || o0 == cClk {
-		t.Errorf("o0 = %p, must be != nil and cst pins", o0)
+		t.Errorf("o0 = %p, must be != nil and != cst pins", o0)
 	}
 	if o1 == nil || o1 == cFalse || o1 == cTrue || o1 == cClk {
 		t.Errorf("o1 = %p, must be != nil and != cst pins", o1)

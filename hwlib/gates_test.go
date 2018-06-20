@@ -95,24 +95,6 @@ func Test_gate_builtin(t *testing.T) {
 	}
 }
 
-func TestInput16(t *testing.T) {
-	in := int64(0)
-	out := int64(0)
-	c, err := hw.NewCircuit(
-		hw.InputN(16, func() int64 { return in })("out[0..15]= t[0..15]"),
-		hw.OutputN(16, func(n int64) { out = n })("in[0..15] = t[0..15]"),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	in = 0x80a2
-	c.TickTock()
-	if out != in {
-		t.Fatalf("Expected %x, got %x", in, out)
-	}
-}
-
 func Test_gateN_builtin(t *testing.T) {
 	twoIn := "a[0..15]=a[0..15], b[0..15]=b[0..15], out[0..15]=out[0..15]"
 	td := []struct {

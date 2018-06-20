@@ -208,12 +208,6 @@ func unwrap(ul *[]Ticker, u Updater) {
 	}
 }
 
-// Dispose releases all resources allocated for a circuit and stops
-// worker goroutines.
-//
-func (c *Circuit) Dispose() {
-}
-
 // alloc allocates a pin.
 //
 func (c *Circuit) allocPin() *Pin {

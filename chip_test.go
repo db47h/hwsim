@@ -114,7 +114,6 @@ func TestChip_fanout_to_outputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Dispose()
 
 	c.TickTock()
 	if out != 255 {

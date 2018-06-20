@@ -3,7 +3,11 @@
 
 package hwlib
 
-import "github.com/db47h/hwsim"
+import (
+	"strconv"
+
+	"github.com/db47h/hwsim"
+)
 
 // DFF returns a clocked data flip flop.
 //
@@ -11,8 +15,8 @@ import "github.com/db47h/hwsim"
 //	Outputs: out
 //	Function: out(t) = in(t-1) // where t is the current clock cycle.
 //
-func DFF(w string) hwsim.Part {
-	return dff.NewPart(w)
+func DFF(c string) hwsim.Part {
+	return dff.NewPart(c)
 }
 
 var dff = &hwsim.PartSpec{
@@ -26,18 +30,45 @@ var dff = &hwsim.PartSpec{
 type dffImpl struct {
 	in, out *hwsim.Pin
 	v       bool
-	n       bool
 }
 
 func (d *dffImpl) Update(clk bool) {
+	// send first in order to prevent recursion
+	d.out.Send(clk, d.v)
+	// force circuit update
+	v := d.in.Recv(clk)
+	// change value only at ticks
 	if clk {
-		// send first in order to prevent update loops
-		d.out.Send(clk, d.v)
-		d.n = d.in.Recv(clk)
-	} else {
-		d.v = d.n
-		d.out.Send(clk, d.v)
+		d.v = v
 	}
 }
 
 func (*dffImpl) Tick() {}
+
+// DFFN creates a N bits DFF.
+//
+func DFFN(bits int) hwsim.NewPartFn {
+	bs := strconv.Itoa(bits)
+	return (&hwsim.PartSpec{
+		Name:    "DFF" + bs,
+		Inputs:  bus(bits, pIn),
+		Outputs: bus(bits, pOut),
+		Mount: func(s *hwsim.Socket) hwsim.Updater {
+			in, out := s.Bus(pIn, bits), s.Bus(pOut, bits)
+			v := make([]bool, bits)
+			return hwsim.TickerFn(func(clk bool) {
+				for n, o := range out {
+					o.Send(clk, v[n])
+				}
+				if clk {
+					for n, i := range in {
+						v[n] = i.Recv(clk)
+					}
+				} else {
+					for _, i := range in {
+						i.Recv(clk)
+					}
+				}
+			})
+		}}).NewPart
+}

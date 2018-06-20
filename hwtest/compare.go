@@ -150,7 +150,6 @@ func ComparePart(t *testing.T, part1 hwsim.NewPartFn, part2 hwsim.NewPartFn) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Dispose()
 
 	errString := func(oname string, ex, got bool) string {
 		var b strings.Builder

@@ -46,7 +46,6 @@ func testGate(t *testing.T, name string, gate hw.NewPartFn, result [][]bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Dispose()
 
 	tot := 1 << uint(len(part.Inputs))
 	for i := 0; i < tot; i++ {
@@ -106,7 +105,6 @@ func TestInput16(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Dispose()
 
 	in = 0x80a2
 	c.TickTock()
@@ -149,7 +147,6 @@ func Test_gateN_builtin(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer c.Dispose()
 
 			f := func(x, y int16) bool {
 				a, b = x, y

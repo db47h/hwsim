@@ -6,6 +6,7 @@ import (
 
 	hw "github.com/db47h/hwsim"
 	hl "github.com/db47h/hwsim/hwlib"
+	"github.com/db47h/hwsim/hwtest"
 )
 
 func randBool() bool {
@@ -17,11 +18,11 @@ func TestDFF(t *testing.T) {
 		in, out int64
 	)
 
-	dff4, err := hw.Chip("DFF4", "in[4],b[2]", "out4[5]",
-		hl.DFF("in=in[0], out=out4[0]"),
-		hl.DFF("in=in[1], out=out4[1]"),
-		hl.DFF("in=in[2], out=out4[2]"),
-		hl.DFF("in=in[3], out=out4[3]"),
+	dff4, err := hw.Chip("DFF4", "in[4]", "out[4]",
+		hl.DFF("in=in[0], out=out[0]"),
+		hl.DFF("in=in[1], out=out[1]"),
+		hl.DFF("in=in[2], out=out[2]"),
+		hl.DFF("in=in[3], out=out[3]"),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -29,7 +30,7 @@ func TestDFF(t *testing.T) {
 
 	c, err := hw.NewCircuit(
 		hw.InputN(16, func() int64 { return in })("out[0..3]=in[0..3]"),
-		dff4("in[0..3]=in[0..3], out4[0..3]=out[0..3]"),
+		dff4("in[0..3]=in[0..3], out[0..3]=out[0..3]"),
 		hw.OutputN(16, func(o int64) { out = o })("in[0..3]=out[0..3]"),
 	)
 	if err != nil {
@@ -52,6 +53,8 @@ func TestDFF(t *testing.T) {
 		}
 		prev = i
 	}
+
+	hwtest.ComparePart(t, hl.DFFN(4), dff4)
 }
 
 func Test_bit_register(t *testing.T) {

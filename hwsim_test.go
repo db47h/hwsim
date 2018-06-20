@@ -13,75 +13,60 @@ func randBool() bool {
 	return rand.Int63()&(1<<62) != 0
 }
 
-// Test a basic clock with a Nand gate.
+// Test a basic clock with a Nand gate and a DFF.
 //
-// The purpose of this test is to catch changes in propagation delays
-// from Inputs and Outputs as well as testing loops between input and outputs.
-//
-// Don't do this in your own circuits! Clocks should be implemented as custom
-// components or inputs. Or use a DFF.
+// The purpose of this test is to catch changes in behavior induced by code
+// changes.
 //
 func Test_clock(t *testing.T) {
-	t.Fatal("loop detection not implemented")
-	// var enable, tick bool
+	// t.Fatal("loop detection not implemented")
+	var enable, tick bool
 
-	// check := func(v bool) {
-	// 	t.Helper()
-	// 	if tick != v {
-	// 		t.Errorf("expected %v, got %v", v, tick)
-	// 	}
-	// }
+	check := func(v bool) {
+		t.Helper()
+		if tick != v {
+			t.Errorf("expected %v, got %v", v, tick)
+		}
+	}
 
-	// c, err := hwsim.NewCircuit(
-	// 	hwsim.Input(func() bool { return enable })("out=enable"),
-	// 	tl.nand("a=enable, b=tick, out=tick"),
-	// 	hwsim.Output(func(out bool) { tick = out })("in=out"),
-	// )
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	c, err := hwsim.NewCircuit(
+		hwsim.Input(func() bool { return enable })("out=enable"),
+		tl.nand("a=enable, b=dff, out=tick"),
+		tl.dff("in=tick, out=dff"),
+		hwsim.Output(func(out bool) { tick = out })("in=tick"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// defer c.Dispose()
+	// we have two wires: "enable" and "out".
+	// note that Output("out", ...) is delayed by one tick after the Nand updates it.
 
-	// // we have two wires: "enable" and "out".
-	// // note that Output("out", ...) is delayed by one tick after the Nand updates it.
+	enable = false
+	c.Tick()
+	check(true)
+	c.Tock()
+	check(true)
+	c.Tick()
+	check(true)
+	c.Tock()
+	check(true)
 
-	// enable = false
-	// c.Tick()
-	// check(false)
-	// c.Tock()
-	// // this is an expected signal change appearing in the first couple of ticks due to signal propagation delay
-	// check(true)
-	// c.Tick()
-	// check(true)
-	// c.Tock()
-	// check(true)
-
-	// enable = true
-	// c.Tick()
-	// check(true)
-	// c.Tock()
-	// check(true)
+	enable = true
+	c.Tick()
+	check(false)
+	c.Tock()
+	check(true)
+	// the clock really starts ticking now
+	c.Tick()
+	check(true)
+	c.Tock()
+	check(false)
+	c.Tick()
+	check(false)
+	c.Tock()
+	check(true)
 }
-
-// // This bench is here to becnhmark the workers sync mechanism overhead.
-// func BenchmarkCircuit_Step(b *testing.B) {
-// 	workers := runtime.GOMAXPROCS(-1)
-// 	parts := make([]hwsim.Part, 0, workers)
-// 	for i := 0; i < workers; i++ {
-// 		parts = append(parts, tl.not(""))
-// 	}
-
-// 	c, err := hwsim.NewCircuit(workers, testTPC, parts...)
-// 	if err != nil {
-// 		b.Fatal(err)
-// 	}
-// 	defer c.Dispose()
-
-// 	for i := 0; i < b.N; i++ {
-// 		c.Step()
-// 	}
-// }
 
 func ExampleIO() {
 	fmt.Println(hwsim.IO("a,b"))
@@ -97,24 +82,27 @@ func ExampleIO() {
 // testLib is a test library of components built entirely of nands
 //
 type testLib struct {
-	nandSpec *hwsim.PartSpec
-	not      hwsim.NewPartFn
-	and      hwsim.NewPartFn
-	or       hwsim.NewPartFn
-	nor      hwsim.NewPartFn
-	xor      hwsim.NewPartFn
-	and3     hwsim.NewPartFn
-	and4     hwsim.NewPartFn
-	or3      hwsim.NewPartFn
-	or4      hwsim.NewPartFn
-	lcu      hwsim.NewPartFn
-	cla4     hwsim.NewPartFn
-	mux      hwsim.NewPartFn
+	nand hwsim.NewPartFn
+	not  hwsim.NewPartFn
+	and  hwsim.NewPartFn
+	or   hwsim.NewPartFn
+	nor  hwsim.NewPartFn
+	xor  hwsim.NewPartFn
+	and3 hwsim.NewPartFn
+	and4 hwsim.NewPartFn
+	or3  hwsim.NewPartFn
+	or4  hwsim.NewPartFn
+	lcu  hwsim.NewPartFn
+	cla4 hwsim.NewPartFn
+	mux  hwsim.NewPartFn
+	dff  hwsim.NewPartFn
 }
+
+var tl *testLib = newTestLib()
 
 func newTestLib() *testLib {
 	tl := &testLib{
-		nandSpec: &hwsim.PartSpec{
+		nand: (&hwsim.PartSpec{
 			Name:    "NAND",
 			Inputs:  []string{"a", "b"},
 			Outputs: []string{"out"},
@@ -124,7 +112,7 @@ func newTestLib() *testLib {
 					out.Send(clk, !(a.Recv(clk) && b.Recv(clk)))
 				})
 				return f
-			}},
+			}}).NewPart,
 	}
 	var err error
 	tl.not, err = hwsim.Chip("not", "in", "out", tl.nand("a=in, b=in, out=out"))
@@ -224,15 +212,25 @@ func newTestLib() *testLib {
 	if err != nil {
 		panic(err)
 	}
+	tl.dff = (&hwsim.PartSpec{
+		Name:    "dff",
+		Inputs:  []string{"in"},
+		Outputs: []string{"out"},
+		Mount: func(s *hwsim.Socket) hwsim.Updater {
+			in, out := s.Pin("in"), s.Pin("out")
+			var v bool
+			return hwsim.TickerFn(func(clk bool) {
+				out.Send(clk, v)
+				t := in.Recv(clk)
+				if clk {
+					v = t
+				}
+			})
+		},
+	}).NewPart
 
 	return tl
 }
-
-func (tl *testLib) nand(c string) hwsim.Part {
-	return tl.nandSpec.NewPart(c)
-}
-
-var tl *testLib = newTestLib()
 
 func Test_testLib(t *testing.T) {
 	adderN := func(bits int) hwsim.NewPartFn {

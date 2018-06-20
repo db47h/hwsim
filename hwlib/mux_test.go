@@ -10,7 +10,7 @@ import (
 )
 
 func TestMuxN(t *testing.T) {
-	m, err := hw.Chip("myMux16", "a[4], b[4], sel", "out[4]",
+	m, err := hw.Chip("myMux4", "a[4], b[4], sel", "out[4]",
 		hl.Mux("a=a[0], b=b[0], sel=sel, out=out[0]"),
 		hl.Mux("a=a[1], b=b[1], sel=sel, out=out[1]"),
 		hl.Mux("a=a[2], b=b[2], sel=sel, out=out[2]"),

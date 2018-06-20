@@ -109,6 +109,7 @@ type testLib struct {
 	or4      hwsim.NewPartFn
 	lcu      hwsim.NewPartFn
 	cla4     hwsim.NewPartFn
+	mux      hwsim.NewPartFn
 }
 
 func newTestLib() *testLib {
@@ -169,6 +170,15 @@ func newTestLib() *testLib {
 		tl.and("a=a, b=b, out=aab"),
 		tl.and("a=c, b=d, out=acd"),
 		tl.and("a=aab, b=acd, out=out"))
+	if err != nil {
+		panic(err)
+	}
+	tl.mux, err = hwsim.Chip("mux", "a, b, sel", "out",
+		tl.not("in=sel, out=ns"),
+		tl.and("a=ns, b=a, out=sa"),
+		tl.and("a=sel, b=b, out=sb"),
+		tl.or("a=sa, b=sb, out=out"),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -264,9 +274,22 @@ func Test_testLib(t *testing.T) {
 		t.Fatal(err)
 	}
 	hwtest.ComparePart(t, adderN(16), add16)
+}
 
-	// var a, b, s int64
-	// c, err := hw.NewCircuit(
-	// 	hw.Outpu
-	// )
+func TestInput16(t *testing.T) {
+	in := int64(0)
+	out := int64(0)
+	c, err := hwsim.NewCircuit(
+		hwsim.InputN(16, func() int64 { return in })("out[0..15]= t[0..15]"),
+		hwsim.OutputN(16, func(n int64) { out = n })("in[0..15] = t[0..15]"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	in = 0x80a2
+	c.TickTock()
+	if out != in {
+		t.Fatalf("Expected %x, got %x", in, out)
+	}
 }

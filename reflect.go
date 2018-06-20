@@ -1,8 +1,6 @@
 // Copyright 2018 Denis Bernard <db047h@gmail.com>
 // Licensed under the MIT license. See license text in the LICENSE file.
 
-// +build ignore
-
 package hwsim
 
 import (
@@ -13,7 +11,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-var updaterType = reflect.TypeOf((*Updater)(nil)).Elem()
+var (
+	updaterType = reflect.TypeOf(Updater(nil))
+	pinType     = reflect.TypeOf((*Pin)(nil))
+)
 
 // MakePart wraps an Updater into a custom component.
 // Input/output pins are identified by field tags.
@@ -66,7 +67,7 @@ func MakePart(t Updater) *PartSpec {
 		}
 
 		ft := f.Type
-		if k := ft.Kind(); k == reflect.Array && ft.Elem().Kind() == reflect.Int {
+		if k := ft.Kind(); k == reflect.Array && pinType.AssignableTo(ft.Elem()) {
 			// bus
 			for i := 0; i < ft.Len(); i++ {
 				if isInput {
@@ -75,7 +76,7 @@ func MakePart(t Updater) *PartSpec {
 					sp.Outputs = append(sp.Outputs, pin+"["+strconv.Itoa(i)+"]")
 				}
 			}
-		} else if k == reflect.Int {
+		} else if pinType.AssignableTo(ft) {
 			// pin
 			if isInput {
 				sp.Inputs = append(sp.Inputs, pin)
@@ -90,8 +91,8 @@ func MakePart(t Updater) *PartSpec {
 	return sp
 }
 
-func mountPart(typ reflect.Type) func(s *Socket) []Updater {
-	return func(s *Socket) []Updater {
+func mountPart(typ reflect.Type) func(s *Socket) Updater {
+	return func(s *Socket) Updater {
 		v := reflect.New(typ)
 		e := v.Elem()
 		n := typ.NumField()
@@ -116,20 +117,19 @@ func mountPart(typ reflect.Type) func(s *Socket) []Updater {
 				continue
 			}
 			ft := f.Type
-			if k := ft.Kind(); k == reflect.Array && ft.Elem().Kind() == reflect.Int {
+			if k := ft.Kind(); k == reflect.Array && pinType.AssignableTo(ft.Elem()) {
 				// bus
 				for i := 0; i < fv.Len(); i++ {
-					fv.Index(i).SetInt(int64(s.Pin(pin + "[" + strconv.Itoa(i) + "]")))
+					fv.Index(i).Set(reflect.ValueOf(s.Pin(pin + "[" + strconv.Itoa(i) + "]")))
 				}
-			} else if k == reflect.Int {
+			} else if pinType.AssignableTo(ft) {
 				// pin
-				fv.SetInt(int64(s.Pin(pin)))
+				fv.Set(reflect.ValueOf(s.Pin(pin)))
 			} else {
 				panic(errors.Errorf("unsupported type %q for field %q in %q", k, f.Name, typ.Name()))
 			}
 		}
 
-		comp := v.Interface().(Updater)
-		return []Updater{comp}
+		return v.Interface().(Updater)
 	}
 }

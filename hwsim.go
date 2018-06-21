@@ -136,7 +136,7 @@ type Part struct {
 	Conns []Connection
 }
 
-// A Wrapper is a parts that wraps together several other parts and has no
+// A Wrapper is a part that wraps together several other parts and has no
 // additional function. When a Circtuit is built, Wrappers are unwrapped
 // and discarded ─ their Update function is never called.
 //

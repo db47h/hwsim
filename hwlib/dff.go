@@ -11,6 +11,8 @@ import (
 
 // DFF returns a clocked data flip flop.
 //
+// Works like a gated D latch where E is the clock signal and D the input.
+//
 //	Inputs: in
 //	Outputs: out
 //	Function: out(t) = in(t-1) // where t is the current clock cycle.
@@ -35,7 +37,7 @@ type dffImpl struct {
 func (d *dffImpl) Update(clk bool) {
 	// send first in order to prevent recursion
 	d.out.Send(clk, d.v)
-	// force circuit update
+	// force input update
 	v := d.in.Recv(clk)
 	// change value only at ticks
 	if clk {

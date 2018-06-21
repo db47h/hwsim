@@ -4,26 +4,31 @@ This package provides the necessary tools to build a virtual CPU using Go as a h
 
 This includes a naive hardware simulator and an API to compose basic components (logic gates, muxers, etc.) into more complex ones.
 
-The API is designed to mimmic a basic [Hardware description language][hdl] and reduce typing overhead. As a result it relies heavily on closures for components implemented in Go and can feel a bit awkward in a few places (see Help Wanted below).
+The API is designed to mimmic a basic [Hardware description language][hdl] and reduce typing overhead.
 
-> **DISCLAIMER:** This is a self-educational project. I am a software engineer with no electrical engineering background, so please bear with me if some of the terms used are inaccurate or just plain wrong. If you spot any errors, please do not hesitate to file an issue or a PR.
+> **DISCLAIMER:** This is a self-educational project. I have no electrical engineering background, so please bear with me if some of the terms used are inaccurate or just plain wrong. If you spot any errors, please do not hesitate to file an issue or a PR.
 
 ## Implementation details
 
-The simulator is built as an array of individual wires (think [stripboard]). It works like a double-buffer with a "current state" array and a "next state" array. At every tick of the simulation:
+The simulation is built around wires that connect components together. While a wire can recieve a signal by only one component, it can broadcast that signal to any number of components (fanout).
 
-- all components are updated:
-  - input states are read from the "current state" array
-  - output states are written to the "next state" array
-- the "current state" and "next state" arrays are swapped.
+The simulation works by taking a set of components that have side effects or that somehow "drive" the circuit (outputs, clocked data flip-flops) and updating them every half clock cycle. The signals are then propagated through the simulation by "pulling" them up: calling `Recv` on a `Wire` triggers an update of the component feeding that `Wire`.
+
+Time in the simulation is simply represented as a boolean value, true if the clock signal is high (during the call to `Circuit.Tick()`), false otherwise (during the call to `Circuit.Tock()`). Wires use this information to prevent recursion and provide loop detection.
+
+As a result:
+
+- most components like logic gates have no propagation delay
+- other components like Data Flip-Flops have a one clock cycle propagation delay.
+- direct wire loops are forbidden. Loops must go through a DFF or similar component.
+
+The DFF provided in the hwlib package works like a [gated D latch][gated D latch] and can be used as a building block for all sequential components. Its output is considered stable only during calls to `Circuit.Tick()`, i.e. when the `clk` argument of `Updater.Update(clk bool)` is true.
 
 ## Project Status
 
-This is a naive simulation: in a complex system, a lot of gates do not change state at every tick of the simulation because their inputs do not change. For example, a 32 bits ripple-carry is built from 32*5=160 gates and needs about 65 ticks to output the correct result. As the simulation advances, only the last few gates in the input->output chain change state and need to be updated.
+The simulation implementation is sub-optimal: a push model would allow updating only a few components at every clock cycle (those for which inputs have changed). This would however make the implementation much more complex as components would need to wait for all input signals to be updated before updating themselves. Additionally, performance is not a major goal right now since it can always be somewhat improved by using cutstom components (with logic written in Go).
 
-While this could be improved, performance is not a major goal right now since it can always be somewhat improved by using cutstom components (with logic written in Go).
-
-The main focus is on the API: bring it in a usable and stable state. Tinkering with the simulation must be fun, not a type typing or useless scaffolding chore. Not all the features I have in mind are implemented yet. TODO's with high priority are listed in the issue tracker. Contributions welcome!
+The main focus is on the API: bring it in a usable and stable state. Tinkering with the simulation must be fun, not a type typing fest or a code scaffolding chore. Not all the features I have in mind are implemented yet. TODO's with high priority are listed in the issue tracker. Contributions welcome!
 
 I don't really have plans for any form of GUI yet, so please don't ask.
 
@@ -75,17 +80,17 @@ A custom component is just a struct with custom field tags that implements the U
     // xorInstance represents an instance of an xor gate.
     // one such instance is created for every xor gate in a circuit.
     type xorInstance struct {
-        A   int `hw:"in"`  // the tag hw:"in" indicates an input pin
-        B   int `hw:"in"`
-        Out int `hw:"out"` // output pin
+        A   *hw.Wire `hw:"in"`  // the tag hw:"in" indicates an input pin
+        B   *hw.Wire `hw:"in"`
+        Out *hw.Wire `hw:"out"` // output pin
     }
 
-    // Update is a Component function that reads the state of the input pins
-    // and writes a result to the output pins. It will be called at every
-    // tick of the simulation.
-    func (g *xorInstance) Update(c *hw.Circuit) {
-        a, b := c.Get(g.A), c.Get(g.B)   // get pin states
-        c.Set(g.Out, a && !b || !a && b) // set state of output pin
+    // Update is a Component function that reads the state of the inputs
+    // and sends a result to the outputs. It will be called at every
+    // half clock cycle of the simulation.
+    func (g *xorInstance) Update(clk bool) {
+        a, b := g.A.Recv(clk), g.B.Recv(clk) // get input signals
+        g.Out.Send(clk, a && !b || !a && b)  // send output
     }
 
     // Now we turn xorInstance into a part usable in a chip definition.
@@ -103,32 +108,32 @@ Another way to do it is to create a `PartSpec` struct with some closure magic:
         Name:    "XOR",
         Inputs:  hw.IO("a, b"),
         Outputs: hw.IO("out"),
-        Mount:   func(s *Socket) []hw.Component {
-            a, b, out := s.Pin("a"), s.Pin("b"), s.Pin("out")
-            return []hw.Component{
-                func (c *hw.Circuit) {
-                    a, b := c.Get(g.a), c.Get(g.b)
-                    c.Set(g.out, a && !b || !a && b)
-                }}
+        Mount:   func(s *hw.Socket) hw.Updater {
+            a, b, out := s.Wire("a"), s.Wire("b"), s.Wire("out")
+            return hw.UpdaterFn(
+                func (clk bool) {
+                    a, b := g.A.Recv(clk), g.B.Recv(clk)
+                    g.Out.Send(clk, a && !b || !a && b)
+                })
             }}
     var xor = xorSpec.NewPart
 ```
 
-The reflection approach is more readable but consumes more memory.
+The reflection approach is more readable but is also more resource hungry.
 
 If defining custom components as functions is preferable, for example in a Go package providing a library of components (where we do not want to export variables):
 
 ```go
-    func xor(c string) hw.Part { return xorSpec.NewPart(c) }
+    func Xor(c string) hw.Part { return xorSpec.NewPart(c) }
 ```
 
 Now we can go ahead and build a half-adder:
 
 ```go
     hAdder, _ := hw.Chip(
-        "H-ADDER",
-        "a, b", // inputs
-        "s, c", // output sum and carry
+        "Half-Adder",
+        "a, b",                 // inputs
+        "s, c",                 // output sum and carry
         xor("a=a, b=b, out=s"), // our custom xor gate!
         hw.And("a=a, b=b, out=c"),
     )
@@ -141,18 +146,18 @@ A circuit is made of a set of parts connected together. Time to test our adder:
 ```go
     var a, b, ci bool
     var s, co bool
-    c, err := hw.NewCirtuit(0, 0,
+    c, err := hw.NewCirtuit(
         // feed variables a, b and ci as inputs in the circuit
-        hl.Input(func() bool { return a })("out=a"),
-        hl.Input(func() bool { return b })("out=b"),
-        hl.Input(func() bool { return c })("out=ci"),
+        hw.Input(func() bool { return a })("out=a"),
+        hw.Input(func() bool { return b })("out=b"),
+        hw.Input(func() bool { return c })("out=ci"),
         // full adder
         hAdder("a=a,  b=b,  s=s0,  c=c0"),
         hAdder("a=s0, b=ci, s=sum, c=c1"),
         hl.Or(" a=c0, b=c1, out=co"),
         // outputs
-        hl.Output(func (bit bool) { s = bit })("in=sum"),
-        hl.Output(func (bit bool) { co = bit })("in=co"),
+        hw.Output(func (bit bool) { s = bit })("in=sum"),
+        hw.Output(func (bit bool) { co = bit })("in=co"),
     )
     if err != nil {
         // panic!
@@ -164,24 +169,24 @@ And run it:
 
 ```go
     // set inputs
-    // ...
+    a, b, ci = false, true, false
 
-    // run for 100 ticks
-    for i := 0; i < 100; i++ {
-        c.Step()
-    }
+    // run a single clock cycle
+    c.TickTock()
 
     // check outputs
-    // ...
+    if s != true && co != false {
+        // bug
+    }
 ```
 
-## Help Wanted
+## Contributing
 
 A good API has good names with clearly defined entities. This package's API is far from good, with some quirks.
 
-One of those quirks that bothers me is `MountFn` functions. They need to return a slice of `Component` because we want to get all `Components` into a single slice in `Circuit` so that updates can be split evenly between several goroutines (as opposed to organizing Components into a tree). The `PartSpec` returned by `Chip` does not return a component of its own, it simply bundles together the `Component`'s of its parts and pushes that up to its own container. It's mostly invisible until one gets into designing custom components where it adds yet another useless layer of slice creation and indentation just for the sake of that one internal API.
+The whole `Socket` thing, along with the wiring mess in `Chip()`,are remnants of a previous implementation and are overly complex. They will probably be dusted off when I get to implement static loop detection. Until then, it works and doesn't affect the performance of the simulation, so it's not top priority. It won't have a major impact on the API either since `Socket` will remain, possibly renamed, but as an interface with the same API.
 
-There are a lot of other things that would need some love. If you have any suggestions about naming or other API changes that would make everyone's life easier, feel free to file an issue or open a PR!
+If you have any suggestions about naming or other API changes that would make everyone's life easier, feel free to file an issue or open a PR!
 
 ## License
 
@@ -197,3 +202,4 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 [imgxor]: https://upload.wikimedia.org/wikipedia/commons/f/fa/XOR_from_NAND.svg
 [xor]: https://en.wikipedia.org/wiki/NAND_logic#XOR
 [stripboard]: https://en.wikipedia.org/wiki/Stripboard
+[gated D latch]: https://en.wikipedia.org/wiki/Flip-flop_(electronics)#Gated_D_latch

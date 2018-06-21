@@ -329,5 +329,5 @@ func BenchmarkCircuit_update(b *testing.B) {
 	}
 
 	delta := time.Since(t)
-	b.Logf("%d components, %d wires. %d clock ticks in %v => %.2f Hz", c.ComponentCount(), c.WireCount(), c.Ticks(), delta, float64(c.Ticks()/2)/(float64(delta)/float64(time.Second)))
+	b.Logf("%d components, %d wires. %d clock ticks in %v => %.2f Hz", c.ComponentCount(), c.WireCount(), c.Ticks()/2, delta, float64(c.Ticks()/2)/(float64(delta)/float64(time.Second)))
 }

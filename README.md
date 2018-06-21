@@ -184,7 +184,7 @@ And run it:
 
 A good API has good names with clearly defined entities. This package's API is far from good, with some quirks.
 
-The whole `Socket` thing, along with the wiring mess in `Chip()`,are remnants of a previous implementation and are overly complex. They will probably be dusted off when I get to implement static loop detection. Until then, it works and doesn't affect the performance of the simulation, so it's not top priority. It won't have a major impact on the API either since `Socket` will remain, possibly renamed, but as an interface with the same API.
+The whole `Socket` thing, along with the wiring mess in `Chip()`, are remnants of a previous implementation and are overly complex. They will probably be dusted off when I get to implement static loop detection. Until then, it works and doesn't affect the performance of the simulation, so it's not top priority. It won't have a major impact on the API either since `Socket` will remain, possibly renamed, but as an interface with the same API.
 
 If you have any suggestions about naming or other API changes that would make everyone's life easier, feel free to file an issue or open a PR!
 

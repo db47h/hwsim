@@ -180,8 +180,6 @@ func ComparePart(t *testing.T, part1 hwsim.NewPartFn, part2 hwsim.NewPartFn) {
 		return fmt.Sprintf("\nExpected %s => %s=%v\nGot %v", b.String(), oname, ex, got)
 	}
 
-	start := time.Now()
-
 	c.Tick()
 	// try all 0
 	c.Tock()
@@ -237,7 +235,4 @@ func ComparePart(t *testing.T, part1 hwsim.NewPartFn, part2 hwsim.NewPartFn) {
 			}
 		}
 	}
-
-	elapsed := time.Since(start)
-	t.Logf("%s: %d clock ticks in %v => %.2f Hz", ps2.Name, c.Ticks(), elapsed, float64(c.Ticks())/(float64(elapsed)/float64(time.Second)))
 }

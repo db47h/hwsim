@@ -150,6 +150,7 @@ type Wrapper interface {
 type Circuit struct {
 	wires   []*Wire
 	tickers []Ticker
+	size    int // # of updaters
 	ticks   uint64
 	clk     bool
 }
@@ -180,7 +181,7 @@ func NewCircuit(parts ...Part) (*Circuit, error) {
 	c.wires[cstTrue] = inputFn(func() bool { return true })
 	c.wires[cstClk] = inputFn(func() bool { return c.clk })
 
-	unwrap(&c.tickers, wrap("").Mount(newSocket(c)))
+	c.unwrap(wrap("").Mount(newSocket(c)))
 
 	for i := range c.wires {
 		if c.wires[i].src == nil {
@@ -191,13 +192,16 @@ func NewCircuit(parts ...Part) (*Circuit, error) {
 	return c, nil
 }
 
-func unwrap(ul *[]Ticker, u Updater) {
+func (c *Circuit) unwrap(u Updater) {
 	if uw, ok := u.(Wrapper); ok {
 		for _, u := range uw.Unwrap() {
-			unwrap(ul, u)
+			c.unwrap(u)
 		}
-	} else if t, ok := u.(Ticker); ok {
-		*ul = append(*ul, t)
+	} else {
+		c.size++
+		if t, ok := u.(Ticker); ok {
+			c.tickers = append(c.tickers, t)
+		}
 	}
 }
 
@@ -249,6 +253,18 @@ func (c *Circuit) update() {
 func (c *Circuit) TickTock() {
 	c.Tick()
 	c.Tock()
+}
+
+// ComponentCount returns the number of components in the circuit.
+//
+func (c *Circuit) ComponentCount() int {
+	return c.size
+}
+
+// WireCount returns the number of components in the circuit.
+//
+func (c *Circuit) WireCount() int {
+	return len(c.wires)
 }
 
 // Ticker is a marker interface implemented by Updaters that have side effects

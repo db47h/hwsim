@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/db47h/hwsim"
 	"github.com/db47h/hwsim/hwtest"
@@ -274,7 +275,7 @@ func Test_testLib(t *testing.T) {
 	hwtest.ComparePart(t, adderN(16), add16)
 }
 
-func TestInput16(t *testing.T) {
+func TestInputN_16(t *testing.T) {
 	in := int64(0)
 	out := int64(0)
 	c, err := hwsim.NewCircuit(
@@ -290,4 +291,43 @@ func TestInput16(t *testing.T) {
 	if out != in {
 		t.Fatalf("Expected %x, got %x", in, out)
 	}
+}
+
+func BenchmarkCircuit_update(b *testing.B) {
+	add16, err := hwsim.Chip("Adder16", "a[16], b[16]", "out[16], c",
+		tl.lcu("p[0..3]=p[0..3], g[0..3]=g[0..3], g=c, c1=c1, c2=c2, c3=c3"),
+		tl.cla4("a[0..3]=a[0..3],   b[0..3]=b[0..3],          out[0..3]=out[0..3],   p=p[0], g=g[0]"),
+		tl.cla4("a[0..3]=a[4..7],   b[0..3]=b[4..7],   c0=c1, out[0..3]=out[4..7],   p=p[1], g=g[1]"),
+		tl.cla4("a[0..3]=a[8..11],  b[0..3]=b[8..11],  c0=c2, out[0..3]=out[8..11],  p=p[2], g=g[2]"),
+		tl.cla4("a[0..3]=a[12..15], b[0..3]=b[12..15], c0=c3, out[0..3]=out[12..15], p=p[3], g=g[3]"),
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+	var ia, ib, s int64
+	var carry bool
+	c, err := hwsim.NewCircuit(
+		hwsim.InputN(16, func() int64 { return ia })("out[0..15]=a[0..15]"),
+		hwsim.InputN(16, func() int64 { return ib })("out[0..15]=b[0..15]"),
+		add16("a[0..15]=a[0..15], b[0..15]=b[0..15], out[0..15]=s[0..15], c=carry"),
+		hwsim.OutputN(16, func(v int64) { s = v })("in[0..15]=s[0..15]"),
+		hwsim.Output(func(v bool) { carry = v })("in=carry"),
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	t := time.Now()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ia, ib = rand.Int63n(1<<16), rand.Int63n(1<<16)
+		c.TickTock()
+		if (ia+ib)&0xFFFF != s || carry != (ia+ib > 0xFFFF) {
+			b.Fatalf("sum error: %d+%d = %d - carry %v, got %d, carry %v", ia, ib, (ia+ib)&0xFFFF, (ia+ib > 0xFFFF), s, carry)
+		}
+	}
+
+	delta := time.Since(t)
+	b.Logf("%d components, %d wires. %d clock ticks in %v => %.2f Hz", c.ComponentCount(), c.WireCount(), c.Ticks(), delta, float64(c.Ticks()/2)/(float64(delta)/float64(time.Second)))
 }

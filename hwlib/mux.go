@@ -4,6 +4,7 @@
 package hwlib
 
 import (
+	bts "math/bits"
 	"strconv"
 
 	"github.com/db47h/hwsim"
@@ -126,21 +127,6 @@ func DMuxN(bits int) hwsim.NewPartFn {
 		}}).NewPart
 }
 
-func log2(v int) int {
-	u := uint(v)
-	// log2 of ways
-	var log2B = [...]uint{0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000, 0xFFFFFFFF00000000}
-	var log2S = [...]uint{1, 2, 4, 8, 16, 32}
-	var l2 uint
-	for i := len(log2B) - 1; i >= 0; i-- {
-		if u&log2B[i] != 0 {
-			v >>= log2S[i]
-			l2 |= log2S[i]
-		}
-	}
-	return int(l2)
-}
-
 var inputNames = [32]string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "A", "B", "C", "D", "E", "F"}
 
 // MuxMWayN returns a M-Way N-bits Mux
@@ -153,7 +139,7 @@ func MuxMWayN(ways int, bits int) hwsim.NewPartFn {
 	if ways > 32 {
 		panic("MuxMWayN supports up to 32 ways multiplexers")
 	}
-	selBits := log2(ways)
+	selBits := bts.Len8(uint8(ways - 1))
 
 	// build inputs array
 	inputs := make([]string, ways*bits+int(selBits))
@@ -198,7 +184,7 @@ func DMuxNWay(ways int) hwsim.NewPartFn {
 	if ways > 32 {
 		panic("DMuxNWay supports up to 32 ways demultiplexers")
 	}
-	selBits := log2(ways)
+	selBits := bts.Len8(uint8(ways - 1))
 
 	p := &hwsim.PartSpec{
 		Name:    "DMux" + strconv.Itoa(ways) + "Way",
@@ -236,7 +222,7 @@ func DMuxMWayN(ways int, bits int) hwsim.NewPartFn {
 	if ways > 32 {
 		panic("DMuxMWayN supports up to 32 ways demultiplexers")
 	}
-	selBits := log2(ways)
+	selBits := bts.Len8(uint8(ways - 1))
 
 	outputs := make([]string, ways*bits)
 	for w := 0; w < ways; w++ {

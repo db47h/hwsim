@@ -101,14 +101,12 @@ func Test_gateN_builtin(t *testing.T) {
 		gate hw.Part
 		ctrl func(a, b int16) int16
 	}{
-		{hl.And16(twoIn), func(a, b int16) int16 { return a & b }},
-		{hl.Nand16(twoIn), func(a, b int16) int16 { return ^(a & b) }},
-		{hl.Or16(twoIn), func(a, b int16) int16 { return a | b }},
-		{hl.Nor16(twoIn), func(a, b int16) int16 { return ^(a | b) }},
-		{hl.Not16("in[0..15]=a[0..15], out[0..15]=out[0..15]"), func(a, b int16) int16 { return ^a }},
+		{hl.AndN(16)(twoIn), func(a, b int16) int16 { return a & b }},
+		{hl.NandN(16)(twoIn), func(a, b int16) int16 { return ^(a & b) }},
+		{hl.OrN(16)(twoIn), func(a, b int16) int16 { return a | b }},
+		{hl.NorN(16)(twoIn), func(a, b int16) int16 { return ^(a | b) }},
+		{hl.NotN(16)("in[0..15]=a[0..15], out[0..15]=out[0..15]"), func(a, b int16) int16 { return ^a }},
 	}
-
-	_ = td
 
 	for _, d := range td {
 		t.Run(d.gate.Name, func(t *testing.T) {

@@ -159,14 +159,6 @@ var (
 	not16 = notN(16)
 )
 
-// Not16 returns a 16 bits NOT gate.
-//
-//	Inputs: in[16]
-//	Outputs: out[16]
-//	Function: for i := range out { out[i] = !in[i] }
-//
-func Not16(w string) hwsim.Part { return not16.NewPart(w) }
-
 type gateN struct {
 	bits int
 	fn   func(bool, bool) bool
@@ -201,44 +193,45 @@ func GateN(name string, bits int, f func(bool, bool) bool) hwsim.NewPartFn {
 	return newGateN(name, bits, f).NewPart
 }
 
-var (
-	and16  = newGateN("AND", 16, func(a, b bool) bool { return a && b })
-	nand16 = newGateN("NAND", 16, func(a, b bool) bool { return !(a && b) })
-	or16   = newGateN("OR", 16, func(a, b bool) bool { return a || b })
-	nor16  = newGateN("NOR", 16, func(a, b bool) bool { return !(a || b) })
-)
-
-// And16 returns a 16 bits AND gate.
+// AndN returns a N-bits AND gate.
 //
-//	Inputs: a[16], b[16]
-//	Outputs: out[16]
+//	Inputs: a[N], b[N]
+//	Outputs: out[N]
 //	Function: for i := range out { out[i] = a[i] && b[i] }
 //
-func And16(w string) hwsim.Part { return and16.NewPart(w) }
+func AndN(bits int) hwsim.NewPartFn {
+	return newGateN("AND", bits, func(a, b bool) bool { return a && b }).NewPart
+}
 
-// Nand16 returns a 16 bits NAND gate.
+// NandN returns a N-bits NAND gate.
 //
-//	Inputs: a[16], b[16]
-//	Outputs: out[16]
+//	Inputs: a[N], b[N]
+//	Outputs: out[N]
 //	Function: for i := range out { out[i] = !(a[i] && b[i]) }
 //
-func Nand16(w string) hwsim.Part { return nand16.NewPart(w) }
+func NandN(bits int) hwsim.NewPartFn {
+	return newGateN("NAND", bits, func(a, b bool) bool { return !(a && b) }).NewPart
+}
 
-// Or16 returns a 16 bits OR gate.
+// OrN returns a N-bits OR gate.
 //
-//	Inputs: a[16], b[16]
-//	Outputs: out[16]
+//	Inputs: a[N], b[N]
+//	Outputs: out[N]
 //	Function: for i := range out { out[i] = (a[i] || b[i]) }
 //
-func Or16(w string) hwsim.Part { return or16.NewPart(w) }
+func OrN(bits int) hwsim.NewPartFn {
+	return newGateN("OR", bits, func(a, b bool) bool { return a || b }).NewPart
+}
 
-// Nor16 returns a 16 bits NOR gate.
+// NorN returns a N-bits NOR gate.
 //
-//	Inputs: a[16], b[16]
-//	Outputs: out[16]
+//	Inputs: a[N], b[N]
+//	Outputs: out[N]
 //	Function: for i := range out { out[i] = !(a[i] || b[i]) }
 //
-func Nor16(w string) hwsim.Part { return nor16.NewPart(w) }
+func NorN(bits int) hwsim.NewPartFn {
+	return newGateN("NOR", bits, func(a, b bool) bool { return !(a || b) }).NewPart
+}
 
 // OrNWay returns a N-Way OR gate.
 //

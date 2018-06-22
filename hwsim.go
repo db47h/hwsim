@@ -243,6 +243,9 @@ func (c *Circuit) update() {
 	for _, u := range c.tickers {
 		u.Update(c.clk)
 	}
+	for _, w := range c.wires {
+		w.clk = c.clk
+	}
 }
 
 // TickTock runs the simulation for a whole clock cycle.

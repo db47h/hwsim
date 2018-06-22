@@ -24,8 +24,8 @@ the circuit, like outputs and clocked data flip-flops). The signals are then
 propagated through the simulation by "pulling" them up: calling Recv on a Wire
 triggers an update of the component feeding that Wire.
 
-Time in the simulation is simply represented as a boolean value, true during
-the call to Circuit.Tick() and false during the call to Circuit.Tock(). Wires
+Time in the simulation is simply represented as a boolean value, false during
+the call to Circuit.Tick() and true during the call to Circuit.Tock(). Wires
 use this information to prevent recursion and provide loop detection.
 
 As a result:

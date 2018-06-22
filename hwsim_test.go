@@ -223,7 +223,7 @@ func newTestLib() *testLib {
 			return hwsim.TickerFn(func(clk bool) {
 				out.Send(clk, v)
 				t := in.Recv(clk)
-				if clk {
+				if !clk {
 					v = t
 				}
 			})

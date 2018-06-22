@@ -11,7 +11,7 @@ import (
 
 // DFF returns a clocked data flip flop.
 //
-// Works like a gated D latch where E is the clock signal and D the input.
+// Works like a gated D latch where E is the inverted clock signal and D the input.
 //
 //	Inputs: in
 //	Outputs: out
@@ -40,7 +40,7 @@ func (d *dffImpl) Update(clk bool) {
 	// force input update
 	v := d.in.Recv(clk)
 	// change value only at ticks
-	if clk {
+	if !clk {
 		d.v = v
 	}
 }
@@ -62,7 +62,7 @@ func DFFN(bits int) hwsim.NewPartFn {
 				for n, o := range out {
 					o.Send(clk, v[n])
 				}
-				if clk {
+				if !clk {
 					for n, i := range in {
 						v[n] = i.Recv(clk)
 					}

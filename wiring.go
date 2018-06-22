@@ -13,7 +13,7 @@ import "strconv"
 var (
 	False       = "false" // always false input
 	True        = "true"  // alwyas true input
-	Clk         = "clk"   // clock signal. True during Tick, False during Tock.
+	Clk         = "clk"   // clock signal. False during Tick, true during Tock.
 	cstPinNames = [...]string{"false", "true", "clk"}
 )
 

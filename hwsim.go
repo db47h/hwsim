@@ -13,8 +13,8 @@ import (
 //
 type Updater interface {
 	// Update is called every time an Updater's output pins must be updated.
-	// The clk value is the current state of the clock signal (true during a
-	// tick, false during a tock). Non-clocked components should ignore this
+	// The clk value is the current state of the clock signal (false during a
+	// tick, true during a tock). Non-clocked components should ignore this
 	// signal and just pass it along in the Recv and Send calls to their
 	// connected wires.
 	Update(clk bool)
@@ -223,8 +223,8 @@ func (c *Circuit) Ticks() uint64 {
 //
 func (c *Circuit) Tick() {
 	if !c.clk {
-		c.clk = true
 		c.update()
+		c.clk = true
 	}
 }
 
@@ -233,19 +233,19 @@ func (c *Circuit) Tick() {
 //
 func (c *Circuit) Tock() {
 	if c.clk {
-		c.clk = false
 		c.update()
+		c.clk = false
 	}
 }
 
 func (c *Circuit) update() {
-	c.ticks++
+	for _, w := range c.wires {
+		w.clk = !c.clk
+	}
 	for _, u := range c.tickers {
 		u.Update(c.clk)
 	}
-	for _, w := range c.wires {
-		w.clk = c.clk
-	}
+	c.ticks++
 }
 
 // TickTock runs the simulation for a whole clock cycle.

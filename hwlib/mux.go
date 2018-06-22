@@ -93,20 +93,6 @@ func MuxN(bits int) hwsim.NewPartFn {
 	return muxN(bits).NewPart
 }
 
-var (
-	mux16 = muxN(16)
-)
-
-// Mux16 returns a 16-bits Mux
-//
-//	Inputs: a[16], b[16], sel
-//	Outputs: out[16]
-//	Function: for i := range out { if sel == 0 { out[i] = a[i] } else { out[i] = b[i] } }
-//
-func Mux16(c string) hwsim.Part {
-	return mux16.NewPart(c)
-}
-
 // DMuxN returns a N-bits demultiplexer.
 //
 //	Inputs: in[bits], sel

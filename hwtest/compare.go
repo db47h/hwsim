@@ -180,10 +180,8 @@ func ComparePart(t *testing.T, part1 hwsim.NewPartFn, part2 hwsim.NewPartFn) {
 		return fmt.Sprintf("\nExpected %s => %s=%v\nGot %v", b.String(), oname, ex, got)
 	}
 
-	c.Tick()
 	// try all 0
-	c.Tock()
-	c.Tick()
+	c.TickTock()
 	for o, out := range outputs {
 		if out[0] != out[1] {
 			t.Fatal(errString(ps1.Outputs[o], out[0], out[1]))
@@ -194,8 +192,7 @@ func ComparePart(t *testing.T, part1 hwsim.NewPartFn, part2 hwsim.NewPartFn) {
 	for in := range inputs {
 		inputs[in] = true
 	}
-	c.Tock()
-	c.Tick()
+	c.TickTock()
 	for o, out := range outputs {
 		if out[0] != out[1] {
 			t.Fatal(errString(ps1.Outputs[o], out[0], out[1]))
@@ -211,8 +208,13 @@ func ComparePart(t *testing.T, part1 hwsim.NewPartFn, part2 hwsim.NewPartFn) {
 			for in := range inputs {
 				inputs[in] = randBool()
 			}
-			c.Tock()
 			c.Tick()
+			for o, out := range outputs {
+				if out[0] != out[1] {
+					t.Fatal(errString(ps1.Outputs[o], out[0], out[1]))
+				}
+			}
+			c.Tock()
 			for o, out := range outputs {
 				if out[0] != out[1] {
 					t.Fatal(errString(ps1.Outputs[o], out[0], out[1]))
@@ -226,8 +228,13 @@ func ComparePart(t *testing.T, part1 hwsim.NewPartFn, part2 hwsim.NewPartFn) {
 			for in := range inputs {
 				inputs[in] = i&(1<<uint(in)) != 0
 			}
-			c.Tock()
 			c.Tick()
+			for o, out := range outputs {
+				if out[0] != out[1] {
+					t.Fatal(errString(ps1.Outputs[o], out[0], out[1]))
+				}
+			}
+			c.Tock()
 			for o, out := range outputs {
 				if out[0] != out[1] {
 					t.Fatal(errString(ps1.Outputs[o], out[0], out[1]))

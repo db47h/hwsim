@@ -81,7 +81,7 @@ func Test_bit_register(t *testing.T) {
 	}
 
 	p := in
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1000; i++ {
 		in = randBool()
 		load = randBool()
 		c.Tick()

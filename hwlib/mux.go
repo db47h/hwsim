@@ -165,7 +165,7 @@ func MuxMWayN(ways int, bits int) hwsim.NewPartFn {
 			out := s.Bus(pOut, bits)
 			return hwsim.UpdaterFn(
 				func(clk bool) {
-					selIn := in[sel.GetInt64(clk)]
+					selIn := in[sel.Recv(clk)]
 					for i, o := range out {
 						o.Send(clk, selIn[i].Recv(clk))
 					}
@@ -199,7 +199,7 @@ func DMuxNWay(ways int) hwsim.NewPartFn {
 			}
 			return hwsim.UpdaterFn(
 				func(clk bool) {
-					s := int(sel.GetInt64(clk))
+					s := int(sel.Recv(clk))
 					for i, o := range outs {
 						if i == s {
 							o.Send(clk, in.Recv(clk))
@@ -244,7 +244,7 @@ func DMuxMWayN(ways int, bits int) hwsim.NewPartFn {
 			}
 			return hwsim.UpdaterFn(
 				func(clk bool) {
-					selV := int(sel.GetInt64(clk))
+					selV := int(sel.Recv(clk))
 					for i, out := range outs {
 						if i == selV {
 							for bit, o := range out {

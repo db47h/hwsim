@@ -52,7 +52,7 @@ func InputN(bits int, f func() int64) NewPartFn {
 			pins := s.Bus("out", bits)
 			return UpdaterFn(
 				func(clk bool) {
-					pins.SetInt64(clk, f())
+					pins.Send(clk, f())
 				})
 		}}).NewPart
 }
@@ -69,7 +69,7 @@ func OutputN(bits int, f func(int64)) NewPartFn {
 			pins := s.Bus("in", bits)
 			return TickerFn(
 				func(clk bool) {
-					f(pins.GetInt64(clk))
+					f(pins.Recv(clk))
 				})
 		}}).NewPart
 }

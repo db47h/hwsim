@@ -244,11 +244,11 @@ func Test_testLib(t *testing.T) {
 				carry := s.Wire("c")
 				return hwsim.UpdaterFn(
 					func(clk bool) {
-						va := a.GetInt64(clk)
-						vb := b.GetInt64(clk)
+						va := a.Recv(clk)
+						vb := b.Recv(clk)
 						s := va + vb
 						carry.Send(clk, s >= 1<<uint(bits))
-						out.SetInt64(clk, s&(1<<uint(bits)-1))
+						out.Send(clk, s&(1<<uint(bits)-1))
 					})
 			},
 		}

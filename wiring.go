@@ -76,9 +76,9 @@ func (c *Wire) Recv(clk bool) bool {
 //
 type Bus []*Wire
 
-// GetInt64 returns the int64 value of the bus. Wire 0 is the LSB.
+// Recv returns the int64 value of the bus. Wire 0 is the LSB.
 //
-func (b Bus) GetInt64(clk bool) int64 {
+func (b Bus) Recv(clk bool) int64 {
 	var out int64
 	for bit, p := range b {
 		if p.Recv(clk) {
@@ -88,9 +88,9 @@ func (b Bus) GetInt64(clk bool) int64 {
 	return out
 }
 
-// SetInt64 sets the int64 value of the bus. Pin Wire is the LSB.
+// Send sets the int64 value of the bus. Pin Wire is the LSB.
 //
-func (b Bus) SetInt64(clk bool, v int64) {
+func (b Bus) Send(clk bool, v int64) {
 	for bit, p := range b {
 		p.Send(clk, v&(1<<uint(bit)) != 0)
 	}

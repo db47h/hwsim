@@ -16,22 +16,26 @@ import (
 //	Outputs: out
 //	Function: if sel == 0 { out = a } else { out = b }
 //
-func Mux(w string) hwsim.Part { return mux.NewPart(w) }
+func Mux(w string) hwsim.Part { return muxSpec.NewPart(w) }
 
-var mux = hwsim.PartSpec{
+type mux struct {
+	a, b, sel, out *hwsim.Wire
+}
+
+func (m *mux) Update(clk bool) {
+	if m.sel.Recv(clk) {
+		m.out.Send(clk, m.b.Recv(clk))
+	} else {
+		m.out.Send(clk, m.a.Recv(clk))
+	}
+}
+
+var muxSpec = hwsim.PartSpec{
 	Name:    "MUX",
 	Inputs:  []string{pA, pB, pSel},
 	Outputs: []string{pOut},
 	Mount: func(s *hwsim.Socket) hwsim.Updater {
-		a, b, sel, out := s.Wire(pA), s.Wire(pB), s.Wire(pSel), s.Wire(pOut)
-		return hwsim.UpdaterFn(
-			func(clk bool) {
-				if sel.Recv(clk) {
-					out.Send(clk, b.Recv(clk))
-				} else {
-					out.Send(clk, a.Recv(clk))
-				}
-			})
+		return &mux{s.Wire(pA), s.Wire(pB), s.Wire(pSel), s.Wire(pOut)}
 	}}
 
 // DMux returns a demultiplexer.
@@ -61,26 +65,32 @@ var dmux = hwsim.PartSpec{
 	},
 }
 
+type muxNinst struct {
+	a   hwsim.Bus
+	b   hwsim.Bus
+	o   hwsim.Bus
+	sel *hwsim.Wire
+}
+
+func (m *muxNinst) Update(clk bool) {
+	if m.sel.Recv(clk) {
+		for i, out := range m.o {
+			out.Send(clk, m.b[i].Recv(clk))
+		}
+	} else {
+		for i, out := range m.o {
+			out.Send(clk, m.a[i].Recv(clk))
+		}
+	}
+}
+
 func muxN(bits int) *hwsim.PartSpec {
 	return &hwsim.PartSpec{
 		Name:    "Mux" + strconv.Itoa(bits),
 		Inputs:  append(bus(bits, pA, pB), pSel),
 		Outputs: bus(bits, pOut),
 		Mount: func(s *hwsim.Socket) hwsim.Updater {
-			a, b, sel := s.Bus(pA, bits), s.Bus(pB, bits), s.Wire(pSel)
-			o := s.Bus(pOut, bits)
-			return hwsim.UpdaterFn(
-				func(clk bool) {
-					if sel.Recv(clk) {
-						for i, out := range o {
-							out.Send(clk, b[i].Recv(clk))
-						}
-					} else {
-						for i, out := range o {
-							out.Send(clk, a[i].Recv(clk))
-						}
-					}
-				})
+			return &muxNinst{s.Bus(pA, bits), s.Bus(pB, bits), s.Bus(pOut, bits), s.Wire(pSel)}
 		}}
 }
 

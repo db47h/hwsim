@@ -12,7 +12,7 @@ The API is designed to mimmic a basic [Hardware description language][hdl] and r
 
 The simulation is built around wires that connect components together. While a wire can recieve a signal by only one component, it can broadcast that signal to any number of components (fanout).
 
-The simulation works by updating every half clock cycle the components that implement the Ticker interface (i.e. that have side effects or somehow "drive" the circuit, like outputs and clocked data flip-flops). The signals are then propagated through the simulation by "pulling" them up: calling Recv on a Wire triggers an update of the component feeding that Wire.
+The simulation works by updating every half clock cycle the components that implement the PostUpdater interface (i.e. that have side effects or somehow "drive" the circuit, like outputs and clocked data flip-flops). The signals are then propagated through the simulation by "pulling" them up: calling Recv on a Wire triggers an update of the component feeding that Wire.
 
 Time in the simulation is simply represented as a boolean value: `false` during the call to `Circuit.Tick()` and `true` during the call to `Circuit.Tock()`. Wires use this information to prevent recursion and provide loop detection.
 

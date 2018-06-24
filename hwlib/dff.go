@@ -18,25 +18,28 @@ import (
 //	Function: out(t) = in(t-1) // where t is the current clock cycle.
 //
 func DFF(c string) hwsim.Part {
-	return dff.NewPart(c)
+	return dffSpec.NewPart(c)
 }
 
-var dff = &hwsim.PartSpec{
+var dffSpec = &hwsim.PartSpec{
 	Name:    "DFF",
 	Inputs:  []string{pIn},
 	Outputs: []string{pOut},
 	Mount: func(s *hwsim.Socket) hwsim.Updater {
-		return &dffImpl{in: s.Wire(pIn), out: s.Wire(pOut)}
+		return &dff{in: s.Wire(pIn), out: s.Wire(pOut)}
 	}}
 
-type dffImpl struct {
+type dff struct {
 	in, out *hwsim.Wire
 	v       bool
 }
 
-func (d *dffImpl) Update(clk bool) {
+func (d *dff) Update(clk bool) {
 	// send first in order to prevent recursion
 	d.out.Send(clk, d.v)
+}
+
+func (d *dff) PostUpdate(clk bool) {
 	// force input update
 	v := d.in.Recv(clk)
 	// change value only at ticks
@@ -44,8 +47,6 @@ func (d *dffImpl) Update(clk bool) {
 		d.v = v
 	}
 }
-
-func (*dffImpl) Tick() {}
 
 // DFFN creates a N bits DFF.
 //
@@ -56,21 +57,33 @@ func DFFN(bits int) hwsim.NewPartFn {
 		Inputs:  bus(bits, pIn),
 		Outputs: bus(bits, pOut),
 		Mount: func(s *hwsim.Socket) hwsim.Updater {
-			in, out := s.Bus(pIn, bits), s.Bus(pOut, bits)
-			v := make([]bool, bits)
-			return hwsim.TickerFn(func(clk bool) {
-				for n, o := range out {
-					o.Send(clk, v[n])
-				}
-				if !clk {
-					for n, i := range in {
-						v[n] = i.Recv(clk)
-					}
-				} else {
-					for _, i := range in {
-						i.Recv(clk)
-					}
-				}
-			})
+			return &dffN{
+				in:  s.Bus(pIn, bits),
+				out: s.Bus(pOut, bits),
+				v:   make([]bool, bits),
+			}
 		}}).NewPart
+}
+
+type dffN struct {
+	in, out hwsim.Bus
+	v       []bool
+}
+
+func (d *dffN) Update(clk bool) {
+	for n, o := range d.out {
+		o.Send(clk, d.v[n])
+	}
+}
+
+func (d *dffN) PostUpdate(clk bool) {
+	if !clk {
+		for n, i := range d.in {
+			d.v[n] = i.Recv(clk)
+		}
+	} else {
+		for _, i := range d.in {
+			i.Recv(clk)
+		}
+	}
 }

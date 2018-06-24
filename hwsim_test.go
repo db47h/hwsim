@@ -101,6 +101,25 @@ type testLib struct {
 
 var tl *testLib = newTestLib()
 
+type dff struct {
+	in, out *hwsim.Wire
+	v       bool
+}
+
+func (d *dff) Update(clk bool) {
+	// send first in order to prevent recursion
+	d.out.Send(clk, d.v)
+}
+
+func (d *dff) PostUpdate(clk bool) {
+	// force input update
+	v := d.in.Recv(clk)
+	// change value only at ticks
+	if !clk {
+		d.v = v
+	}
+}
+
 func newTestLib() *testLib {
 	tl := &testLib{
 		nand: (&hwsim.PartSpec{
@@ -218,17 +237,8 @@ func newTestLib() *testLib {
 		Inputs:  []string{"in"},
 		Outputs: []string{"out"},
 		Mount: func(s *hwsim.Socket) hwsim.Updater {
-			in, out := s.Wire("in"), s.Wire("out")
-			var v bool
-			return hwsim.TickerFn(func(clk bool) {
-				out.Send(clk, v)
-				t := in.Recv(clk)
-				if !clk {
-					v = t
-				}
-			})
-		},
-	}).NewPart
+			return &dff{in: s.Wire("in"), out: s.Wire("out")}
+		}}).NewPart
 
 	return tl
 }

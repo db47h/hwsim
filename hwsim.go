@@ -9,7 +9,7 @@ import (
 
 // Updater is the interface for components in a circuit.
 //
-// Clocked components must also implement Ticker.
+// Clocked components must also implement PostUpdater.
 //
 type Updater interface {
 	// Update is called every time an Updater's output pins must be updated.
@@ -148,11 +148,11 @@ type Wrapper interface {
 // Circuit is a runnable circuit simulation.
 //
 type Circuit struct {
-	wires   []*Wire
-	tickers []Ticker
-	size    int // # of updaters
-	ticks   uint64
-	clk     bool
+	wires []*Wire
+	ups   []PostUpdater
+	size  int // # of updaters
+	ticks uint64
+	clk   bool
 }
 
 // NewCircuit builds a new circuit simulation based on the given parts.
@@ -199,8 +199,8 @@ func (c *Circuit) unwrap(u Updater) {
 		}
 	} else {
 		c.size++
-		if t, ok := u.(Ticker); ok {
-			c.tickers = append(c.tickers, t)
+		if t, ok := u.(PostUpdater); ok {
+			c.ups = append(c.ups, t)
 		}
 	}
 }
@@ -242,8 +242,11 @@ func (c *Circuit) update() {
 	for _, w := range c.wires {
 		w.clk = !c.clk
 	}
-	for _, u := range c.tickers {
+	for _, u := range c.ups {
 		u.Update(c.clk)
+	}
+	for _, u := range c.ups {
+		u.PostUpdate(c.clk)
 	}
 	c.ticks++
 }
@@ -267,23 +270,23 @@ func (c *Circuit) WireCount() int {
 	return len(c.wires)
 }
 
-// Ticker is a marker interface implemented by Updaters that have side effects
-// outside of a circuit or that somehow drive the circuit. All sequential
-// components must implement Ticker.
+// PostUpdater is implemented by Updaters that have side effects outside of a
+// circuit or that somehow drive the circuit. All sequential components must
+// implement PostUpdater.
 //
-type Ticker interface {
-	Updater
-	Tick()
+type PostUpdater interface {
+	Updater              // Update updates outputs
+	PostUpdate(clk bool) // Update inputs
 }
 
-// A TickerFn is a single update function that implements Ticker.
+// A PostUpdaterFn is a single update function that implements PostUpdater.
 //
-type TickerFn func(clk bool)
+type PostUpdaterFn func(clk bool)
 
 // Update implements Updater.
 //
-func (f TickerFn) Update(clk bool) { f(clk) }
+func (f PostUpdaterFn) Update(clk bool) {}
 
-// Tick implements Ticker.
+// PostUpdate implements PostUpdater.
 //
-func (f TickerFn) Tick() {}
+func (f PostUpdaterFn) PostUpdate(clk bool) { f(clk) }

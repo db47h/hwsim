@@ -19,10 +19,10 @@ Wire can recieve a signal by only one component, it can broadcast that signal to
 any number of components (fanout).
 
 The simulation works by updating every half clock cycle the components that
-implement the Ticker interface (i.e. that have side effects or somehow "drive"
-the circuit, like outputs and clocked data flip-flops). The signals are then
-propagated through the simulation by "pulling" them up: calling Recv on a Wire
-triggers an update of the component feeding that Wire.
+implement the PostUpdater interface (i.e. that have side effects or somehow
+"drive" the circuit, like outputs and clocked data flip-flops). The signals are
+then propagated through the simulation by "pulling" them up: calling Recv on a
+Wire triggers an update of the component feeding that Wire.
 
 Time in the simulation is simply represented as a boolean value, false during
 the call to Circuit.Tick() and true during the call to Circuit.Tock(). Wires

@@ -32,7 +32,7 @@ func Output(f func(value bool)) NewPartFn {
 		Outputs: nil,
 		Mount: func(s *Socket) Updater {
 			out := s.Wire("in")
-			return TickerFn(
+			return PostUpdaterFn(
 				func(clk bool) {
 					f(out.Recv(clk))
 				})
@@ -67,7 +67,7 @@ func OutputN(bits int, f func(int64)) NewPartFn {
 		Outputs: nil,
 		Mount: func(s *Socket) Updater {
 			pins := s.Bus("in", bits)
-			return TickerFn(
+			return PostUpdaterFn(
 				func(clk bool) {
 					f(pins.Recv(clk))
 				})

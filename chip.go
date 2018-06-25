@@ -6,6 +6,7 @@ package hwsim
 import (
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -122,8 +123,38 @@ func Chip(name string, inputs string, outputs string, parts ...Part) (NewPartFn,
 	for pnum := range parts {
 		p := &parts[pnum]
 		spcs[pnum] = p.PartSpec
-		conns := p.Conns
+		conns := make([]Connection, 0, len(p.Conns))
 		sort.Strings(p.Outputs)
+
+		// expand buses
+		for i := range p.Conns {
+			c := &p.Conns[i]
+			k := c.PP
+			if _, ok := p.Pinout[k]; ok {
+				conns = append(conns, *c)
+				continue
+			}
+			// bus?
+			if _, ok := p.Pinout[pinName(k, 0)]; !ok {
+				return nil, errors.New("invalid pin name " + k + " for part " + p.Name)
+			}
+			for _, v := range c.CP {
+				if strings.IndexRune(v, '[') >= 0 {
+					return nil, errors.New("cannot map bus " + k + " to single pin " + v + " for part " + p.Name)
+				}
+			}
+			for i := 0; ; i++ {
+				pp := pinName(k, i)
+				if _, ok := p.Pinout[pp]; !ok {
+					break
+				}
+				cp := make([]string, len(c.CP))
+				for j, v := range c.CP {
+					cp[j] = pinName(v, i)
+				}
+				conns = append(conns, Connection{PP: pp, CP: cp})
+			}
+		}
 
 		// Add the part's pins tho the wiring
 		for i := range conns {
@@ -131,7 +162,6 @@ func Chip(name string, inputs string, outputs string, parts ...Part) (NewPartFn,
 			k := c.PP
 
 			// check that the pin matches one of the part's input or output pins
-
 			if _, ok := p.Pinout[k]; !ok {
 				return nil, errors.New("invalid pin name " + k + " for part " + p.Name)
 			}

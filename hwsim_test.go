@@ -286,11 +286,10 @@ func Test_testLib(t *testing.T) {
 }
 
 func TestInputN_16(t *testing.T) {
-	in := int64(0)
-	out := int64(0)
+	var in, out uint64
 	c, err := hwsim.NewCircuit(
-		hwsim.InputN(16, func() int64 { return in })("out[0..15]= t[0..15]"),
-		hwsim.OutputN(16, func(n int64) { out = n })("in[0..15] = t[0..15]"),
+		hwsim.InputN(16, func() uint64 { return in })("out= t"),
+		hwsim.OutputN(16, func(n uint64) { out = n })("in = t"),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -314,13 +313,13 @@ func BenchmarkCircuit_update(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	var ia, ib, s int64
+	var ia, ib, s uint64
 	var carry bool
 	c, err := hwsim.NewCircuit(
-		hwsim.InputN(16, func() int64 { return ia })("out[0..15]=a[0..15]"),
-		hwsim.InputN(16, func() int64 { return ib })("out[0..15]=b[0..15]"),
+		hwsim.InputN(16, func() uint64 { return ia })("out[0..15]=a[0..15]"),
+		hwsim.InputN(16, func() uint64 { return ib })("out[0..15]=b[0..15]"),
 		add16("a[0..15]=a[0..15], b[0..15]=b[0..15], out[0..15]=s[0..15], c=carry"),
-		hwsim.OutputN(16, func(v int64) { s = v })("in[0..15]=s[0..15]"),
+		hwsim.OutputN(16, func(v uint64) { s = v })("in[0..15]=s[0..15]"),
 		hwsim.Output(func(v bool) { carry = v })("in=carry"),
 	)
 	if err != nil {
@@ -331,7 +330,7 @@ func BenchmarkCircuit_update(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ia, ib = rand.Int63n(1<<16), rand.Int63n(1<<16)
+		ia, ib = uint64(rand.Int63n(1<<16)), uint64(rand.Int63n(1<<16))
 		c.TickTock()
 		if (ia+ib)&0xFFFF != s || carry != (ia+ib > 0xFFFF) {
 			b.Fatalf("sum error: %d+%d = %d - carry %v, got %d, carry %v", ia, ib, (ia+ib)&0xFFFF, (ia+ib > 0xFFFF), s, carry)

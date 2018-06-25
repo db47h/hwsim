@@ -78,8 +78,8 @@ type Bus []*Wire
 
 // Recv returns the int64 value of the bus. Wire 0 is the LSB.
 //
-func (b Bus) Recv(clk bool) int64 {
-	var out int64
+func (b Bus) Recv(clk bool) uint64 {
+	var out uint64
 	for bit, p := range b {
 		if p.Recv(clk) {
 			out |= 1 << uint(bit)
@@ -90,7 +90,7 @@ func (b Bus) Recv(clk bool) int64 {
 
 // Send sets the int64 value of the bus. Pin Wire is the LSB.
 //
-func (b Bus) Send(clk bool, v int64) {
+func (b Bus) Send(clk bool, v uint64) {
 	for bit, p := range b {
 		p.Send(clk, v&(1<<uint(bit)) != 0)
 	}

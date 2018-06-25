@@ -96,22 +96,20 @@ func Test_gate_builtin(t *testing.T) {
 }
 
 func Test_gateN_builtin(t *testing.T) {
-	twoIn := "a[0..15]=a[0..15], b[0..15]=b[0..15], out[0..15]=out[0..15]"
 	td := []struct {
 		gate hw.Part
-		ctrl func(a, b int16) int16
+		ctrl func(a, b uint16) uint16
 	}{
-		{hl.AndN(16)(twoIn), func(a, b int16) int16 { return a & b }},
-		{hl.NandN(16)(twoIn), func(a, b int16) int16 { return ^(a & b) }},
-		{hl.OrN(16)(twoIn), func(a, b int16) int16 { return a | b }},
-		{hl.NorN(16)(twoIn), func(a, b int16) int16 { return ^(a | b) }},
-		{hl.NotN(16)("in[0..15]=a[0..15], out[0..15]=out[0..15]"), func(a, b int16) int16 { return ^a }},
+		{hl.AndN(16)("a=a, b=b, out=out"), func(a, b uint16) uint16 { return a & b }},
+		{hl.NandN(16)("a=a, b=b, out=out"), func(a, b uint16) uint16 { return ^(a & b) }},
+		{hl.OrN(16)("a=a, b=b, out=out"), func(a, b uint16) uint16 { return a | b }},
+		{hl.NorN(16)("a=a, b=b, out=out"), func(a, b uint16) uint16 { return ^(a | b) }},
+		{hl.NotN(16)("in=a, out=out"), func(a, b uint16) uint16 { return ^a }},
 	}
 
 	for _, d := range td {
 		t.Run(d.gate.Name, func(t *testing.T) {
-			var a, b int16
-			var out int16
+			var a, b, out uint16
 
 			chip, err := hw.Chip(d.gate.Name+"wrapper", "a[16], b[16]", "out[16]", d.gate)
 			if err != nil {
@@ -119,16 +117,16 @@ func Test_gateN_builtin(t *testing.T) {
 			}
 
 			c, err := hw.NewCircuit(
-				hw.InputN(16, func() int64 { return int64(a) })("out[0..15]=a[0..15]"),
-				hw.InputN(16, func() int64 { return int64(b) })("out[0..15]=b[0..15]"),
-				chip(twoIn),
-				hw.OutputN(16, func(v int64) { out = int16(v) })("in[0..15]=out[0..15]"),
+				hl.Input16(&a)("out=a"),
+				hl.Input16(&b)("out=b"),
+				chip("a=a, b=b, out=out"),
+				hl.Output16(&out)("in=out"),
 			)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			f := func(x, y int16) bool {
+			f := func(x, y uint16) bool {
 				a, b = x, y
 				c.TickTock()
 				return out == d.ctrl(x, y)

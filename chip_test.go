@@ -127,11 +127,11 @@ func TestChip_fanout_to_outputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var out int64
+	var out uint64
 	c, err := hw.NewCircuit(
 		//		hw.Input(func() bool { return true })("out=in"),
 		wrapper1("in=true, o[0..7]=wrapOut[0..7]"),
-		hw.OutputN(16, func(v int64) { out = v })("in[0..7]=wrapOut[0..7]"),
+		hw.OutputN(16, func(v uint64) { out = v })("in[0..7]=wrapOut[0..7]"),
 	)
 	if err != nil {
 		t.Fatal(err)

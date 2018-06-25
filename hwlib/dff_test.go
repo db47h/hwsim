@@ -14,9 +14,7 @@ func randBool() bool {
 }
 
 func TestDFF(t *testing.T) {
-	var (
-		in, out int64
-	)
+	var in, out uint64
 
 	dff4, err := hw.Chip("DFF4", "in[4]", "out[4]",
 		hl.DFF("in=in[0], out=out[0]"),
@@ -29,18 +27,18 @@ func TestDFF(t *testing.T) {
 	}
 
 	c, err := hw.NewCircuit(
-		hw.InputN(16, func() int64 { return in })("out[0..3]=in[0..3]"),
-		dff4("in[0..3]=in[0..3], out[0..3]=out[0..3]"),
-		hw.OutputN(16, func(o int64) { out = o })("in[0..3]=out[0..3]"),
+		hw.InputN(4, func() uint64 { return in })("out=in"),
+		dff4("in=in, out=out"),
+		hw.OutputN(4, func(o uint64) { out = o })("in=out"),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	prev := int64(0)
-	for i := int64(15); i >= 0; i-- {
+	var prev uint64
+	for i := 15; i >= 0; i-- {
 		// input i
-		in = i
+		in = uint64(i)
 		c.Tick()
 		if prev != out {
 			t.Fatalf("bad output for input %d after tick: expected out = %d, got %d", in, prev, out)
@@ -48,10 +46,10 @@ func TestDFF(t *testing.T) {
 		// change input
 		in = 0
 		c.Tock()
-		if i != out {
+		if uint64(i) != out {
 			t.Fatalf("bad output for input %d after tock: expected out = %d, got %d", in, i, out)
 		}
-		prev = i
+		prev = uint64(i)
 	}
 
 	hwtest.ComparePart(t, hl.DFFN(4), dff4)

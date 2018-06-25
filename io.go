@@ -42,7 +42,7 @@ func Output(f func(value bool)) NewPartFn {
 
 // InputN returns an input bus of the given bits size.
 //
-func InputN(bits int, f func() int64) NewPartFn {
+func InputN(bits int, f func() uint64) NewPartFn {
 	bs := strconv.Itoa(bits)
 	return (&PartSpec{
 		Name:    "Input" + bs,
@@ -59,7 +59,7 @@ func InputN(bits int, f func() int64) NewPartFn {
 
 // OutputN returns an output bus of the given bits size.
 //
-func OutputN(bits int, f func(int64)) NewPartFn {
+func OutputN(bits int, f func(uint64)) NewPartFn {
 	bs := strconv.Itoa(bits)
 	return (&PartSpec{
 		Name:    "Output" + bs,

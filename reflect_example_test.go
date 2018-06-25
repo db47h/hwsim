@@ -38,17 +38,17 @@ func Mux4(c string) hw.Part { return m4Spec.NewPart(c) }
 
 // MakePart example with a custom Mux4
 func ExampleMakePart() {
-	var a, b, out int64
+	var a, b, out uint64
 	var sel bool
 	c, err := hw.NewCircuit(
 		// IOs to test the circuit
-		hw.InputN(4, func() int64 { return a })("out[0..3]=in_a[0..3]"),
-		hw.InputN(4, func() int64 { return b })("out[0..3]=in_b[0..3]"),
+		hw.InputN(4, func() uint64 { return a })("out=in_a"),
+		hw.InputN(4, func() uint64 { return b })("out=in_b"),
 		hw.Input(func() bool { return sel })("out=in_sel"),
 		// our custom Mux4
-		Mux4("a[0..3]=in_a[0..3], b[0..3]=in_b[0..3], sel=in_sel, out[0..3]=mux_out[0..3]"),
+		Mux4("a=in_a, b=in_b, sel=in_sel, out=mux_out"),
 		// IOs continued...
-		hw.OutputN(4, func(v int64) { out = v })("in[0..3]=mux_out[0..3]"),
+		hw.OutputN(4, func(v uint64) { out = v })("in=mux_out"),
 	)
 	if err != nil {
 		panic(err)
